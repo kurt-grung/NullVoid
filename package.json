@@ -1,0 +1,43 @@
+{
+  "name": "nullvoid",
+  "version": "1.0.0",
+  "description": "Detect and invalidate malicious npm packages before they reach prod",
+  "main": "index.js",
+  "bin": {
+    "nullvoid": "./bin/nullvoid.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "scan": "node scan.js"
+  },
+  "keywords": [
+    "npm",
+    "security",
+    "malware",
+    "package",
+    "scan",
+    "detection",
+    "cli"
+  ],
+  "author": "NullVoid Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "commander": "^11.1.0",
+    "chalk": "^4.1.2",
+    "ora": "^5.4.1"
+  },
+  "devDependencies": {
+    "eslint": "^8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nullvoid/nullvoid.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nullvoid/nullvoid/issues"
+  },
+  "homepage": "https://github.com/nullvoid/nullvoid#readme"
+}

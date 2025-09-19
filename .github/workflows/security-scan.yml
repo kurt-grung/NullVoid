@@ -1,0 +1,120 @@
+name: NullVoid Security Scan
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run security scan daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run NullVoid security scan
+      run: npx nullvoid scan --output json > security-report.json
+      
+    - name: Upload security report
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-report
+        path: security-report.json
+        
+    - name: Comment PR with security results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const report = JSON.parse(fs.readFileSync('security-report.json', 'utf8'));
+          
+          let comment = '## 🔍 NullVoid Security Scan Results\n\n';
+          
+          if (report.threats.length === 0) {
+            comment += '✅ **No security threats detected!**\n\n';
+          } else {
+            comment += `⚠️ **${report.threats.length} threat(s) detected:**\n\n`;
+            
+            report.threats.forEach((threat, index) => {
+              const severity = threat.severity === 'HIGH' ? '🔴' : 
+                              threat.severity === 'MEDIUM' ? '🟡' : '🟢';
+              comment += `${index + 1}. ${severity} **${threat.type}**: ${threat.message}\n`;
+              if (threat.package) {
+                comment += `   - Package: \`${threat.package}\`\n`;
+              }
+              if (threat.details) {
+                comment += `   - Details: ${threat.details}\n`;
+              }
+              comment += '\n';
+            });
+          }
+          
+          comment += `📊 **Scan Summary:**\n`;
+          comment += `- Packages scanned: ${report.packagesScanned}\n`;
+          comment += `- Scan duration: ${report.duration}ms\n`;
+          comment += `- Scan timestamp: ${new Date(report.timestamp).toLocaleString()}\n\n`;
+          comment += '---\n';
+          comment += '*This scan was performed by [NullVoid](https://github.com/nullvoid/nullvoid) - a tool to detect malicious npm packages.*';
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+          
+    - name: Fail on high severity threats
+      if: github.event_name == 'pull_request'
+      run: |
+        if [ -f security-report.json ]; then
+          HIGH_THREATS=$(jq '[.threats[] | select(.severity == "HIGH")] | length' security-report.json)
+          if [ "$HIGH_THREATS" -gt 0 ]; then
+            echo "❌ High severity threats detected! Please review and fix before merging."
+            exit 1
+          fi
+        fi
+
+  dependency-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run npm audit
+      run: npm audit --audit-level=moderate
+      
+    - name: Run NullVoid on dependencies
+      run: |
+        echo "Scanning project dependencies..."
+        npx nullvoid scan --verbose --output json > dependency-scan.json
+        
+    - name: Upload dependency scan results
+      uses: actions/upload-artifact@v4
+      with:
+        name: dependency-scan-results
+        path: dependency-scan.json
