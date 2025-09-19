@@ -25,7 +25,7 @@ npx nullvoid scan --output json
 
 ## 🔍 What NullVoid Detects
 
-NullVoid uses multiple heuristic checks to identify potentially malicious packages:
+NullVoid uses multiple heuristic checks to identify potentially malicious packages, including sophisticated supply chain attacks:
 
 ### 1. **Postinstall Script Analysis**
 - Detects packages with suspicious postinstall scripts
@@ -42,7 +42,30 @@ NullVoid uses multiple heuristic checks to identify potentially malicious packag
 - Detects executable files in npm packages
 - Identifies hidden or obfuscated file structures
 
-### 4. **Malicious Code Patterns**
+### 4. **Wallet Hijacking Detection** 🚨
+- **window.ethereum Interception**: Detects packages that hook into wallet providers
+- **MetaMask Targeting**: Identifies code that intercepts MetaMask transactions
+- **Transaction Redirection**: Flags packages that silently redirect blockchain transactions
+- **Address Replacement**: Detects attempts to replace legitimate wallet addresses
+
+### 5. **Network Response Manipulation** 🚨
+- **Fetch/XMLHttpRequest Overrides**: Detects packages that intercept network requests
+- **API Response Scanning**: Identifies code that scans responses for blockchain addresses
+- **Levenshtein Algorithm Detection**: Flags packages using "nearest match" algorithms
+- **Address Substitution**: Detects replacement of legitimate addresses with attacker-controlled ones
+
+### 6. **Multi-Chain Targeting** 🚨
+- **Cross-Chain Support**: Detects packages supporting multiple blockchains
+- **Ethereum, Bitcoin, Litecoin, Tron, BCH, Solana**: Identifies multi-chain attack capabilities
+- **Broader Attack Coverage**: Flags packages that could target multiple cryptocurrency networks
+
+### 7. **Stealth Controls & Obfuscation** 🚨
+- **stealthProxyControl Detection**: Identifies hidden developer-like control interfaces
+- **Obfuscation Techniques**: Detects code hiding mechanisms
+- **Hidden Control Mechanisms**: Flags packages with concealed malicious functionality
+- **Eval/Decode Patterns**: Identifies dynamic code execution attempts
+
+### 8. **Traditional Malicious Patterns**
 - Searches for crypto-mining code patterns
 - Detects credential theft attempts
 - Identifies data exfiltration mechanisms
@@ -73,12 +96,45 @@ npx nullvoid scan lodash --verbose
 npx nullvoid scan --output json > security-report.json
 ```
 
+## 🚨 Real-World Attack Examples
+
+NullVoid is designed to detect sophisticated supply chain attacks like the recent npm compromise:
+
+### **Recent Attack: debug, chalk, and 16 other packages**
+- **Attack Vector**: Wallet hijacking through `window.ethereum` interception
+- **Technique**: Silent transaction redirection to attacker-controlled addresses
+- **Multi-Chain**: Targeted Ethereum, Bitcoin, Litecoin, Tron, BCH, and Solana
+- **Stealth**: Used obfuscation and `stealthProxyControl` global object
+- **Network Manipulation**: Overrode fetch/XMLHttpRequest to replace addresses
+
+### **How NullVoid Would Detect This Attack:**
+```bash
+# Scan would detect multiple threat types:
+npx nullvoid scan
+
+# Results would show:
+⚠️  4 threat(s) detected:
+
+1. WALLET_HIJACKING: Package may contain wallet hijacking code
+   Severity: CRITICAL
+
+2. NETWORK_MANIPULATION: Package may manipulate network responses
+   Severity: HIGH
+
+3. MULTI_CHAIN_TARGETING: Package supports multiple blockchain networks
+   Severity: MEDIUM
+
+4. STEALTH_CONTROLS: Package contains stealth controls or obfuscation
+   Severity: HIGH
+```
+
 ## 🛡️ Security Features
 
 - **Static Analysis Only**: Never executes potentially malicious code
 - **Multiple Detection Methods**: Combines various heuristics for comprehensive coverage
 - **Real-time Scanning**: Fast analysis without network dependencies
 - **CI/CD Ready**: Easy integration into automated workflows
+- **Supply Chain Focus**: Specifically designed to detect npm package compromises
 
 ## 🔧 Configuration
 
@@ -111,7 +167,8 @@ Scanned 15 package(s) in 234ms
 
 ## 🚨 Threat Severity Levels
 
-- **HIGH**: Immediate threat requiring action
+- **CRITICAL**: Wallet hijacking, transaction redirection, or immediate financial threat
+- **HIGH**: Network manipulation, stealth controls, or significant security risk
 - **MEDIUM**: Suspicious behavior requiring review
 - **LOW**: Minor concerns or best practice violations
 
@@ -123,8 +180,8 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ```bash
 # Clone the repository
-git clone https://github.com/nullvoid/nullvoid.git
-cd nullvoid
+git clone https://github.com/kurt-grung/NullVoid.git
+cd NullVoid
 
 # Install dependencies
 npm install
@@ -142,8 +199,8 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## 🔗 Links
 
-- [GitHub Repository](https://github.com/nullvoid/nullvoid)
-- [npm Package](https://www.npmjs.com/package/nullvoid)
+- [GitHub Repository](https://github.com/kurt-grung/NullVoid)
+- [npm Package](https://www.npmjs.com/package/nullvoid) *(Coming Soon)*
 - [Security Policy](SECURITY.md)
 - [Changelog](CHANGELOG.md)
 

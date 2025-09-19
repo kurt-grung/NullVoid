@@ -51,7 +51,8 @@ jobs:
             comment += `⚠️ **${report.threats.length} threat(s) detected:**\n\n`;
             
             report.threats.forEach((threat, index) => {
-              const severity = threat.severity === 'HIGH' ? '🔴' : 
+              const severity = threat.severity === 'CRITICAL' ? '🚨' :
+                              threat.severity === 'HIGH' ? '🔴' : 
                               threat.severity === 'MEDIUM' ? '🟡' : '🟢';
               comment += `${index + 1}. ${severity} **${threat.type}**: ${threat.message}\n`;
               if (threat.package) {
@@ -69,7 +70,7 @@ jobs:
           comment += `- Scan duration: ${report.duration}ms\n`;
           comment += `- Scan timestamp: ${new Date(report.timestamp).toLocaleString()}\n\n`;
           comment += '---\n';
-          comment += '*This scan was performed by [NullVoid](https://github.com/nullvoid/nullvoid) - a tool to detect malicious npm packages.*';
+          comment += '*This scan was performed by [NullVoid](https://github.com/kurt-grung/NullVoid) - a tool to detect malicious npm packages.*';
           
           github.rest.issues.createComment({
             issue_number: context.issue.number,
@@ -78,12 +79,16 @@ jobs:
             body: comment
           });
           
-    - name: Fail on high severity threats
+    - name: Fail on critical and high severity threats
       if: github.event_name == 'pull_request'
       run: |
         if [ -f security-report.json ]; then
+          CRITICAL_THREATS=$(jq '[.threats[] | select(.severity == "CRITICAL")] | length' security-report.json)
           HIGH_THREATS=$(jq '[.threats[] | select(.severity == "HIGH")] | length' security-report.json)
-          if [ "$HIGH_THREATS" -gt 0 ]; then
+          if [ "$CRITICAL_THREATS" -gt 0 ]; then
+            echo "🚨 CRITICAL threats detected! Immediate action required."
+            exit 1
+          elif [ "$HIGH_THREATS" -gt 0 ]; then
             echo "❌ High severity threats detected! Please review and fix before merging."
             exit 1
           fi

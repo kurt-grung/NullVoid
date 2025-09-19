@@ -46,12 +46,17 @@ function displayResults(results) {
     console.log(chalk.red(`⚠️  ${results.threats.length} threat(s) detected:\n`));
     
     results.threats.forEach((threat, index) => {
-      console.log(chalk.red(`${index + 1}. ${threat.type}: ${threat.message}`));
+      const severityColor = threat.severity === 'CRITICAL' ? chalk.red.bold :
+                           threat.severity === 'HIGH' ? chalk.red :
+                           threat.severity === 'MEDIUM' ? chalk.yellow :
+                           chalk.green;
+      
+      console.log(severityColor(`${index + 1}. ${threat.type}: ${threat.message}`));
       if (threat.package) {
         console.log(chalk.gray(`   Package: ${threat.package}`));
       }
       if (threat.severity) {
-        console.log(chalk.gray(`   Severity: ${threat.severity}`));
+        console.log(severityColor(`   Severity: ${threat.severity}`));
       }
       console.log('');
     });
