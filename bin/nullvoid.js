@@ -4,11 +4,12 @@ const { program } = require('commander');
 const chalk = require('chalk');
 const ora = require('ora');
 const { scan } = require('../scan');
+const packageJson = require('../package.json');
 
 program
   .name('nullvoid')
   .description('Detect and invalidate malicious npm packages before they reach prod')
-  .version('1.0.0');
+  .version(packageJson.version);
 
 program
   .command('scan')
