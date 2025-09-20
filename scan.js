@@ -1245,28 +1245,38 @@ async function scanDirectory(dirPath, options = {}) {
   const threats = [];
   
   try {
+    // Add directory info to threats for context
+    threats.push({
+      type: 'SCAN_INFO',
+      severity: 'INFO',
+      package: 'Directory Scan',
+      details: `Scanning directory: ${dirPath}`,
+      directory: dirPath
+    });
+    
     // Get all JavaScript files in the directory
     const jsFiles = await getJavaScriptFiles(dirPath);
     
     for (const filePath of jsFiles) {
       try {
         const content = fs.readFileSync(filePath, 'utf8');
-        const fileName = path.basename(filePath);
+        // Use relative path from the scanned directory for better context
+        const relativePath = path.relative(dirPath, filePath);
         
         // Run AST analysis on JavaScript files
-        const astThreats = analyzeJavaScriptAST(content, fileName);
+        const astThreats = analyzeJavaScriptAST(content, relativePath);
         threats.push(...astThreats);
         
         // Check for obfuscated IoCs
-        const iocThreats = checkObfuscatedIoCs(content, fileName);
+        const iocThreats = checkObfuscatedIoCs(content, relativePath);
         threats.push(...iocThreats);
         
         // Check for dynamic requires
-        const requireThreats = detectDynamicRequires(content, fileName);
+        const requireThreats = detectDynamicRequires(content, relativePath);
         threats.push(...requireThreats);
         
         // Analyze content entropy
-        const entropyThreats = analyzeContentEntropy(content, 'JAVASCRIPT', fileName);
+        const entropyThreats = analyzeContentEntropy(content, 'JAVASCRIPT', relativePath);
         threats.push(...entropyThreats);
         
       } catch (error) {

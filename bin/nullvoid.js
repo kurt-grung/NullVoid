@@ -27,7 +27,7 @@ program
       if (options.output === 'json') {
         console.log(JSON.stringify(results, null, 2));
       } else {
-        displayResults(results);
+        displayResults(results, options);
       }
     } catch (error) {
       spinner.fail('Scan failed');
@@ -38,7 +38,7 @@ program
 
 program.parse();
 
-function displayResults(results) {
+function displayResults(results, options = {}) {
   console.log(chalk.bold('\n🔍 NullVoid Scan Results\n'));
   
   if (results.threats.length === 0) {
@@ -50,7 +50,13 @@ function displayResults(results) {
       const severityColor = threat.severity === 'CRITICAL' ? chalk.red.bold :
                            threat.severity === 'HIGH' ? chalk.red :
                            threat.severity === 'MEDIUM' ? chalk.yellow :
+                           threat.severity === 'INFO' ? chalk.blue :
                            chalk.green;
+      
+      // Skip INFO threats in normal output, show them in verbose mode
+      if (threat.severity === 'INFO' && !options.verbose) {
+        return;
+      }
       
       console.log(severityColor(`${index + 1}. ${threat.type}: ${threat.message}`));
       if (threat.package) {
@@ -58,6 +64,9 @@ function displayResults(results) {
       }
       if (threat.severity) {
         console.log(severityColor(`   Severity: ${threat.severity}`));
+      }
+      if (threat.directory) {
+        console.log(chalk.gray(`   Directory: ${threat.directory}`));
       }
       console.log('');
     });
