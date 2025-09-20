@@ -194,6 +194,20 @@ Scanned 15 package(s) in 234ms
 - **MEDIUM**: Suspicious behavior requiring review
 - **LOW**: Minor concerns or best practice violations
 
+## 🚀 Upcoming Features
+
+### High Priority
+- **Real Package Tarball Analysis** - Download and extract actual package files for deep scanning
+- **SARIF Output Format** - Better CI/CD integration with standardized security reporting
+- **Configurable Rules System** - JSON/YAML configuration for custom detection patterns
+- **Dependency Tree Analysis** - Scan transitive dependencies for hidden threats
+
+### Performance & Integration
+- **Parallel Scanning** - Multi-threaded analysis for faster results
+- **Public IoC Feeds** - Integration with Snyk, npm advisories, and other threat intelligence
+- **Signature Hashing** - Detect package tampering and verify integrity
+- **Structured Logging** - Comprehensive reporting and audit trails
+
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
