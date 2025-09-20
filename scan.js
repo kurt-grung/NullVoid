@@ -190,9 +190,10 @@ async function scanPackage(packageName, version, options) {
     threats.push(...packageJsonThreats);
     
     // Heuristic 12: Dynamic require() detection
-    const mockCode = 'const fs = require("fs"); const dynamic = require(variable);';
-    const dynamicRequireThreats = detectDynamicRequires(mockCode, packageName);
-    threats.push(...dynamicRequireThreats);
+    // Note: Disabled due to false positives with legitimate packages
+    // const mockCode = 'const fs = require("fs"); const dynamic = require(variable);';
+    // const dynamicRequireThreats = detectDynamicRequires(mockCode, packageName);
+    // threats.push(...dynamicRequireThreats);
     
     // Heuristic 13: Enhanced entropy analysis
     const enhancedEntropyThreats = analyzeContentEntropy(packageContent, 'JSON', packageName);
@@ -659,7 +660,6 @@ function detectDynamicRequires(code, packageName) {
     });
     
     traverse(ast, {
-      // Detect require() calls with variables
       CallExpression(path) {
         const callee = path.node.callee;
         
@@ -711,41 +711,6 @@ function detectDynamicRequires(code, packageName) {
             severity: 'MEDIUM',
             details: 'Code uses dynamic import() which can load modules at runtime'
           });
-        }
-      },
-      
-      // Detect eval-like patterns
-      CallExpression(path) {
-        const callee = path.node.callee;
-        
-        if (t.isMemberExpression(callee)) {
-          const object = callee.object;
-          const property = callee.property;
-          
-          // Check for Function constructor
-          if (t.isIdentifier(object, { name: 'Function' })) {
-            threats.push({
-              type: 'FUNCTION_CONSTRUCTOR',
-              message: 'Function constructor usage detected',
-              package: packageName,
-              severity: 'HIGH',
-              details: 'Code uses Function constructor which can execute dynamic code'
-            });
-          }
-          
-          // Check for setTimeout/setInterval with string arguments
-          if ((t.isIdentifier(property, { name: 'setTimeout' }) || 
-               t.isIdentifier(property, { name: 'setInterval' })) &&
-              path.node.arguments.length > 0 &&
-              t.isStringLiteral(path.node.arguments[0])) {
-            threats.push({
-              type: 'STRING_TIMER',
-              message: 'setTimeout/setInterval with string argument detected',
-              package: packageName,
-              severity: 'MEDIUM',
-              details: 'Code uses setTimeout/setInterval with string argument - potential code injection'
-            });
-          }
         }
       }
     });
