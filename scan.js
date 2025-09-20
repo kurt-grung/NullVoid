@@ -328,10 +328,10 @@ async function checkCodeEntropy(packageData) {
   // High entropy indicates obfuscation (threshold: 7.5)
   if (entropy > 7.5) {
     threats.push({
-      type: 'HIGH_ENTROPY',
-      message: 'Package contains files with unusually high entropy (possible obfuscation)',
+      type: 'SUSPICIOUS_ENTROPY',
+      message: 'Package contains files with suspiciously high entropy (possible obfuscation)',
       package: packageData.name || 'unknown',
-      severity: 'MEDIUM',
+      severity: 'HIGH',
       details: `Detected entropy level: ${entropy.toFixed(2)} (threshold: 7.5)`
     });
   }
@@ -1060,13 +1060,26 @@ function analyzeContentEntropy(content, contentType, packageName) {
   const threshold = ENTROPY_THRESHOLDS[contentType] || ENTROPY_THRESHOLDS.TEXT;
   
   if (entropy > threshold) {
-    threats.push({
-      type: 'HIGH_ENTROPY',
-      message: `High entropy content detected (${entropy.toFixed(2)} > ${threshold})`,
-      package: packageName,
-      severity: contentType === 'BINARY' ? 'LOW' : 'MEDIUM',
-      details: `Content has unusually high entropy (${entropy.toFixed(2)}) for ${contentType} content - possible obfuscation or encoding`
-    });
+    // Only flag as suspicious if entropy is VERY high (indicating obfuscation)
+    // Normal complex code has entropy 4.0-5.0, obfuscated code has entropy > 6.0
+    if (entropy > 6.0) {
+      threats.push({
+        type: 'SUSPICIOUS_ENTROPY',
+        message: `Suspicious high entropy detected (${entropy.toFixed(2)} > 6.0)`,
+        package: packageName,
+        severity: 'HIGH',
+        details: `Content has suspiciously high entropy (${entropy.toFixed(2)}) - possible obfuscation or packed code`
+      });
+    } else {
+      // High entropy but not suspicious - just complex code
+      threats.push({
+        type: 'COMPLEX_CODE',
+        message: `Complex code detected (entropy: ${entropy.toFixed(2)})`,
+        package: packageName,
+        severity: 'INFO',
+        details: `File contains complex code with entropy ${entropy.toFixed(2)} - this is normal for modern applications`
+      });
+    }
   }
   
   // Check for specific high-entropy patterns
@@ -1077,11 +1090,11 @@ function analyzeContentEntropy(content, contentType, packageName) {
       const lineEntropy = calculateShannonEntropy(line);
       if (lineEntropy > threshold + 1.0) { // Even higher threshold for individual lines
         threats.push({
-          type: 'HIGH_ENTROPY_LINE',
-          message: `High entropy line detected at line ${i + 1}`,
+          type: 'SUSPICIOUS_LINE',
+          message: `Suspicious high entropy line detected at line ${i + 1}`,
           package: packageName,
-          severity: 'MEDIUM',
-          details: `Line ${i + 1} has very high entropy (${lineEntropy.toFixed(2)}) - possible obfuscated code`
+          severity: 'HIGH',
+          details: `Line ${i + 1} has suspiciously high entropy (${lineEntropy.toFixed(2)}) - possible obfuscated code`
         });
       }
     }
