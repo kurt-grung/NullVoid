@@ -190,10 +190,10 @@ async function scanPackage(packageName, version, options) {
     threats.push(...packageJsonThreats);
     
     // Heuristic 12: Dynamic require() detection
-    // Note: Disabled due to false positives with legitimate packages
-    // const mockCode = 'const fs = require("fs"); const dynamic = require(variable);';
-    // const dynamicRequireThreats = detectDynamicRequires(mockCode, packageName);
-    // threats.push(...dynamicRequireThreats);
+    // Analyze package content for dynamic require patterns
+    const packageContentForRequire = JSON.stringify(packageData);
+    const dynamicRequireThreats = detectDynamicRequires(packageContentForRequire, packageName);
+    threats.push(...dynamicRequireThreats);
     
     // Heuristic 13: Enhanced entropy analysis
     const enhancedEntropyThreats = analyzeContentEntropy(packageContent, 'JSON', packageName);
