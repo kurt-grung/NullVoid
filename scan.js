@@ -7,6 +7,10 @@ const traverse = require('@babel/traverse').default;
 const t = require('@babel/types');
 const acorn = require('acorn');
 const walk = require('acorn-walk');
+const tar = require('tar');
+const glob = require('glob');
+const fse = require('fs-extra');
+const os = require('os');
 
 // Simple in-memory cache for package analysis
 const packageCache = new Map();
@@ -481,36 +485,270 @@ function analyzeJavaScriptAST(code, packageName) {
 }
 
 /**
+ * Download package tarball from npm registry
+ * @param {string} tarballUrl - URL to the package tarball
+ * @returns {Promise<Buffer>} Tarball buffer
+ */
+async function downloadTarball(tarballUrl) {
+  const https = require('https');
+  const http = require('http');
+  
+  return new Promise((resolve, reject) => {
+    const client = tarballUrl.startsWith('https:') ? https : http;
+    
+    client.get(tarballUrl, (response) => {
+      if (response.statusCode !== 200) {
+        reject(new Error(`Failed to download tarball: ${response.statusCode}`));
+        return;
+      }
+      
+      const chunks = [];
+      response.on('data', (chunk) => chunks.push(chunk));
+      response.on('end', () => resolve(Buffer.concat(chunks)));
+      response.on('error', reject);
+    }).on('error', reject);
+  });
+}
+
+/**
+ * Extract tarball to temporary directory
+ * @param {Buffer} tarballBuffer - Tarball buffer
+ * @param {string} tempDir - Temporary directory path
+ * @returns {Promise<void>}
+ */
+async function extractTarball(tarballBuffer, tempDir) {
+  return new Promise((resolve, reject) => {
+    tar.extract({
+      file: tarballBuffer,
+      cwd: tempDir,
+      strip: 1 // Remove the package-version/ prefix
+    }, (err) => {
+      if (err) {
+        reject(new Error(`Failed to extract tarball: ${err.message}`));
+      } else {
+        resolve();
+      }
+    });
+  });
+}
+
+/**
+ * Find all JavaScript files in a directory
+ * @param {string} dirPath - Directory path
+ * @returns {Promise<Array<string>>} Array of relative file paths
+ */
+async function findJavaScriptFiles(dirPath) {
+  return new Promise((resolve, reject) => {
+    glob('**/*.{js,jsx,ts,tsx,mjs}', {
+      cwd: dirPath,
+      ignore: ['node_modules/**', '*.min.js', '*.bundle.js']
+    }, (err, files) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(files);
+      }
+    });
+  });
+}
+
+/**
+ * Check for wallet hijacking patterns in content
+ * @param {string} content - File content
+ * @param {string} packageName - Package name
+ * @returns {Array} Array of threats found
+ */
+function checkWalletHijackingInContent(content, packageName) {
+  const threats = [];
+  
+  // Check for window.ethereum manipulation
+  if (content.includes('window.ethereum') && 
+      (content.includes('Proxy') || content.includes('Object.defineProperty'))) {
+    threats.push({
+      type: 'WALLET_HIJACKING',
+      severity: 'CRITICAL',
+      package: packageName,
+      details: 'Detected window.ethereum manipulation - potential wallet hijacking'
+    });
+  }
+  
+  // Check for MetaMask specific patterns
+  if (content.includes('MetaMask') || content.includes('ethereum.request')) {
+    threats.push({
+      type: 'WALLET_HIJACKING',
+      severity: 'HIGH',
+      package: packageName,
+      details: 'Detected MetaMask/ethereum interaction patterns'
+    });
+  }
+  
+  return threats;
+}
+
+/**
+ * Check for network manipulation patterns in content
+ * @param {string} content - File content
+ * @param {string} packageName - Package name
+ * @returns {Array} Array of threats found
+ */
+function checkNetworkManipulationInContent(content, packageName) {
+  const threats = [];
+  
+  // Check for fetch/XMLHttpRequest overrides
+  if ((content.includes('fetch') || content.includes('XMLHttpRequest')) &&
+      (content.includes('Proxy') || content.includes('override'))) {
+    threats.push({
+      type: 'NETWORK_MANIPULATION',
+      severity: 'HIGH',
+      package: packageName,
+      details: 'Detected network request manipulation'
+    });
+  }
+  
+  // Check for suspicious URLs
+  const suspiciousUrls = [
+    'http://', 'https://', 'ws://', 'wss://'
+  ];
+  
+  for (const url of suspiciousUrls) {
+    if (content.includes(url) && !content.includes('localhost') && !content.includes('127.0.0.1')) {
+      threats.push({
+        type: 'NETWORK_MANIPULATION',
+        severity: 'MEDIUM',
+        package: packageName,
+        details: `Detected network request to external URL: ${url}`
+      });
+      break;
+    }
+  }
+  
+  return threats;
+}
+
+/**
+ * Check for stealth controls patterns in content
+ * @param {string} content - File content
+ * @param {string} packageName - Package name
+ * @returns {Array} Array of threats found
+ */
+function checkStealthControlsInContent(content, packageName) {
+  const threats = [];
+  
+  // Check for stealth control patterns
+  const stealthPatterns = [
+    'stealthProxyControl',
+    'runmask',
+    'newdlocal',
+    'checkethereumw'
+  ];
+  
+  for (const pattern of stealthPatterns) {
+    if (content.includes(pattern)) {
+      threats.push({
+        type: 'STEALTH_CONTROLS',
+        severity: 'HIGH',
+        package: packageName,
+        details: `Detected stealth control pattern: ${pattern}`
+      });
+    }
+  }
+  
+  return threats;
+}
+
+/**
  * Enhanced package analysis with tarball download
  * @param {object} packageData - Package metadata
  * @returns {Promise<Array>} Array of threats found
  */
 async function analyzePackageTarball(packageData) {
   const threats = [];
+  let tempDir = null;
   
   try {
-    // Download package tarball
+    // Get tarball URL
     const tarballUrl = packageData.dist?.tarball;
     if (!tarballUrl) {
       return threats;
     }
     
-    // This is a placeholder - in production you would:
-    // 1. Download the tarball
-    // 2. Extract it
-    // 3. Analyze all JavaScript files
-    // 4. Run AST analysis on each file
+    // Create temporary directory
+    tempDir = path.join(os.tmpdir(), `nullvoid-${packageData.name}-${Date.now()}`);
+    await fse.ensureDir(tempDir);
     
-    // For now, simulate enhanced analysis
-    const mockThreats = await analyzeJavaScriptAST(
-      'window.ethereum = new Proxy(window.ethereum, { get: function() { return maliciousFunction; } });',
-      packageData.name || 'unknown'
-    );
+    // Download tarball
+    const tarballBuffer = await downloadTarball(tarballUrl);
     
-    threats.push(...mockThreats);
+    // Check size limits (prevent downloading huge packages)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (tarballBuffer.length > maxSize) {
+      threats.push({
+        type: 'PACKAGE_TOO_LARGE',
+        severity: 'MEDIUM',
+        package: packageData.name,
+        details: `Package tarball too large for analysis (${Math.round(tarballBuffer.length / 1024 / 1024)}MB > 10MB)`
+      });
+      return threats;
+    }
+    
+    // Extract tarball
+    await extractTarball(tarballBuffer, tempDir);
+    
+    // Find all JavaScript files
+    const jsFiles = await findJavaScriptFiles(tempDir);
+    
+    // Analyze each JavaScript file
+    for (const file of jsFiles) {
+      try {
+        const filePath = path.join(tempDir, file);
+        const content = await fse.readFile(filePath, 'utf8');
+        
+        // Apply all detection heuristics to the real code
+        const fileThreats = [
+          ...analyzeJavaScriptAST(content, `${packageData.name}/${file}`),
+          ...checkObfuscatedIoCs(content, `${packageData.name}/${file}`),
+          ...detectDynamicRequires(content, `${packageData.name}/${file}`),
+          ...analyzeContentEntropy(content, 'JAVASCRIPT', `${packageData.name}/${file}`),
+          ...checkWalletHijackingInContent(content, `${packageData.name}/${file}`),
+          ...checkNetworkManipulationInContent(content, `${packageData.name}/${file}`),
+          ...checkStealthControlsInContent(content, `${packageData.name}/${file}`)
+        ];
+        
+        threats.push(...fileThreats);
+        
+      } catch (fileError) {
+        // Skip files that can't be read (binary, corrupted, etc.)
+        console.warn(`Warning: Could not analyze file ${file}: ${fileError.message}`);
+      }
+    }
+    
+    // Add summary information
+    if (jsFiles.length > 0) {
+      threats.push({
+        type: 'TARBALL_ANALYSIS',
+        severity: 'INFO',
+        package: packageData.name,
+        details: `Analyzed ${jsFiles.length} JavaScript files from package tarball`
+      });
+    }
     
   } catch (error) {
     console.warn(`Warning: Could not analyze tarball for ${packageData.name}: ${error.message}`);
+    threats.push({
+      type: 'TARBALL_ERROR',
+      severity: 'LOW',
+      package: packageData.name,
+      details: `Failed to analyze package tarball: ${error.message}`
+    });
+  } finally {
+    // Cleanup temporary directory
+    if (tempDir && await fse.pathExists(tempDir)) {
+      try {
+        await fse.remove(tempDir);
+      } catch (cleanupError) {
+        console.warn(`Warning: Could not cleanup temp directory ${tempDir}: ${cleanupError.message}`);
+      }
+    }
   }
   
   return threats;
