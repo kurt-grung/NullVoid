@@ -712,6 +712,75 @@ function detectDynamicRequires(code, packageName) {
             details: 'Code uses dynamic import() which can load modules at runtime'
           });
         }
+        
+        // Detect eval-like patterns
+        if (t.isMemberExpression(callee)) {
+          const object = callee.object;
+          const property = callee.property;
+          
+          // Check for Function constructor
+          if (t.isIdentifier(object) && object.name === 'Function') {
+            threats.push({
+              type: 'FUNCTION_CONSTRUCTOR',
+              message: 'Function constructor usage detected',
+              package: packageName,
+              severity: 'HIGH',
+              details: 'Code uses Function constructor which can execute dynamic code'
+            });
+          }
+          
+          // Check for setTimeout/setInterval with string arguments
+          if ((t.isIdentifier(property) && (property.name === 'setTimeout' || property.name === 'setInterval')) &&
+              path.node.arguments.length > 0 &&
+              t.isStringLiteral(path.node.arguments[0])) {
+            threats.push({
+              type: 'STRING_TIMER',
+              message: 'setTimeout/setInterval with string argument detected',
+              package: packageName,
+              severity: 'MEDIUM',
+              details: 'Code uses setTimeout/setInterval with string argument - potential code injection'
+            });
+          }
+        }
+        
+        // Check for direct eval() calls
+        if (t.isIdentifier(callee) && callee.name === 'eval') {
+          threats.push({
+            type: 'EVAL_USAGE',
+            message: 'eval() function usage detected',
+            package: packageName,
+            severity: 'HIGH',
+            details: 'Code uses eval() which can execute dynamic code - potential security risk'
+          });
+        }
+        
+        // Check for direct setTimeout/setInterval calls with string arguments
+        if ((t.isIdentifier(callee) && (callee.name === 'setTimeout' || callee.name === 'setInterval')) &&
+            path.node.arguments.length > 0 &&
+            t.isStringLiteral(path.node.arguments[0])) {
+          threats.push({
+            type: 'STRING_TIMER',
+            message: 'setTimeout/setInterval with string argument detected',
+            package: packageName,
+            severity: 'MEDIUM',
+            details: 'Code uses setTimeout/setInterval with string argument - potential code injection'
+          });
+        }
+      },
+      
+      // Detect Function constructor usage
+      NewExpression(path) {
+        const callee = path.node.callee;
+        
+        if (t.isIdentifier(callee) && callee.name === 'Function') {
+          threats.push({
+            type: 'FUNCTION_CONSTRUCTOR',
+            message: 'Function constructor usage detected',
+            package: packageName,
+            severity: 'HIGH',
+            details: 'Code uses Function constructor which can execute dynamic code'
+          });
+        }
       }
     });
     
