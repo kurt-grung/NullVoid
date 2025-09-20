@@ -141,6 +141,11 @@ async function scanPackage(packageName, version, options) {
     const astThreats = await analyzePackageTarball(packageData);
     threats.push(...astThreats);
     
+    // Heuristic 10: Check for specific obfuscated IoCs
+    const packageContent = JSON.stringify(packageData);
+    const iocThreats = checkObfuscatedIoCs(packageContent, packageName);
+    threats.push(...iocThreats);
+    
     // Cache the results
     setCachedResult(cacheKey, threats);
     
@@ -378,14 +383,14 @@ function analyzeJavaScriptAST(code, packageName) {
       StringLiteral(path) {
         const value = path.node.value;
         
-        // Check for obfuscated patterns
+        // Check for obfuscated patterns (including _0x20669a and similar)
         if (value.match(/^_0x[a-f0-9]+$/i)) {
           threats.push({
             type: 'OBFUSCATED_CODE',
             message: 'Code contains obfuscated string patterns',
             package: packageName,
-            severity: 'MEDIUM',
-            details: `Detected obfuscated string: ${value}`
+            severity: 'HIGH',
+            details: `Detected obfuscated string: ${value} - This pattern is associated with recent npm supply chain attacks`
           });
         }
         
@@ -450,6 +455,43 @@ async function analyzePackageTarball(packageData) {
     
   } catch (error) {
     console.warn(`Warning: Could not analyze tarball for ${packageData.name}: ${error.message}`);
+  }
+  
+  return threats;
+}
+
+/**
+ * Check for specific obfuscated IoC patterns from recent attacks
+ * @param {string} content - Content to analyze
+ * @param {string} packageName - Package name
+ * @returns {Array} Array of threats found
+ */
+function checkObfuscatedIoCs(content, packageName) {
+  const threats = [];
+  
+  // Known obfuscated patterns from recent npm attacks
+  const obfuscatedPatterns = [
+    '_0x112fa8',
+    '_0x180f', 
+    '_0x20669a',
+    '_0x13c8b9',
+    '_0x35f660',
+    '_0x15b386',
+    '_0x2cc99e',
+    '_0x205af0',
+    '_0x66ea25'
+  ];
+  
+  for (const pattern of obfuscatedPatterns) {
+    if (content.includes(pattern)) {
+      threats.push({
+        type: 'OBFUSCATED_IOC',
+        message: `Detected specific obfuscated IoC: ${pattern}`,
+        package: packageName,
+        severity: 'CRITICAL',
+        details: `Found obfuscated pattern ${pattern} - This is a known indicator of compromise from recent npm supply chain attacks`
+      });
+    }
   }
   
   return threats;
@@ -566,6 +608,7 @@ async function checkWalletHijacking(packageData) {
     'stealthProxyControl',
     '_0x112fa8',
     '_0x180f',
+    '_0x20669a',
     'runmask',
     'newdlocal',
     'checkethereumw'
@@ -750,4 +793,8 @@ if (require.main === module) {
   });
 }
 
-module.exports = scan;
+module.exports = {
+  scan,
+  analyzeJavaScriptAST,
+  checkObfuscatedIoCs
+};

@@ -3,7 +3,7 @@
 const { program } = require('commander');
 const chalk = require('chalk');
 const ora = require('ora');
-const scan = require('../scan');
+const { scan } = require('../scan');
 
 program
   .name('nullvoid')
