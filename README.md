@@ -1,5 +1,13 @@
 # NullVoid
 
+[![npm version](https://img.shields.io/npm/v/nullvoid.svg)](https://www.npmjs.com/package/nullvoid)
+[![npm downloads](https://img.shields.io/npm/dm/nullvoid.svg)](https://www.npmjs.com/package/nullvoid)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub stars](https://img.shields.io/github/stars/kurt-grung/NullVoid.svg)](https://github.com/kurt-grung/NullVoid/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/kurt-grung/NullVoid.svg)](https://github.com/kurt-grung/NullVoid/network)
+[![GitHub issues](https://img.shields.io/github/issues/kurt-grung/NullVoid.svg)](https://github.com/kurt-grung/NullVoid/issues)
+[![GitHub Actions](https://github.com/kurt-grung/NullVoid/workflows/NullVoid%20Security%20Scan/badge.svg)](https://github.com/kurt-grung/NullVoid/actions)
+
 **Ø NullVoid** - Detect and invalidate malicious npm packages before they reach prod.
 
 Detect malicious or compromised npm packages and flag risky code before it reaches production — without executing unsafe code.
@@ -200,7 +208,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 ## 🔗 Links
 
 - [GitHub Repository](https://github.com/kurt-grung/NullVoid)
-- [npm Package](https://www.npmjs.com/package/nullvoid) *(Coming Soon)*
+- [npm Package](https://www.npmjs.com/package/nullvoid)
 - [Security Policy](SECURITY.md)
 - [Changelog](CHANGELOG.md)
 
