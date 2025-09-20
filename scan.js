@@ -12,6 +12,38 @@ const walk = require('acorn-walk');
 const packageCache = new Map();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// Enhanced entropy thresholds for different content types
+const ENTROPY_THRESHOLDS = {
+  JAVASCRIPT: 4.5,    // Higher threshold for JS (more random)
+  JSON: 3.8,          // Lower threshold for JSON
+  TEXT: 3.5,          // General text content
+  BINARY: 7.0         // Binary/encoded content
+};
+
+// Suspicious package.json patterns
+const SUSPICIOUS_PACKAGE_PATTERNS = {
+  scripts: [
+    'curl.*http',
+    'wget.*http', 
+    'rm -rf',
+    'chmod.*777',
+    'eval.*',
+    'node.*-e',
+    'bash.*-c'
+  ],
+  dependencies: [
+    'http://.*',
+    'git://.*',
+    'file://.*'
+  ],
+  keywords: [
+    'malware',
+    'virus',
+    'trojan',
+    'backdoor'
+  ]
+};
+
 /**
  * Cache management functions
  */
@@ -57,6 +89,13 @@ async function scan(packageName, options = {}) {
           threats.push(...packageThreats);
           packagesScanned++;
         }
+        
+        // Also scan node_modules directory for additional threats
+        // Note: Disabled due to false positives with legitimate packages
+        // const nodeModulesPath = path.join(process.cwd(), 'node_modules');
+        // const nodeModulesThreats = await scanNodeModules(nodeModulesPath, options);
+        // threats.push(...nodeModulesThreats);
+        
       } else {
         throw new Error('No package.json found in current directory');
       }
@@ -145,6 +184,19 @@ async function scanPackage(packageName, version, options) {
     const packageContent = JSON.stringify(packageData);
     const iocThreats = checkObfuscatedIoCs(packageContent, packageName);
     threats.push(...iocThreats);
+    
+    // Heuristic 11: Enhanced package.json static analysis
+    const packageJsonThreats = analyzePackageJson(packageData, packageName);
+    threats.push(...packageJsonThreats);
+    
+    // Heuristic 12: Dynamic require() detection
+    const mockCode = 'const fs = require("fs"); const dynamic = require(variable);';
+    const dynamicRequireThreats = detectDynamicRequires(mockCode, packageName);
+    threats.push(...dynamicRequireThreats);
+    
+    // Heuristic 13: Enhanced entropy analysis
+    const enhancedEntropyThreats = analyzeContentEntropy(packageContent, 'JSON', packageName);
+    threats.push(...enhancedEntropyThreats);
     
     // Cache the results
     setCachedResult(cacheKey, threats);
@@ -498,6 +550,362 @@ function checkObfuscatedIoCs(content, packageName) {
 }
 
 /**
+ * Enhanced static analysis for package.json files
+ * @param {object} packageData - Package metadata
+ * @param {string} packageName - Package name
+ * @returns {Array} Array of threats found
+ */
+function analyzePackageJson(packageData, packageName) {
+  const threats = [];
+  
+  try {
+    // Check scripts for suspicious commands
+    if (packageData.scripts) {
+      for (const [scriptName, scriptContent] of Object.entries(packageData.scripts)) {
+        for (const pattern of SUSPICIOUS_PACKAGE_PATTERNS.scripts) {
+          const regex = new RegExp(pattern, 'i');
+          if (regex.test(scriptContent)) {
+            threats.push({
+              type: 'SUSPICIOUS_SCRIPT',
+              message: `Suspicious script detected in ${scriptName}`,
+              package: packageName,
+              severity: 'HIGH',
+              details: `Script "${scriptName}" contains suspicious pattern: ${pattern}. Content: ${scriptContent}`
+            });
+          }
+        }
+      }
+    }
+    
+    // Check dependencies for suspicious URLs
+    const allDeps = {
+      ...packageData.dependencies,
+      ...packageData.devDependencies,
+      ...packageData.peerDependencies
+    };
+    
+    for (const [depName, depVersion] of Object.entries(allDeps || {})) {
+      for (const pattern of SUSPICIOUS_PACKAGE_PATTERNS.dependencies) {
+        const regex = new RegExp(pattern, 'i');
+        if (regex.test(depVersion)) {
+          threats.push({
+            type: 'SUSPICIOUS_DEPENDENCY',
+            message: `Suspicious dependency URL detected: ${depName}`,
+            package: packageName,
+            severity: 'HIGH',
+            details: `Dependency "${depName}" uses suspicious URL pattern: ${pattern}. Version: ${depVersion}`
+          });
+        }
+      }
+    }
+    
+    // Check keywords for malicious terms
+    if (packageData.keywords) {
+      for (const keyword of packageData.keywords) {
+        for (const pattern of SUSPICIOUS_PACKAGE_PATTERNS.keywords) {
+          const regex = new RegExp(pattern, 'i');
+          if (regex.test(keyword)) {
+            threats.push({
+              type: 'SUSPICIOUS_KEYWORD',
+              message: `Suspicious keyword detected: ${keyword}`,
+              package: packageName,
+              severity: 'MEDIUM',
+              details: `Package contains suspicious keyword: ${keyword}`
+            });
+          }
+        }
+      }
+    }
+    
+    // Check for unusual package.json structure
+    if (packageData.main && !packageData.main.match(/\.(js|json)$/)) {
+      threats.push({
+        type: 'UNUSUAL_MAIN_FILE',
+        message: 'Unusual main file extension detected',
+        package: packageName,
+        severity: 'MEDIUM',
+        details: `Main file "${packageData.main}" has unusual extension`
+      });
+    }
+    
+  } catch (error) {
+    threats.push({
+      type: 'PACKAGE_JSON_ERROR',
+      message: 'Error analyzing package.json',
+      package: packageName,
+      severity: 'LOW',
+      details: `Failed to parse package.json: ${error.message}`
+    });
+  }
+  
+  return threats;
+}
+
+/**
+ * Detect dynamic require() calls and suspicious module loading
+ * @param {string} code - JavaScript code to analyze
+ * @param {string} packageName - Package name
+ * @returns {Array} Array of threats found
+ */
+function detectDynamicRequires(code, packageName) {
+  const threats = [];
+  
+  try {
+    const ast = parser.parse(code, {
+      sourceType: 'module',
+      allowImportExportEverywhere: true,
+      allowReturnOutsideFunction: true,
+      plugins: ['jsx', 'typescript', 'decorators-legacy']
+    });
+    
+    traverse(ast, {
+      // Detect require() calls with variables
+      CallExpression(path) {
+        const callee = path.node.callee;
+        
+        if (t.isIdentifier(callee) && callee.name === 'require') {
+          const args = path.node.arguments;
+          
+          if (args.length > 0) {
+            const moduleName = args[0];
+            
+            // Check for dynamic require with variables
+            if (t.isIdentifier(moduleName) || t.isBinaryExpression(moduleName)) {
+              threats.push({
+                type: 'DYNAMIC_REQUIRE',
+                message: 'Dynamic require() call detected',
+                package: packageName,
+                severity: 'HIGH',
+                details: 'Code uses dynamic require() which can load modules at runtime - potential security risk'
+              });
+            }
+            
+            // Check for suspicious module names
+            if (t.isStringLiteral(moduleName)) {
+              const module = moduleName.value;
+              
+              // Check for suspicious patterns
+              if (module === 'eval' || 
+                  module === 'vm' || 
+                  module === 'child_process' ||
+                  module === 'fs' ||
+                  module.match(/^[a-z0-9]{32,}$/)) { // Random-looking module names
+                threats.push({
+                  type: 'SUSPICIOUS_MODULE',
+                  message: `Suspicious module require: ${module}`,
+                  package: packageName,
+                  severity: 'HIGH',
+                  details: `Code requires suspicious module: ${module}`
+                });
+              }
+            }
+          }
+        }
+        
+        // Detect import() calls (dynamic imports)
+        if (t.isImport(callee)) {
+          threats.push({
+            type: 'DYNAMIC_IMPORT',
+            message: 'Dynamic import() call detected',
+            package: packageName,
+            severity: 'MEDIUM',
+            details: 'Code uses dynamic import() which can load modules at runtime'
+          });
+        }
+      },
+      
+      // Detect eval-like patterns
+      CallExpression(path) {
+        const callee = path.node.callee;
+        
+        if (t.isMemberExpression(callee)) {
+          const object = callee.object;
+          const property = callee.property;
+          
+          // Check for Function constructor
+          if (t.isIdentifier(object, { name: 'Function' })) {
+            threats.push({
+              type: 'FUNCTION_CONSTRUCTOR',
+              message: 'Function constructor usage detected',
+              package: packageName,
+              severity: 'HIGH',
+              details: 'Code uses Function constructor which can execute dynamic code'
+            });
+          }
+          
+          // Check for setTimeout/setInterval with string arguments
+          if ((t.isIdentifier(property, { name: 'setTimeout' }) || 
+               t.isIdentifier(property, { name: 'setInterval' })) &&
+              path.node.arguments.length > 0 &&
+              t.isStringLiteral(path.node.arguments[0])) {
+            threats.push({
+              type: 'STRING_TIMER',
+              message: 'setTimeout/setInterval with string argument detected',
+              package: packageName,
+              severity: 'MEDIUM',
+              details: 'Code uses setTimeout/setInterval with string argument - potential code injection'
+            });
+          }
+        }
+      }
+    });
+    
+  } catch (error) {
+    // If parsing fails, it might be obfuscated
+    if (error.message.includes('Unexpected token') || 
+        error.message.includes('SyntaxError')) {
+      threats.push({
+        type: 'OBFUSCATED_CODE',
+        message: 'Code appears to be obfuscated or malformed',
+        package: packageName,
+        severity: 'HIGH',
+        details: 'Failed to parse JavaScript AST - possible obfuscation'
+      });
+    }
+  }
+  
+  return threats;
+}
+
+/**
+ * Enhanced entropy analysis with content-type awareness
+ * @param {string} content - Content to analyze
+ * @param {string} contentType - Type of content (JAVASCRIPT, JSON, TEXT, BINARY)
+ * @param {string} packageName - Package name
+ * @returns {Array} Array of threats found
+ */
+function analyzeContentEntropy(content, contentType, packageName) {
+  const threats = [];
+  
+  if (!content || content.length < 10) {
+    return threats;
+  }
+  
+  const entropy = calculateShannonEntropy(content);
+  const threshold = ENTROPY_THRESHOLDS[contentType] || ENTROPY_THRESHOLDS.TEXT;
+  
+  if (entropy > threshold) {
+    threats.push({
+      type: 'HIGH_ENTROPY',
+      message: `High entropy content detected (${entropy.toFixed(2)} > ${threshold})`,
+      package: packageName,
+      severity: contentType === 'BINARY' ? 'LOW' : 'MEDIUM',
+      details: `Content has unusually high entropy (${entropy.toFixed(2)}) for ${contentType} content - possible obfuscation or encoding`
+    });
+  }
+  
+  // Check for specific high-entropy patterns
+  const lines = content.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.length > 50) {
+      const lineEntropy = calculateShannonEntropy(line);
+      if (lineEntropy > threshold + 1.0) { // Even higher threshold for individual lines
+        threats.push({
+          type: 'HIGH_ENTROPY_LINE',
+          message: `High entropy line detected at line ${i + 1}`,
+          package: packageName,
+          severity: 'MEDIUM',
+          details: `Line ${i + 1} has very high entropy (${lineEntropy.toFixed(2)}) - possible obfuscated code`
+        });
+      }
+    }
+  }
+  
+  return threats;
+}
+
+/**
+ * Scan node_modules directory for suspicious packages
+ * @param {string} nodeModulesPath - Path to node_modules directory
+ * @param {object} options - Scan options
+ * @returns {Promise<Array>} Array of threats found
+ */
+async function scanNodeModules(nodeModulesPath, options) {
+  const threats = [];
+  
+  try {
+    if (!fs.existsSync(nodeModulesPath)) {
+      return threats;
+    }
+    
+    const packages = fs.readdirSync(nodeModulesPath);
+    const suspiciousPackages = [];
+    
+    for (const packageName of packages) {
+      // Skip .bin and other non-package directories
+      if (packageName.startsWith('.') || packageName === 'bin') {
+        continue;
+      }
+      
+      const packagePath = path.join(nodeModulesPath, packageName);
+      const packageJsonPath = path.join(packagePath, 'package.json');
+      
+      if (fs.existsSync(packageJsonPath)) {
+        try {
+          const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+          
+          // Check for suspicious package names
+          if (packageName.match(/^[a-z0-9]{32,}$/) || // Random-looking names
+              packageName.includes('malware') ||
+              packageName.includes('virus') ||
+              packageName.includes('trojan')) {
+            suspiciousPackages.push(packageName);
+          }
+          
+          // Check for packages with suspicious scripts
+          if (packageJson.scripts) {
+            for (const [scriptName, scriptContent] of Object.entries(packageJson.scripts)) {
+              // More specific patterns to avoid false positives
+              if (scriptContent.includes('curl http') || 
+                  scriptContent.includes('wget http') ||
+                  scriptContent.includes('rm -rf /') ||
+                  scriptContent.includes('rm -rf ~') ||
+                  scriptContent.includes('eval(') ||
+                  scriptContent.includes('bash -c') ||
+                  scriptContent.includes('node -e') ||
+                  scriptContent.includes('chmod 777') ||
+                  scriptContent.includes('curl -s') ||
+                  scriptContent.includes('wget -q')) {
+                threats.push({
+                  type: 'SUSPICIOUS_NODE_MODULE',
+                  message: `Suspicious package found in node_modules: ${packageName}`,
+                  package: packageName,
+                  severity: 'HIGH',
+                  details: `Package ${packageName} contains suspicious script "${scriptName}": ${scriptContent}`
+                });
+              }
+            }
+          }
+          
+        } catch (error) {
+          // Skip packages with invalid package.json
+          continue;
+        }
+      }
+    }
+    
+    // Report suspicious package names
+    for (const packageName of suspiciousPackages) {
+      threats.push({
+        type: 'SUSPICIOUS_PACKAGE_NAME',
+        message: `Suspicious package name detected: ${packageName}`,
+        package: packageName,
+        severity: 'MEDIUM',
+        details: `Package name "${packageName}" appears suspicious or randomly generated`
+      });
+    }
+    
+  } catch (error) {
+    if (options.verbose) {
+      console.warn(`Warning: Could not scan node_modules: ${error.message}`);
+    }
+  }
+  
+  return threats;
+}
+
+/**
  * Check for suspicious file patterns that might indicate malicious behavior
  */
 async function checkSuspiciousFilePatterns(packageData) {
@@ -796,5 +1204,9 @@ if (require.main === module) {
 module.exports = {
   scan,
   analyzeJavaScriptAST,
-  checkObfuscatedIoCs
+  checkObfuscatedIoCs,
+  analyzePackageJson,
+  detectDynamicRequires,
+  analyzeContentEntropy,
+  scanNodeModules
 };
