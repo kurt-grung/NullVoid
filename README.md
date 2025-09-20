@@ -114,6 +114,7 @@ NullVoid is designed to detect sophisticated supply chain attacks like the recen
 - **Multi-Chain**: Targeted Ethereum, Bitcoin, Litecoin, Tron, BCH, and Solana
 - **Stealth**: Used obfuscation and `stealthProxyControl` global object
 - **Network Manipulation**: Overrode fetch/XMLHttpRequest to replace addresses
+- **Obfuscated IoCs**: `_0x112fa8`, `_0x180f`, `runmask`, `newdlocal`, `checkethereumw`
 
 ### **How NullVoid Would Detect This Attack:**
 ```bash
@@ -125,16 +126,29 @@ npx nullvoid scan
 
 1. WALLET_HIJACKING: Package may contain wallet hijacking code
    Severity: CRITICAL
+   Details: Detected pattern '_0x112fa8' that could redirect transactions
 
 2. NETWORK_MANIPULATION: Package may manipulate network responses
    Severity: HIGH
+   Details: Detected pattern 'fetch.*override' for address replacement
 
 3. MULTI_CHAIN_TARGETING: Package supports multiple blockchain networks
    Severity: MEDIUM
+   Details: Detected multi-chain capabilities for broader attack coverage
 
 4. STEALTH_CONTROLS: Package contains stealth controls or obfuscation
    Severity: HIGH
+   Details: Detected pattern 'stealthProxyControl' hidden control mechanisms
 ```
+
+### **Specific IoC Detection:**
+NullVoid detects the exact obfuscated strings and patterns used in the recent attack:
+- **`_0x112fa8`** - Primary obfuscated function identifier
+- **`_0x180f`** - Secondary obfuscated string pattern  
+- **`stealthProxyControl`** - Hidden developer control interface
+- **`runmask`** - Malicious function name
+- **`newdlocal`** - Attack-specific variable
+- **`checkethereumw`** - Ethereum wallet checking function
 
 ## 🛡️ Security Features
 
