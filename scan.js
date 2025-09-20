@@ -97,7 +97,10 @@ async function scan(packageName, options = {}) {
         // threats.push(...nodeModulesThreats);
         
       } else {
-        throw new Error('No package.json found in current directory');
+        // Scan current directory for JavaScript files and suspicious patterns
+        const directoryThreats = await scanDirectory(process.cwd(), options);
+        threats.push(...directoryThreats);
+        packagesScanned = 1;
       }
     } else {
       // Scan specific package
@@ -1235,6 +1238,158 @@ if (require.main === module) {
   });
 }
 
+/**
+ * Scan a directory for JavaScript files and suspicious patterns
+ */
+async function scanDirectory(dirPath, options = {}) {
+  const threats = [];
+  
+  try {
+    // Get all JavaScript files in the directory
+    const jsFiles = await getJavaScriptFiles(dirPath);
+    
+    for (const filePath of jsFiles) {
+      try {
+        const content = fs.readFileSync(filePath, 'utf8');
+        const fileName = path.basename(filePath);
+        
+        // Run AST analysis on JavaScript files
+        const astThreats = analyzeJavaScriptAST(content, fileName);
+        threats.push(...astThreats);
+        
+        // Check for obfuscated IoCs
+        const iocThreats = checkObfuscatedIoCs(content, fileName);
+        threats.push(...iocThreats);
+        
+        // Check for dynamic requires
+        const requireThreats = detectDynamicRequires(content, fileName);
+        threats.push(...requireThreats);
+        
+        // Analyze content entropy
+        const entropyThreats = analyzeContentEntropy(content, 'JAVASCRIPT', fileName);
+        threats.push(...entropyThreats);
+        
+      } catch (error) {
+        if (options.verbose) {
+          console.log(`Warning: Could not analyze ${filePath}: ${error.message}`);
+        }
+      }
+    }
+    
+    // Check for package.json if it exists
+    const packageJsonPath = path.join(dirPath, 'package.json');
+    if (fs.existsSync(packageJsonPath)) {
+      try {
+        const packageData = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+        const packageThreats = analyzePackageJson(packageData, path.basename(dirPath));
+        threats.push(...packageThreats);
+      } catch (error) {
+        if (options.verbose) {
+          console.log(`Warning: Could not analyze package.json: ${error.message}`);
+        }
+      }
+    }
+    
+    // Check for suspicious files
+    const suspiciousFiles = await getSuspiciousFiles(dirPath);
+    for (const filePath of suspiciousFiles) {
+      threats.push({
+        type: 'SUSPICIOUS_FILE',
+        severity: 'MEDIUM',
+        package: path.basename(filePath),
+        details: `Suspicious file detected: ${path.basename(filePath)}`,
+        file: filePath
+      });
+    }
+    
+  } catch (error) {
+    threats.push({
+      type: 'SCAN_ERROR',
+      severity: 'LOW',
+      package: path.basename(dirPath),
+      details: `Directory scan error: ${error.message}`,
+      error: error.message
+    });
+  }
+  
+  return threats;
+}
+
+/**
+ * Get all JavaScript files in a directory recursively
+ */
+async function getJavaScriptFiles(dirPath) {
+  const jsFiles = [];
+  
+  function scanDir(currentPath) {
+    try {
+      const items = fs.readdirSync(currentPath);
+      
+      for (const item of items) {
+        const itemPath = path.join(currentPath, item);
+        const stat = fs.statSync(itemPath);
+        
+        if (stat.isDirectory()) {
+          // Skip node_modules and other common directories
+          if (!['node_modules', '.git', 'dist', 'build', 'coverage'].includes(item)) {
+            scanDir(itemPath);
+          }
+        } else if (stat.isFile()) {
+          const ext = path.extname(item).toLowerCase();
+          if (['.js', '.jsx', '.ts', '.tsx', '.mjs'].includes(ext)) {
+            jsFiles.push(itemPath);
+          }
+        }
+      }
+    } catch (error) {
+      // Skip directories we can't read
+    }
+  }
+  
+  scanDir(dirPath);
+  return jsFiles;
+}
+
+/**
+ * Get suspicious files in a directory
+ */
+async function getSuspiciousFiles(dirPath) {
+  const suspiciousFiles = [];
+  
+  try {
+    const items = fs.readdirSync(dirPath);
+    
+    for (const item of items) {
+      const itemPath = path.join(dirPath, item);
+      const stat = fs.statSync(itemPath);
+      
+      if (stat.isFile()) {
+        const fileName = item.toLowerCase();
+        
+        // Check for suspicious file names
+        if (fileName.includes('malware') || 
+            fileName.includes('virus') || 
+            fileName.includes('trojan') ||
+            fileName.includes('backdoor') ||
+            fileName.includes('keylogger') ||
+            fileName.includes('stealer')) {
+          suspiciousFiles.push(itemPath);
+        }
+        
+        // Check for executable files
+        const ext = path.extname(item).toLowerCase();
+        if (['.exe', '.bat', '.sh', '.cmd', '.ps1'].includes(ext)) {
+          suspiciousFiles.push(itemPath);
+        }
+      }
+    }
+  } catch (error) {
+    // Skip directories we can't read
+  }
+  
+  return suspiciousFiles;
+}
+
 module.exports = {
   scan,
   analyzeJavaScriptAST,
@@ -1242,5 +1397,6 @@ module.exports = {
   analyzePackageJson,
   detectDynamicRequires,
   analyzeContentEntropy,
-  scanNodeModules
+  scanNodeModules,
+  scanDirectory
 };
