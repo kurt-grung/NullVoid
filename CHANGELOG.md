@@ -15,6 +15,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Signature hashing for tampering detection
 - Structured logging and reporting
 
+## [1.2.1] - 2024-12-21
+
+### Fixed
+- **False Positive Reduction** - Significantly reduced false positives while maintaining security detection
+- Refined script pattern detection to avoid flagging legitimate build tools (evalmd, auto-changelog)
+- Increased entropy analysis thresholds for more conservative detection
+- Improved dependency count thresholds for popular frameworks (express, react, vue, etc.)
+- Enhanced node modules scanning with more specific pattern matching
+- Fixed dependency count calculation bug in `analyzeDependencyTree()`
+
+### Changed
+- Script patterns now more specific: `eval.*` → `eval\\(.*\\)`, `node.*-e` → `node -e.*http`
+- Entropy thresholds increased: JavaScript 4.5→5.0, JSON 3.8→4.2, Text 3.5→4.0, Binary 7.0→7.5
+- Dependency count limits raised: Popular frameworks 50→60, Regular packages 30→40
+- Added more frameworks to whitelist: lodash, moment, axios, jquery
+
+### Improved
+- Express package scan: 3 false positives → 0 false positives
+- All unit tests passing (31/31)
+- Performance maintained (~5.3s scan time)
+- Security detection capabilities preserved
+
 ## [1.2.0] - 2024-12-20
 
 ### Added

@@ -6,6 +6,7 @@ This directory contains detailed release notes for all NullVoid versions.
 
 | Version | Date | Release Notes | Key Features |
 |---------|------|---------------|--------------|
+| **[v1.2.1](v1.2.1.md)** | Dec 21, 2024 | False Positive Reduction | Tuned detection thresholds, reduced false positives |
 | **[v1.2.0](v1.2.0.md)** | Dec 20, 2024 | Dependency Tree Analysis | Transitive dependency scanning, tree visualization, depth controls |
 | **[v1.1.1](v1.1.1.md)** | Dec 20, 2024 | Enhanced Directory Structure Display | Directory structure breakdown, scan type detection |
 | **[v1.1.0](v1.1.0.md)** | Dec 20, 2024 | Real Package Tarball Analysis | Real code analysis, entropy improvements |
