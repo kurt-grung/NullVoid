@@ -239,6 +239,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 - [npm Package](https://www.npmjs.com/package/nullvoid)
 - [Security Policy](SECURITY.md)
 - [Changelog](CHANGELOG.md)
+- [Release Notes](release-notes/)
 
 ---
 
