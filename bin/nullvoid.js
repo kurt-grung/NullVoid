@@ -72,5 +72,12 @@ function displayResults(results, options = {}) {
     });
   }
   
-  console.log(chalk.gray(`\nScanned ${results.packagesScanned} package(s) in ${results.duration}ms`));
+  // Display directory structure for directory scans
+  if (results.directoryStructure && results.packagesScanned === 0) {
+    console.log(chalk.blue(`\n📁 Directory Structure:`));
+    console.log(chalk.gray(`   ${results.directoryStructure.totalDirectories} directories: ${results.directoryStructure.directories.slice(0, 5).join(', ')}${results.directoryStructure.directories.length > 5 ? '...' : ''}`));
+    console.log(chalk.gray(`   ${results.directoryStructure.totalFiles} files: ${results.directoryStructure.files.slice(0, 5).join(', ')}${results.directoryStructure.files.length > 5 ? '...' : ''}`));
+  }
+  
+  console.log(chalk.gray(`\nScanned ${results.packagesScanned > 0 ? results.packagesScanned : 1} ${results.packagesScanned > 0 ? 'package' : 'directory'}(s)${results.filesScanned ? `, ${results.filesScanned} file(s)` : ''} in ${results.duration}ms`));
 }

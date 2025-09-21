@@ -17,6 +17,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Signature hashing for tampering detection
 - Structured logging and reporting
 
+## [1.1.1] - 2024-12-20
+
+### Added
+- Enhanced directory structure display for directory scans
+- Directory breakdown showing top-level directories and files
+- Comprehensive scan context with directory count, file count, and examples
+- Clean output showing only top-level directories for better readability
+
+### Fixed
+- Correctly label directory scans vs package scans in CLI output
+- Fix packagesScanned logic to properly distinguish directory vs package scans
+- Resolve confusing "package(s)" labeling when scanning directories
+
+### Changed
+- Directory structure now shows only top-level directories instead of all nested paths
+- Improved user experience with clearer scan context and structure information
+
 ## [1.0.5] - 2024-12-19
 
 ### Added

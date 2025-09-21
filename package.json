@@ -1,6 +1,6 @@
 {
   "name": "nullvoid",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Detect and invalidate malicious npm packages before they reach prod",
   "main": "index.js",
   "bin": {

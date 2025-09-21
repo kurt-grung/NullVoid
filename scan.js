@@ -76,6 +76,8 @@ async function scan(packageName, options = {}) {
   const startTime = Date.now();
   const threats = [];
   let packagesScanned = 0;
+  let filesScanned = 0;
+  let directoryStructure = null;
 
   try {
     // If no package specified, scan current directory's package.json
@@ -102,9 +104,11 @@ async function scan(packageName, options = {}) {
         
       } else {
         // Scan current directory for JavaScript files and suspicious patterns
-        const directoryThreats = await scanDirectory(process.cwd(), options);
-        threats.push(...directoryThreats);
-        packagesScanned = 1;
+        const directoryResult = await scanDirectory(process.cwd(), options);
+        threats.push(...directoryResult.threats);
+        filesScanned = directoryResult.filesScanned;
+        packagesScanned = 0; // This is a directory scan, not a package scan
+        directoryStructure = directoryResult.directoryStructure;
       }
     } else {
       // Scan specific package
@@ -116,6 +120,8 @@ async function scan(packageName, options = {}) {
     return {
       threats,
       packagesScanned,
+      filesScanned,
+      directoryStructure,
       duration: Date.now() - startTime,
       timestamp: new Date().toISOString()
     };
@@ -722,14 +728,9 @@ async function analyzePackageTarball(packageData) {
       }
     }
     
-    // Add summary information
-    if (jsFiles.length > 0) {
-      threats.push({
-        type: 'TARBALL_ANALYSIS',
-        severity: 'INFO',
-        package: packageData.name,
-        details: `Analyzed ${jsFiles.length} JavaScript files from package tarball`
-      });
+    // Add summary information (only in debug mode)
+    if (jsFiles.length > 0 && process.env.NULLVOID_DEBUG) {
+      console.log(`DEBUG: Analyzed ${jsFiles.length} JavaScript files from package tarball`);
     }
     
   } catch (error) {
@@ -1072,13 +1073,11 @@ function analyzeContentEntropy(content, contentType, packageName) {
       });
     } else {
       // High entropy but not suspicious - just complex code
-      threats.push({
-        type: 'COMPLEX_CODE',
-        message: `Complex code detected (entropy: ${entropy.toFixed(2)})`,
-        package: packageName,
-        severity: 'INFO',
-        details: `File contains complex code with entropy ${entropy.toFixed(2)} - this is normal for modern applications`
-      });
+      // Don't report this as it's just noise for users
+      // Only log for debugging purposes
+      if (process.env.NULLVOID_DEBUG) {
+        console.log(`DEBUG: Complex code detected in ${packageName} (entropy: ${entropy.toFixed(2)})`);
+      }
     }
   }
   
@@ -1482,7 +1481,7 @@ if (require.main === module) {
       });
     }
     
-    console.log(`\nScanned ${results.packagesScanned} package(s) in ${results.duration}ms`);
+    console.log(`\nScanned ${results.packagesScanned > 0 ? results.packagesScanned : 1} ${results.packagesScanned > 0 ? 'package' : 'directory'}(s)${results.filesScanned ? `, ${results.filesScanned} file(s)` : ''} in ${results.duration}ms`);
   }).catch(error => {
     console.error('Error:', error.message);
     process.exit(1);
@@ -1494,22 +1493,52 @@ if (require.main === module) {
  */
 async function scanDirectory(dirPath, options = {}) {
   const threats = [];
+  let filesScanned = 0;
+  const directoryStructure = {
+    directories: [],
+    files: [],
+    totalDirectories: 0,
+    totalFiles: 0
+  };
   
   try {
-    // Add directory info to threats for context
-    threats.push({
-      type: 'SCAN_INFO',
-      severity: 'INFO',
-      package: 'Directory Scan',
-      details: `Scanning directory: ${dirPath}`,
-      directory: dirPath
-    });
+    // Add directory info to threats for context (only in debug mode)
+    if (process.env.NULLVOID_DEBUG) {
+      console.log(`DEBUG: Scanning directory: ${dirPath}`);
+    }
+    
+    // Collect directory structure information (only top-level directories)
+    const collectDirectoryInfo = (currentPath, relativePath = '') => {
+      const items = fs.readdirSync(currentPath);
+      for (const item of items) {
+        if (item.startsWith('.')) continue; // Skip hidden files/directories
+        
+        const itemPath = path.join(currentPath, item);
+        const itemRelativePath = relativePath ? path.join(relativePath, item) : item;
+        const stats = fs.statSync(itemPath);
+        
+        if (stats.isDirectory()) {
+          // Only add top-level directories (no nested paths)
+          if (!relativePath) {
+            directoryStructure.directories.push(itemRelativePath);
+          }
+          directoryStructure.totalDirectories++;
+          collectDirectoryInfo(itemPath, itemRelativePath);
+        } else {
+          directoryStructure.files.push(itemRelativePath);
+          directoryStructure.totalFiles++;
+        }
+      }
+    };
+    
+    collectDirectoryInfo(dirPath);
     
     // Get all JavaScript files in the directory
     const jsFiles = await getJavaScriptFiles(dirPath);
     
     for (const filePath of jsFiles) {
       try {
+        filesScanned++;
         const content = fs.readFileSync(filePath, 'utf8');
         // Use relative path from the scanned directory for better context
         const relativePath = path.relative(dirPath, filePath);
@@ -1573,7 +1602,11 @@ async function scanDirectory(dirPath, options = {}) {
     });
   }
   
-  return threats;
+  return {
+    threats,
+    filesScanned,
+    directoryStructure
+  };
 }
 
 /**
