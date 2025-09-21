@@ -8,7 +8,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Planned
-- Real package tarball download and extraction
 - SARIF output format for CI/CD integration
 - Configurable rules system (JSON/YAML)
 - Dependency tree analysis for transitive dependencies
@@ -16,6 +15,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Public IoC feeds integration (Snyk, npm advisories)
 - Signature hashing for tampering detection
 - Structured logging and reporting
+
+## [1.1.1] - 2024-12-20
+
+### Added
+- Enhanced directory structure display for directory scans
+
+## [1.1.0] - 2024-12-20
+
+### Added
+- Real Package Tarball Analysis - Download and extract actual package files for deep scanning
+- `analyzePackageTarball()` function for comprehensive package analysis
+- `downloadTarball()` and `extractTarball()` helper functions
+- `findJavaScriptFiles()` for locating JS/TS files in extracted packages
+- Real code analysis instead of metadata-only scanning
+- Package size limits (10MB max) to prevent resource exhaustion
+- Temporary directory management with automatic cleanup
+
+### Fixed
+- Improved entropy detection messaging to reduce false positives
+- Enhanced entropy thresholds for different content types (JAVASCRIPT: 4.5, JSON: 3.8, TEXT: 3.5, BINARY: 7.0)
+- Only flag entropy > 6.0 as suspicious (vs previous 4.5 threshold)
+- Hide COMPLEX_CODE threats by default (only show in debug mode)
+- Reduced noise from legitimate complex code with high entropy
+
+### Changed
+- Enhanced detection now analyzes actual package source code
+- More accurate threat detection with real file content analysis
+- Better differentiation between obfuscated code and complex legitimate code
+- Improved user experience with fewer false positive warnings
 
 ## [1.1.1] - 2024-12-20
 
