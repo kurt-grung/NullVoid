@@ -16,12 +16,22 @@ const os = require('os');
 const packageCache = new Map();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// Simple performance monitoring
+const performanceMetrics = {
+  startTime: null,
+  packagesScanned: 0,
+  cacheHits: 0,
+  cacheMisses: 0,
+  networkRequests: 0,
+  errors: 0
+};
+
 // Enhanced entropy thresholds for different content types
 const ENTROPY_THRESHOLDS = {
-  JAVASCRIPT: 4.5,    // Higher threshold for JS (more random)
-  JSON: 3.8,          // Lower threshold for JSON
-  TEXT: 3.5,          // General text content
-  BINARY: 7.0         // Binary/encoded content
+  JAVASCRIPT: 5.0,    // Higher threshold for JS (more random)
+  JSON: 4.2,          // Higher threshold for JSON
+  TEXT: 4.0,          // Higher threshold for general text
+  BINARY: 7.5         // Higher threshold for binary/encoded content
 };
 
 // Suspicious package.json patterns
@@ -29,11 +39,15 @@ const SUSPICIOUS_PACKAGE_PATTERNS = {
   scripts: [
     'curl.*http',
     'wget.*http', 
-    'rm -rf',
+    'rm -rf /',
+    'rm -rf ~',
     'chmod.*777',
-    'eval.*',
-    'node.*-e',
-    'bash.*-c'
+    'eval\\(.*\\)',  // More specific eval pattern
+    'node -e.*http', // Only flag node -e with http requests
+    'bash -c.*curl',
+    'bash -c.*wget',
+    'bash -c.*rm',
+    'bash -c.*chmod'
   ],
   dependencies: [
     'http://.*',
@@ -54,8 +68,10 @@ const SUSPICIOUS_PACKAGE_PATTERNS = {
 function getCachedResult(key) {
   const cached = packageCache.get(key);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    performanceMetrics.cacheHits++;
     return cached.data;
   }
+  performanceMetrics.cacheMisses++;
   return null;
 }
 
@@ -79,6 +95,15 @@ async function scan(packageName, options = {}) {
   let filesScanned = 0;
   let directoryStructure = null;
   let dependencyTree = null;
+  let performanceData = null;
+
+  // Reset performance metrics
+  performanceMetrics.startTime = startTime;
+  performanceMetrics.packagesScanned = 0;
+  performanceMetrics.cacheHits = 0;
+  performanceMetrics.cacheMisses = 0;
+  performanceMetrics.networkRequests = 0;
+  performanceMetrics.errors = 0;
 
   try {
     // If no package specified, scan current directory's package.json
@@ -121,13 +146,29 @@ async function scan(packageName, options = {}) {
       dependencyTree = treeResult.tree;
     }
 
+    // Get performance metrics
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+    
+    performanceData = {
+      packagesScanned: performanceMetrics.packagesScanned,
+      cacheHits: performanceMetrics.cacheHits,
+      cacheMisses: performanceMetrics.cacheMisses,
+      cacheHitRate: performanceMetrics.cacheHits / (performanceMetrics.cacheHits + performanceMetrics.cacheMisses) || 0,
+      networkRequests: performanceMetrics.networkRequests,
+      errors: performanceMetrics.errors,
+      packagesPerSecond: performanceMetrics.packagesScanned / (duration / 1000) || 0,
+      duration: duration
+    };
+    
     return {
       threats,
       packagesScanned,
       filesScanned,
       directoryStructure,
       dependencyTree,
-      duration: Date.now() - startTime,
+      performance: performanceData,
+      duration: duration,
       timestamp: new Date().toISOString()
     };
   } catch (error) {
@@ -169,8 +210,15 @@ function analyzeDependencyTree(tree, options) {
     }
     
     // Check for packages with many transitive dependencies (potential attack vectors)
-    const depCount = Object.keys(packageInfo.dependencies).length;
-    if (depCount > 20) {
+    const depCount = packageInfo.dependencies ? Object.keys(packageInfo.dependencies).length : 0;
+    
+    // Higher thresholds for popular frameworks and libraries
+    const popularFrameworks = ['express', 'react', 'vue', 'angular', 'next', 'nuxt', 'svelte', 'webpack', 'babel', 'typescript', 'lodash', 'moment', 'axios', 'jquery'];
+    const isPopularFramework = popularFrameworks.some(framework => packageName.toLowerCase().includes(framework));
+    
+    const threshold = isPopularFramework ? 60 : 40; // Even higher thresholds to reduce false positives
+    
+    if (depCount > threshold) {
       threats.push({
         type: 'HIGH_DEPENDENCY_COUNT',
         message: `Package has unusually high number of dependencies (${depCount})`,
@@ -367,11 +415,15 @@ async function scanPackage(packageName, version, options) {
     // Get package metadata from npm registry
     const packageData = await getPackageMetadata(packageName, version);
     if (!packageData) {
+      performanceMetrics.errors++;
       if (options.verbose) {
         console.warn(`Warning: Could not fetch metadata for ${packageName}`);
       }
       return threats;
     }
+    
+    // Update performance metrics
+    performanceMetrics.packagesScanned++;
 
     // Heuristic 1: Check for postinstall scripts
     const postinstallThreats = await checkPostinstallScripts(packageData);
@@ -405,8 +457,8 @@ async function scanPackage(packageName, version, options) {
     const stealthThreats = await checkStealthControls(packageData);
     threats.push(...stealthThreats);
     
-    // Heuristic 9: Advanced AST analysis
-    const astThreats = await analyzePackageTarball(packageData);
+    // Heuristic 9: Advanced AST analysis (disabled for performance)
+    const astThreats = []; // Disabled tarball analysis
     threats.push(...astThreats);
     
     // Heuristic 10: Check for specific obfuscated IoCs
@@ -449,9 +501,22 @@ async function scanPackage(packageName, version, options) {
 async function getPackageMetadata(packageName, version) {
   return new Promise((resolve, reject) => {
     const url = `https://registry.npmjs.org/${packageName}`;
+    const timeout = 5000; // 5 second timeout
     
-    https.get(url, (res) => {
+    performanceMetrics.networkRequests++;
+    const request = https.get(url, { timeout }, (res) => {
       let data = '';
+      
+      // Handle different status codes
+      if (res.statusCode === 404) {
+        reject(new Error(`Package ${packageName} not found`));
+        return;
+      }
+      
+      if (res.statusCode !== 200) {
+        reject(new Error(`HTTP ${res.statusCode}: ${res.statusMessage}`));
+        return;
+      }
       
       res.on('data', (chunk) => {
         data += chunk;
@@ -468,16 +533,52 @@ async function getPackageMetadata(packageName, version) {
               versionData = packageData.versions[versionData];
             }
           } else {
-            versionData = packageData.versions?.[version];
+            // Handle version ranges by finding the best match
+            if (version.startsWith('^') || version.startsWith('~') || version.startsWith('>=')) {
+              // For version ranges, try to find the latest compatible version
+              const availableVersions = Object.keys(packageData.versions || {});
+              if (availableVersions.length > 0) {
+                // Sort versions and take the latest
+                const sortedVersions = availableVersions.sort((a, b) => {
+                  const aParts = a.split('.').map(Number);
+                  const bParts = b.split('.').map(Number);
+                  for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+                    const aPart = aParts[i] || 0;
+                    const bPart = bParts[i] || 0;
+                    if (aPart !== bPart) return bPart - aPart;
+                  }
+                  return 0;
+                });
+                versionData = packageData.versions[sortedVersions[0]];
+              }
+            } else {
+              versionData = packageData.versions?.[version];
+            }
+          }
+          
+          if (!versionData) {
+            reject(new Error(`Version ${version} not found for package ${packageName}`));
+            return;
           }
           
           resolve(versionData);
         } catch (error) {
-          reject(error);
+          reject(new Error(`Failed to parse package data for ${packageName}: ${error.message}`));
         }
       });
-    }).on('error', (error) => {
-      reject(error);
+      
+      res.on('error', (error) => {
+        reject(new Error(`Network error for ${packageName}: ${error.message}`));
+      });
+    });
+    
+    request.on('timeout', () => {
+      request.destroy();
+      reject(new Error(`Request timeout for ${packageName}`));
+    });
+    
+    request.on('error', (error) => {
+      reject(new Error(`Request error for ${packageName}: ${error.message}`));
     });
   });
 }
@@ -750,17 +851,33 @@ async function downloadTarball(tarballUrl) {
  */
 async function extractTarball(tarballBuffer, tempDir) {
   return new Promise((resolve, reject) => {
-    tar.extract({
-      file: tarballBuffer,
-      cwd: tempDir,
-      strip: 1 // Remove the package-version/ prefix
-    }, (err) => {
-      if (err) {
-        reject(new Error(`Failed to extract tarball: ${err.message}`));
-      } else {
-        resolve();
-      }
-    });
+    // Write buffer to temporary file first
+    const tempTarballPath = path.join(tempDir, 'package.tgz');
+    
+    try {
+      fs.writeFileSync(tempTarballPath, tarballBuffer);
+      
+      tar.extract({
+        file: tempTarballPath,
+        cwd: tempDir,
+        strip: 1 // Remove the package-version/ prefix
+      }, (err) => {
+        // Clean up temporary tarball file
+        try {
+          fs.unlinkSync(tempTarballPath);
+        } catch (cleanupErr) {
+          // Ignore cleanup errors
+        }
+        
+        if (err) {
+          reject(new Error(`Failed to extract tarball: ${err.message}`));
+        } else {
+          resolve();
+        }
+      });
+    } catch (writeErr) {
+      reject(new Error(`Failed to write tarball: ${writeErr.message}`));
+    }
   });
 }
 
@@ -771,14 +888,14 @@ async function extractTarball(tarballBuffer, tempDir) {
  */
 async function findJavaScriptFiles(dirPath) {
   return new Promise((resolve, reject) => {
-    glob('**/*.{js,jsx,ts,tsx,mjs}', {
+    glob.glob('**/*.{js,jsx,ts,tsx,mjs}', {
       cwd: dirPath,
       ignore: ['node_modules/**', '*.min.js', '*.bundle.js']
     }, (err, files) => {
       if (err) {
         reject(err);
       } else {
-        resolve(files);
+        resolve(files || []);
       }
     });
   });
@@ -1283,37 +1400,35 @@ function analyzeContentEntropy(content, contentType, packageName) {
     return threats;
   }
   
+  // Skip analysis for package.json files to reduce false positives
+  if (packageName.includes('package.json') || contentType === 'JSON') {
+    return threats;
+  }
+  
   const entropy = calculateShannonEntropy(content);
   const threshold = ENTROPY_THRESHOLDS[contentType] || ENTROPY_THRESHOLDS.TEXT;
   
-  if (entropy > threshold) {
-    // Only flag as suspicious if entropy is VERY high (indicating obfuscation)
-    // Normal complex code has entropy 4.0-5.0, obfuscated code has entropy > 6.0
-    if (entropy > 6.0) {
-      threats.push({
-        type: 'SUSPICIOUS_ENTROPY',
-        message: `Suspicious high entropy detected (${entropy.toFixed(2)} > 6.0)`,
-        package: packageName,
-        severity: 'HIGH',
-        details: `Content has suspiciously high entropy (${entropy.toFixed(2)}) - possible obfuscation or packed code`
-      });
-    } else {
-      // High entropy but not suspicious - just complex code
-      // Don't report this as it's just noise for users
-      // Only log for debugging purposes
-      if (process.env.NULLVOID_DEBUG) {
-        console.log(`DEBUG: Complex code detected in ${packageName} (entropy: ${entropy.toFixed(2)})`);
-      }
-    }
+  // Only flag as suspicious if entropy is EXTREMELY high (indicating obfuscation)
+  // Normal complex code has entropy 4.0-5.0, obfuscated code has entropy > 7.0
+  if (entropy > 7.0) {
+    threats.push({
+      type: 'SUSPICIOUS_ENTROPY',
+      message: `Suspicious high entropy detected (${entropy.toFixed(2)} > 7.0)`,
+      package: packageName,
+      severity: 'HIGH',
+      details: `Content has suspiciously high entropy (${entropy.toFixed(2)}) - possible obfuscation or packed code`
+    });
   }
   
-  // Check for specific high-entropy patterns
+  // Check for specific high-entropy patterns - but be much more conservative
   const lines = content.split('\n');
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (line.length > 50) {
+    // Only check very long lines (likely obfuscated)
+    if (line.length > 200) {
       const lineEntropy = calculateShannonEntropy(line);
-      if (lineEntropy > threshold + 1.0) { // Even higher threshold for individual lines
+      // Much higher threshold for individual lines - only flag obvious obfuscation
+      if (lineEntropy > 7.5) {
         threats.push({
           type: 'SUSPICIOUS_LINE',
           message: `Suspicious high entropy line detected at line ${i + 1}`,
@@ -1375,11 +1490,13 @@ async function scanNodeModules(nodeModulesPath, options) {
                   scriptContent.includes('rm -rf /') ||
                   scriptContent.includes('rm -rf ~') ||
                   scriptContent.includes('eval(') ||
-                  scriptContent.includes('bash -c') ||
-                  scriptContent.includes('node -e') ||
+                  scriptContent.includes('bash -c "curl') ||
+                  scriptContent.includes('bash -c "wget') ||
+                  scriptContent.includes('bash -c "rm') ||
+                  scriptContent.includes('node -e "http') ||
                   scriptContent.includes('chmod 777') ||
-                  scriptContent.includes('curl -s') ||
-                  scriptContent.includes('wget -q')) {
+                  scriptContent.includes('curl -s http') ||
+                  scriptContent.includes('wget -q http')) {
                 threats.push({
                   type: 'SUSPICIOUS_NODE_MODULE',
                   message: `Suspicious package found in node_modules: ${packageName}`,
@@ -1921,5 +2038,6 @@ module.exports = {
   scanDirectory,
   buildAndScanDependencyTree,
   analyzeDependencyTree,
-  detectCircularDependencies
+  detectCircularDependencies,
+  calculateShannonEntropy
 };

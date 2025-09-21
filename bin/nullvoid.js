@@ -103,6 +103,16 @@ function displayResults(results, options = {}) {
     console.log(chalk.gray(`   Deep dependencies (depth ≥2): ${treeStats.deepDependencies}`));
   }
   
+  // Show performance metrics
+  if (results.performance && options.verbose) {
+    console.log(chalk.blue(`\n⚡ Performance Metrics:`));
+    console.log(chalk.gray(`   Cache hit rate: ${(results.performance.cacheHitRate * 100).toFixed(1)}%`));
+    console.log(chalk.gray(`   Packages per second: ${results.performance.packagesPerSecond.toFixed(1)}`));
+    console.log(chalk.gray(`   Network requests: ${results.performance.networkRequests}`));
+    console.log(chalk.gray(`   Errors: ${results.performance.errors}`));
+    console.log(chalk.gray(`   Duration: ${results.performance.duration}ms`));
+  }
+  
   console.log(chalk.gray(`\nScanned ${results.packagesScanned > 0 ? results.packagesScanned : 1} ${results.packagesScanned > 0 ? 'package' : 'directory'}(s)${results.filesScanned ? `, ${results.filesScanned} file(s)` : ''} in ${results.duration}ms`));
 }
 
