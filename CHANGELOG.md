@@ -10,11 +10,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Planned
 - SARIF output format for CI/CD integration
 - Configurable rules system (JSON/YAML)
-- Dependency tree analysis for transitive dependencies
 - Parallel scanning for performance improvements
 - Public IoC feeds integration (Snyk, npm advisories)
 - Signature hashing for tampering detection
 - Structured logging and reporting
+
+## [1.2.0] - 2024-12-20
+
+### Added
+- **Dependency Tree Analysis** - Comprehensive scanning of transitive dependencies
+- `buildAndScanDependencyTree()` function for deep dependency analysis
+- `analyzeDependencyTree()` function for tree structure threat analysis
+- `detectCircularDependencies()` function for circular dependency detection
+- `--depth` CLI option to control maximum scanning depth (default: 3)
+- `--tree` CLI option to display dependency tree structure
+- Enhanced CLI output with dependency tree visualization and statistics
+- Deep dependency threat detection (packages at depth 2+ with threats)
+- Suspicious package name detection in dependency chains
+- High dependency count warnings (packages with >20 dependencies)
+- Circular dependency detection and reporting
+
+### Changed
+- Default scanning now includes transitive dependencies up to 3 levels deep
+- Enhanced threat reporting with dependency tree context
+- Improved CLI output with tree statistics and visualization
+- Better performance with circular dependency detection
+
+### Fixed
+- Enhanced dependency scanning to catch threats hidden in deep dependency chains
+- Improved detection of malicious packages that hide behind legitimate dependencies
+- Better handling of complex dependency structures
 
 ## [1.1.1] - 2024-12-20
 

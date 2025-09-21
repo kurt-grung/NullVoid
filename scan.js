@@ -78,6 +78,7 @@ async function scan(packageName, options = {}) {
   let packagesScanned = 0;
   let filesScanned = 0;
   let directoryStructure = null;
+  let dependencyTree = null;
 
   try {
     // If no package specified, scan current directory's package.json
@@ -90,11 +91,12 @@ async function scan(packageName, options = {}) {
           ...packageJson.devDependencies
         };
         
-        for (const [name, version] of Object.entries(dependencies)) {
-          const packageThreats = await scanPackage(name, version, options);
-          threats.push(...packageThreats);
-          packagesScanned++;
-        }
+        // Build dependency tree and scan all transitive dependencies
+        const maxDepth = options.maxDepth || 3; // Default to 3 levels deep
+        const treeResult = await buildAndScanDependencyTree(dependencies, maxDepth, options);
+        threats.push(...treeResult.threats);
+        packagesScanned = treeResult.packagesScanned;
+        dependencyTree = treeResult.tree;
         
         // Also scan node_modules directory for additional threats
         // Note: Disabled due to false positives with legitimate packages
@@ -111,10 +113,12 @@ async function scan(packageName, options = {}) {
         directoryStructure = directoryResult.directoryStructure;
       }
     } else {
-      // Scan specific package
-      const packageThreats = await scanPackage(packageName, 'latest', options);
-      threats.push(...packageThreats);
-      packagesScanned = 1;
+      // Scan specific package with dependency tree analysis
+      const maxDepth = options.maxDepth || 3;
+      const treeResult = await buildAndScanDependencyTree({ [packageName]: 'latest' }, maxDepth, options);
+      threats.push(...treeResult.threats);
+      packagesScanned = treeResult.packagesScanned;
+      dependencyTree = treeResult.tree;
     }
 
     return {
@@ -122,12 +126,224 @@ async function scan(packageName, options = {}) {
       packagesScanned,
       filesScanned,
       directoryStructure,
+      dependencyTree,
       duration: Date.now() - startTime,
       timestamp: new Date().toISOString()
     };
   } catch (error) {
     throw new Error(`Scan failed: ${error.message}`);
   }
+}
+
+/**
+ * Analyze dependency tree for hidden threats and suspicious patterns
+ * @param {object} tree - Dependency tree structure
+ * @param {object} options - Scan options
+ * @returns {Array} Array of additional threats found
+ */
+function analyzeDependencyTree(tree, options) {
+  const threats = [];
+  
+  // Analyze tree structure for suspicious patterns
+  const packageNames = Object.keys(tree);
+  const suspiciousPackages = [];
+  const deepDependencies = [];
+  
+  for (const [packageName, packageInfo] of Object.entries(tree)) {
+    // Check for suspicious package names
+    if (packageName.match(/^[a-z0-9]{32,}$/) || // Random-looking names
+        packageName.includes('malware') ||
+        packageName.includes('virus') ||
+        packageName.includes('trojan') ||
+        packageName.includes('backdoor')) {
+      suspiciousPackages.push(packageName);
+    }
+    
+    // Check for deep dependency chains (potential hiding spots)
+    if (packageInfo.depth >= 2) {
+      deepDependencies.push({
+        name: packageName,
+        depth: packageInfo.depth,
+        threatCount: packageInfo.threats.length
+      });
+    }
+    
+    // Check for packages with many transitive dependencies (potential attack vectors)
+    const depCount = Object.keys(packageInfo.dependencies).length;
+    if (depCount > 20) {
+      threats.push({
+        type: 'HIGH_DEPENDENCY_COUNT',
+        message: `Package has unusually high number of dependencies (${depCount})`,
+        package: packageName,
+        severity: 'MEDIUM',
+        details: `Package "${packageName}" has ${depCount} dependencies, which could be used to hide malicious code`
+      });
+    }
+  }
+  
+  // Report suspicious package names
+  for (const packageName of suspiciousPackages) {
+    threats.push({
+      type: 'SUSPICIOUS_PACKAGE_NAME',
+      message: `Suspicious package name detected: ${packageName}`,
+      package: packageName,
+      severity: 'HIGH',
+      details: `Package name "${packageName}" appears suspicious or randomly generated`
+    });
+  }
+  
+  // Report deep dependencies with threats
+  const deepThreats = deepDependencies.filter(dep => dep.threatCount > 0);
+  if (deepThreats.length > 0) {
+    threats.push({
+      type: 'DEEP_DEPENDENCY_THREATS',
+      message: `Threats found in deep dependency chain`,
+      package: 'dependency-tree',
+      severity: 'HIGH',
+      details: `Found ${deepThreats.length} packages with threats at depth 2+: ${deepThreats.map(d => `${d.name} (depth ${d.depth})`).join(', ')}`
+    });
+  }
+  
+  // Check for circular dependencies (potential attack vectors)
+  const circularDeps = detectCircularDependencies(tree);
+  if (circularDeps.length > 0) {
+    threats.push({
+      type: 'CIRCULAR_DEPENDENCIES',
+      message: `Circular dependencies detected`,
+      package: 'dependency-tree',
+      severity: 'MEDIUM',
+      details: `Found circular dependencies: ${circularDeps.join(', ')}`
+    });
+  }
+  
+  return threats;
+}
+
+/**
+ * Detect circular dependencies in the tree
+ * @param {object} tree - Dependency tree
+ * @returns {Array} Array of circular dependency chains
+ */
+function detectCircularDependencies(tree) {
+  const circular = [];
+  const visited = new Set();
+  const recursionStack = new Set();
+  
+  function dfs(packageName, path) {
+    if (recursionStack.has(packageName)) {
+      // Found a cycle
+      const cycleStart = path.indexOf(packageName);
+      const cycle = path.slice(cycleStart).concat(packageName);
+      circular.push(cycle.join(' -> '));
+      return;
+    }
+    
+    if (visited.has(packageName)) {
+      return;
+    }
+    
+    visited.add(packageName);
+    recursionStack.add(packageName);
+    
+    const packageInfo = tree[packageName];
+    if (packageInfo && packageInfo.dependencies) {
+      for (const depName of Object.keys(packageInfo.dependencies)) {
+        dfs(depName, [...path, packageName]);
+      }
+    }
+    
+    recursionStack.delete(packageName);
+  }
+  
+  for (const packageName of Object.keys(tree)) {
+    if (!visited.has(packageName)) {
+      dfs(packageName, []);
+    }
+  }
+  
+  return circular;
+}
+
+/**
+ * Build and scan dependency tree for transitive dependencies
+ * @param {object} dependencies - Direct dependencies from package.json
+ * @param {number} maxDepth - Maximum depth to traverse
+ * @param {object} options - Scan options
+ * @returns {Promise<object>} Tree scan results
+ */
+async function buildAndScanDependencyTree(dependencies, maxDepth, options) {
+  const threats = [];
+  const tree = {};
+  const scannedPackages = new Set();
+  let packagesScanned = 0;
+
+  // Process dependencies level by level
+  let currentLevel = Object.entries(dependencies);
+  let depth = 0;
+
+  while (currentLevel.length > 0 && depth < maxDepth) {
+    const nextLevel = [];
+    
+    for (const [packageName, version] of currentLevel) {
+      // Skip if already scanned (avoid circular dependencies)
+      const packageKey = `${packageName}@${version}`;
+      if (scannedPackages.has(packageKey)) {
+        continue;
+      }
+      
+      scannedPackages.add(packageKey);
+      
+      // Initialize tree structure
+      if (!tree[packageName]) {
+        tree[packageName] = {
+          version: version || 'unknown',
+          depth,
+          threats: [],
+          dependencies: {}
+        };
+      }
+      
+      // Scan the package
+      const packageThreats = await scanPackage(packageName, version, options);
+      threats.push(...packageThreats);
+      tree[packageName].threats = packageThreats;
+      packagesScanned++;
+      
+      // Get package dependencies for next level
+      try {
+        const packageData = await getPackageMetadata(packageName, version);
+        if (packageData && packageData.dependencies) {
+          const packageDeps = Object.entries(packageData.dependencies);
+          tree[packageName].dependencies = Object.fromEntries(packageDeps);
+          
+          // Add to next level if not already scanned
+          for (const [depName, depVersion] of packageDeps) {
+            const depKey = `${depName}@${depVersion || 'unknown'}`;
+            if (!scannedPackages.has(depKey)) {
+              nextLevel.push([depName, depVersion || 'latest']);
+            }
+          }
+        }
+      } catch (error) {
+        if (options.verbose) {
+          console.warn(`Warning: Could not get dependencies for ${packageName}: ${error.message}`);
+        }
+      }
+    }
+    
+    currentLevel = nextLevel;
+    depth++;
+  }
+
+  // Analyze the complete dependency tree for additional threats
+  const treeThreats = analyzeDependencyTree(tree, options);
+  threats.push(...treeThreats);
+
+  return {
+    threats,
+    packagesScanned,
+    tree
+  };
 }
 
 /**
@@ -244,7 +460,17 @@ async function getPackageMetadata(packageName, version) {
       res.on('end', () => {
         try {
           const packageData = JSON.parse(data);
-          const versionData = packageData.versions?.[version] || packageData['dist-tags']?.latest;
+          let versionData;
+          
+          if (version === 'latest') {
+            versionData = packageData['dist-tags']?.latest;
+            if (versionData) {
+              versionData = packageData.versions[versionData];
+            }
+          } else {
+            versionData = packageData.versions?.[version];
+          }
+          
           resolve(versionData);
         } catch (error) {
           reject(error);
@@ -1692,5 +1918,8 @@ module.exports = {
   detectDynamicRequires,
   analyzeContentEntropy,
   scanNodeModules,
-  scanDirectory
+  scanDirectory,
+  buildAndScanDependencyTree,
+  analyzeDependencyTree,
+  detectCircularDependencies
 };

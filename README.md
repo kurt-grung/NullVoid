@@ -166,6 +166,8 @@ NullVoid detects the exact obfuscated strings and patterns used in the recent at
 |--------|-------------|---------|
 | `--verbose` | Enable detailed output | `false` |
 | `--output <format>` | Output format (json, table) | `table` |
+| `--depth <number>` | Maximum dependency tree depth to scan | `3` |
+| `--tree` | Show dependency tree structure in output | `false` |
 | `--version` | Show version information | - |
 | `--help` | Show help information | - |
 
@@ -194,13 +196,67 @@ Scanned 15 package(s) in 234ms
 - **MEDIUM**: Suspicious behavior requiring review
 - **LOW**: Minor concerns or best practice violations
 
+## 🌳 Dependency Tree Analysis
+
+NullVoid now includes comprehensive **Dependency Tree Analysis** to scan transitive dependencies for hidden threats:
+
+### **Deep Dependency Scanning**
+- **Transitive Dependencies**: Scans all dependencies up to 3 levels deep by default
+- **Hidden Threats**: Detects malicious packages buried deep in dependency chains
+- **Circular Dependencies**: Identifies circular dependency patterns that could hide attacks
+- **Suspicious Package Names**: Flags packages with randomly generated or suspicious names
+
+### **Tree Structure Analysis**
+- **Depth Controls**: Configure maximum scanning depth with `--depth` option
+- **Tree Visualization**: View complete dependency tree with `--tree` flag
+- **Threat Mapping**: See exactly where threats are located in the dependency chain
+- **Statistics**: Get comprehensive analysis of your dependency tree
+
+### **Usage Examples**
+
+```bash
+# Scan with dependency tree analysis (default depth: 3)
+npx nullvoid scan
+
+# Scan deeper dependency chains
+npx nullvoid scan --depth 5
+
+# Show dependency tree structure
+npx nullvoid scan --tree
+
+# Verbose output with tree details
+npx nullvoid scan --tree --verbose
+
+# JSON output with full tree data
+npx nullvoid scan --output json
+```
+
+### **Example Output**
+
+```
+🌳 Dependency Tree Structure:
+express@4.18.2 [25 deps]
+  accepts@1.3.8 [3 deps]
+  array-flatten@1.1.1
+  body-parser@1.20.1 [8 deps]
+    bytes@3.1.2
+    content-type@1.0.4
+    debug@2.6.9 (1 threat) ⚠ WALLET_HIJACKING: Package may contain wallet hijacking code
+    depd@2.0.0
+
+📊 Dependency Tree Analysis:
+   Total packages scanned: 45
+   Max depth reached: 3
+   Packages with threats: 2
+   Deep dependencies (depth ≥2): 12
+```
+
 ## 🚀 Upcoming Features
 
 ### High Priority
-- **Real Package Tarball Analysis** - Download and extract actual package files for deep scanning
 - **SARIF Output Format** - Better CI/CD integration with standardized security reporting
 - **Configurable Rules System** - JSON/YAML configuration for custom detection patterns
-- **Dependency Tree Analysis** - Scan transitive dependencies for hidden threats
+- **Parallel Scanning** - Multi-threaded analysis for faster results
 
 ### Performance & Integration
 - **Parallel Scanning** - Multi-threaded analysis for faster results
