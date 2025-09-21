@@ -6,6 +6,7 @@ This directory contains detailed release notes for all NullVoid versions.
 
 | Version | Date | Release Notes | Key Features |
 |---------|------|---------------|--------------|
+| **[v1.2.0](v1.2.0.md)** | Dec 20, 2024 | Dependency Tree Analysis | Transitive dependency scanning, tree visualization, depth controls |
 | **[v1.1.1](v1.1.1.md)** | Dec 20, 2024 | Enhanced Directory Structure Display | Directory structure breakdown, scan type detection |
 | **[v1.1.0](v1.1.0.md)** | Dec 20, 2024 | Real Package Tarball Analysis | Real code analysis, entropy improvements |
 | **[v1.0.5](v1.0.5.md)** | Dec 19, 2024 | Enhanced Directory Path Display | Full file paths, directory context |
@@ -18,6 +19,7 @@ This directory contains detailed release notes for all NullVoid versions.
 ## 🎯 **Quick Navigation**
 
 ### **Major Releases**
+- **[v1.2.0](v1.2.0.md)** - Dependency Tree Analysis (Major Feature)
 - **[v1.1.0](v1.1.0.md)** - Real Package Tarball Analysis (Major Feature)
 - **[v1.0.0](v1.0.0.md)** - Initial Release (Foundation)
 
@@ -33,8 +35,8 @@ This directory contains detailed release notes for all NullVoid versions.
 
 ## 📊 **Release Statistics**
 
-- **Total Releases**: 8
-- **Major Releases**: 2 (v1.0.0, v1.1.0)
+- **Total Releases**: 9
+- **Major Releases**: 3 (v1.0.0, v1.1.0, v1.2.0)
 - **Feature Releases**: 4 (v1.0.1, v1.0.2, v1.0.3, v1.1.1)
 - **Bug Fix Releases**: 2 (v1.0.4, v1.0.5)
 - **Release Period**: December 19-20, 2024
@@ -42,8 +44,9 @@ This directory contains detailed release notes for all NullVoid versions.
 ## 📊 **Release Timeline**
 
 ```
-v1.0.0 ──► v1.0.1 ──► v1.0.2 ──► v1.0.3 ──► v1.0.4 ──► v1.0.5 ──► v1.1.0 ──► v1.1.1
-  │         │         │         │         │         │         │         │
+v1.0.0 ──► v1.0.1 ──► v1.0.2 ──► v1.0.3 ──► v1.0.4 ──► v1.0.5 ──► v1.1.0 ──► v1.1.1 ──► v1.2.0
+  │         │         │         │         │         │         │         │         │
+  │         │         │         │         │         │         │         │         └─ Dependency Tree Analysis
   │         │         │         │         │         │         │         └─ Enhanced directory structure display
   │         │         │         │         │         │         └─ Real Package Tarball Analysis
   │         │         │         │         │         └─ Enhanced directory path display
