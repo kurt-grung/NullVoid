@@ -15,6 +15,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GPG signature support
 - Blockchain integration for immutable signatures
 
+## [1.3.5] - 2024-12-21
+
+### Security
+- **Removed Chalk Dependency**: Eliminated supply chain risk from compromised chalk package
+- **Custom ANSI Implementation**: Replaced chalk with raw ANSI color codes
+- **Zero External Dependencies**: Eliminated 56 transitive dependencies from chalk
+- **Maintained Functionality**: All color output features preserved with identical API
+
+### Technical Details
+- **New File**: `colors.js` - Custom ANSI color implementation
+- **Compatibility**: Full backward compatibility with existing chalk API
+- **Performance**: Slightly improved performance due to reduced dependency overhead
+- **Security**: Eliminated potential vulnerabilities from compromised packages
+
 ## [1.3.4] - 2024-12-21
 
 ### Added

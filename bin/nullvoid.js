@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const { program } = require('commander');
-const chalk = require('chalk');
+const chalk = require('../colors');
 const ora = require('ora');
 const { scan } = require('../scan');
 const packageJson = require('../package.json');
