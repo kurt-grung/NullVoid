@@ -6,6 +6,7 @@ This directory contains detailed release notes for all NullVoid versions.
 
 | Version | Date | Release Notes | Key Features |
 |---------|------|---------------|--------------|
+| **[v1.3.0](v1.3.0.md)** | Dec 21, 2024 | Signature Verification & Tampering Detection | Package signature verification, integrity validation, tampering detection |
 | **[v1.2.1](v1.2.1.md)** | Dec 21, 2024 | False Positive Reduction | Tuned detection thresholds, reduced false positives |
 | **[v1.2.0](v1.2.0.md)** | Dec 20, 2024 | Dependency Tree Analysis | Transitive dependency scanning, tree visualization, depth controls |
 | **[v1.1.1](v1.1.1.md)** | Dec 20, 2024 | Enhanced Directory Structure Display | Directory structure breakdown, scan type detection |
@@ -20,6 +21,7 @@ This directory contains detailed release notes for all NullVoid versions.
 ## 🎯 **Quick Navigation**
 
 ### **Major Releases**
+- **[v1.3.0](v1.3.0.md)** - Signature Verification & Tampering Detection (Major Feature)
 - **[v1.2.0](v1.2.0.md)** - Dependency Tree Analysis (Major Feature)
 - **[v1.1.0](v1.1.0.md)** - Real Package Tarball Analysis (Major Feature)
 - **[v1.0.0](v1.0.0.md)** - Initial Release (Foundation)
@@ -31,22 +33,25 @@ This directory contains detailed release notes for all NullVoid versions.
 - **[v1.0.1](v1.0.1.md)** - Professional Badges & IoC Detection
 
 ### **Bug Fix Releases**
+- **[v1.2.1](v1.2.1.md)** - False Positive Reduction
 - **[v1.0.5](v1.0.5.md)** - Enhanced Directory Path Display
 - **[v1.0.4](v1.0.4.md)** - CLI Version Display Fix
 
 ## 📊 **Release Statistics**
 
-- **Total Releases**: 9
-- **Major Releases**: 3 (v1.0.0, v1.1.0, v1.2.0)
+- **Total Releases**: 10
+- **Major Releases**: 4 (v1.0.0, v1.1.0, v1.2.0, v1.3.0)
 - **Feature Releases**: 4 (v1.0.1, v1.0.2, v1.0.3, v1.1.1)
-- **Bug Fix Releases**: 2 (v1.0.4, v1.0.5)
-- **Release Period**: December 19-20, 2024
+- **Bug Fix Releases**: 3 (v1.0.4, v1.0.5, v1.2.1)
+- **Release Period**: December 19-21, 2024
 
 ## 📊 **Release Timeline**
 
 ```
-v1.0.0 ──► v1.0.1 ──► v1.0.2 ──► v1.0.3 ──► v1.0.4 ──► v1.0.5 ──► v1.1.0 ──► v1.1.1 ──► v1.2.0
-  │         │         │         │         │         │         │         │         │
+v1.0.0 ──► v1.0.1 ──► v1.0.2 ──► v1.0.3 ──► v1.0.4 ──► v1.0.5 ──► v1.1.0 ──► v1.1.1 ──► v1.2.0 ──► v1.2.1 ──► v1.3.0
+  │         │         │         │         │         │         │         │         │         │         │
+  │         │         │         │         │         │         │         │         │         │         └─ Signature Verification & Tampering Detection
+  │         │         │         │         │         │         │         │         │         └─ False Positive Reduction
   │         │         │         │         │         │         │         │         └─ Dependency Tree Analysis
   │         │         │         │         │         │         │         └─ Enhanced directory structure display
   │         │         │         │         │         │         └─ Real Package Tarball Analysis

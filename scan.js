@@ -118,7 +118,7 @@ async function scan(packageName, options = {}) {
         
         // Build dependency tree and scan all transitive dependencies
         const maxDepth = options.maxDepth || 3; // Default to 3 levels deep
-        const treeResult = await buildAndScanDependencyTree(dependencies, maxDepth, options);
+        const treeResult = await buildAndScanDependencyTree(dependencies, maxDepth, options, 'root');
         threats.push(...treeResult.threats);
         packagesScanned = treeResult.packagesScanned;
         dependencyTree = treeResult.tree;
@@ -138,12 +138,43 @@ async function scan(packageName, options = {}) {
         directoryStructure = directoryResult.directoryStructure;
       }
     } else {
-      // Scan specific package with dependency tree analysis
-      const maxDepth = options.maxDepth || 3;
-      const treeResult = await buildAndScanDependencyTree({ [packageName]: 'latest' }, maxDepth, options);
-      threats.push(...treeResult.threats);
-      packagesScanned = treeResult.packagesScanned;
-      dependencyTree = treeResult.tree;
+      // Check if packageName is a directory path
+      const fs = require('fs');
+      const path = require('path');
+      
+      if (fs.existsSync(packageName) && fs.statSync(packageName).isDirectory()) {
+        // Scan directory for package.json files and suspicious patterns
+        const directoryResult = await scanDirectory(packageName, options);
+        threats.push(...directoryResult.threats);
+        filesScanned = directoryResult.filesScanned;
+        packagesScanned = directoryResult.packagesScanned || 0;
+        directoryStructure = directoryResult.directoryStructure;
+        
+        // Also scan any package.json files found in the directory
+        const packageJsonPath = path.join(packageName, 'package.json');
+        if (fs.existsSync(packageJsonPath)) {
+          const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+          const dependencies = {
+            ...packageJson.dependencies,
+            ...packageJson.devDependencies
+          };
+          
+          if (Object.keys(dependencies).length > 0) {
+            const maxDepth = options.maxDepth || 3;
+            const treeResult = await buildAndScanDependencyTree(dependencies, maxDepth, options, 'root');
+            threats.push(...treeResult.threats);
+            packagesScanned += treeResult.packagesScanned;
+            dependencyTree = treeResult.tree;
+          }
+        }
+      } else {
+        // Scan specific package with dependency tree analysis
+        const maxDepth = options.maxDepth || 3;
+        const treeResult = await buildAndScanDependencyTree({ [packageName]: 'latest' }, maxDepth, options, null);
+        threats.push(...treeResult.threats);
+        packagesScanned = treeResult.packagesScanned;
+        dependencyTree = treeResult.tree;
+      }
     }
 
     // Get performance metrics
@@ -319,20 +350,26 @@ function detectCircularDependencies(tree) {
  * @param {object} options - Scan options
  * @returns {Promise<object>} Tree scan results
  */
-async function buildAndScanDependencyTree(dependencies, maxDepth, options) {
+async function buildAndScanDependencyTree(dependencies, maxDepth, options, rootPackage = null) {
   const threats = [];
   const tree = {};
   const scannedPackages = new Set();
   let packagesScanned = 0;
 
   // Process dependencies level by level
-  let currentLevel = Object.entries(dependencies);
+  let currentLevel = Object.entries(dependencies).map(([name, version]) => ({
+    name,
+    version,
+    path: rootPackage && rootPackage !== name ? `${rootPackage} → ${name}` : name
+  }));
   let depth = 0;
 
   while (currentLevel.length > 0 && depth < maxDepth) {
     const nextLevel = [];
     
-    for (const [packageName, version] of currentLevel) {
+    for (const packageInfo of currentLevel) {
+      const { name: packageName, version, path: packagePath } = packageInfo;
+      
       // Skip if already scanned (avoid circular dependencies)
       const packageKey = `${packageName}@${version}`;
       if (scannedPackages.has(packageKey)) {
@@ -352,7 +389,7 @@ async function buildAndScanDependencyTree(dependencies, maxDepth, options) {
       }
       
       // Scan the package
-      const packageThreats = await scanPackage(packageName, version, options);
+      const packageThreats = await scanPackage(packageName, version, options, packagePath);
       threats.push(...packageThreats);
       tree[packageName].threats = packageThreats;
       packagesScanned++;
@@ -368,7 +405,11 @@ async function buildAndScanDependencyTree(dependencies, maxDepth, options) {
           for (const [depName, depVersion] of packageDeps) {
             const depKey = `${depName}@${depVersion || 'unknown'}`;
             if (!scannedPackages.has(depKey)) {
-              nextLevel.push([depName, depVersion || 'latest']);
+              nextLevel.push({
+                name: depName,
+                version: depVersion || 'latest',
+                path: packagePath.includes(depName) ? packagePath : `${packagePath} → ${depName}`
+              });
             }
           }
         }
@@ -401,7 +442,7 @@ async function buildAndScanDependencyTree(dependencies, maxDepth, options) {
  * @param {object} options - Scan options
  * @returns {Promise<Array>} Array of threats found
  */
-async function scanPackage(packageName, version, options) {
+async function scanPackage(packageName, version, options, packagePath = null) {
   const threats = [];
   
   try {
@@ -480,6 +521,10 @@ async function scanPackage(packageName, version, options) {
     const enhancedEntropyThreats = analyzeContentEntropy(packageContent, 'JSON', packageName);
     threats.push(...enhancedEntropyThreats);
     
+    // Heuristic 14: Signature verification and tampering detection
+    const signatureThreats = await checkPackageSignatures(packageData, packageName, options);
+    threats.push(...signatureThreats);
+    
     // Cache the results
     setCachedResult(cacheKey, threats);
     
@@ -487,6 +532,38 @@ async function scanPackage(packageName, version, options) {
     if (options.verbose) {
       console.warn(`Warning: Could not scan ${packageName}: ${error.message}`);
     }
+  }
+  
+  // Add package path to threats if provided
+  if (packagePath) {
+    threats.forEach(threat => {
+      // Try to find the actual file system path for the package
+      const fs = require('fs');
+      const path = require('path');
+      
+      // Check common locations for the package
+      const possiblePaths = [
+        path.join(process.cwd(), 'node_modules', packageName),
+        path.join(process.cwd(), 'node_modules', packageName, 'package.json'),
+        path.join('/usr/local/lib/node_modules', packageName),
+        path.join('/usr/local/lib/node_modules', packageName, 'package.json'),
+        path.join(process.env.HOME, '.npm', 'packages', packageName),
+        path.join(process.env.HOME, '.npm', 'packages', packageName, 'package.json'),
+        path.join(process.env.HOME, '.npm', '_cacache', 'content-v2', 'sha512'),
+        path.join('/usr/local/share/.cache/npm', packageName),
+        path.join(process.env.HOME, '.npm-global', 'lib', 'node_modules', packageName)
+      ];
+      
+      let actualPath = null;
+      for (const possiblePath of possiblePaths) {
+        if (fs.existsSync(possiblePath)) {
+          actualPath = possiblePath;
+          break;
+        }
+      }
+      
+      threat.packagePath = actualPath || `/npm/registry/${packageName}`;
+    });
   }
   
   return threats;
@@ -2027,12 +2104,384 @@ async function getSuspiciousFiles(dirPath) {
   return suspiciousFiles;
 }
 
+/**
+ * Check package signatures and detect tampering
+ * @param {object} packageData - Package metadata
+ * @param {string} packageName - Package name
+ * @param {object} options - Scan options
+ * @returns {Promise<Array>} Array of signature-related threats
+ */
+async function checkPackageSignatures(packageData, packageName, options) {
+  const threats = [];
+  
+  if (!packageData) {
+    return threats;
+  }
+  
+  try {
+    // Check 1: Package integrity verification
+    const integrityThreats = await checkPackageIntegrity(packageData, packageName);
+    threats.push(...integrityThreats);
+    
+    // Check 2: Tarball signature verification
+    const tarballThreats = await checkTarballSignatures(packageData, packageName, options);
+    threats.push(...tarballThreats);
+    
+    // Check 3: Package.json signature validation
+    const packageJsonThreats = await checkPackageJsonSignatures(packageData, packageName);
+    threats.push(...packageJsonThreats);
+    
+    // Check 4: Maintainer signature verification
+    const maintainerThreats = await checkMaintainerSignatures(packageData, packageName);
+    threats.push(...maintainerThreats);
+    
+  } catch (error) {
+    if (options.verbose) {
+      console.warn(`Warning: Could not verify signatures for ${packageName}: ${error.message}`);
+    }
+  }
+  
+  return threats;
+}
+
+/**
+ * Check package integrity using checksums and hashes
+ * @param {object} packageData - Package metadata
+ * @param {string} packageName - Package name
+ * @returns {Promise<Array>} Array of integrity threats
+ */
+async function checkPackageIntegrity(packageData, packageName) {
+  const threats = [];
+  
+  try {
+    // Check if package has integrity field (npm 5+)
+    if (packageData.integrity) {
+      // Verify the integrity hash format
+      const integrityPattern = /^sha[0-9]+-[A-Za-z0-9+/=]+$/;
+      if (!integrityPattern.test(packageData.integrity)) {
+        threats.push({
+          type: 'SUSPICIOUS_INTEGRITY',
+          message: 'Package has malformed integrity hash',
+          package: packageName,
+          severity: 'HIGH',
+          details: `Package "${packageName}" has suspicious integrity hash format: ${packageData.integrity}`
+        });
+      }
+    }
+    
+    // Check for missing integrity (potential tampering)
+    if (!packageData.integrity && packageData.version) {
+      // Only flag if this is a recent package (npm 5+ should have integrity)
+      const version = packageData.version;
+      const majorVersion = parseInt(version.split('.')[0]);
+      
+      if (majorVersion >= 1) { // Most packages should have integrity
+        threats.push({
+          type: 'MISSING_INTEGRITY',
+          message: 'Package missing integrity verification',
+          package: packageName,
+          severity: 'MEDIUM',
+          details: `Package "${packageName}" is missing integrity hash, which could indicate tampering or old package format`
+        });
+      }
+    }
+    
+    // Check for suspicious version jumps (potential account takeover)
+    if (packageData.time && packageData.time[packageData.version]) {
+      const versionTimes = Object.keys(packageData.time)
+        .filter(v => v !== 'created' && v !== 'modified')
+        .map(v => ({ version: v, time: new Date(packageData.time[v]) }))
+        .sort((a, b) => a.time - b.time);
+      
+      // Look for suspiciously rapid version releases
+      for (let i = 1; i < versionTimes.length; i++) {
+        const timeDiff = versionTimes[i].time - versionTimes[i-1].time;
+        const hoursDiff = timeDiff / (1000 * 60 * 60);
+        
+        if (hoursDiff < 1) { // Less than 1 hour between releases
+          threats.push({
+            type: 'SUSPICIOUS_VERSION_PATTERN',
+            message: 'Suspicious rapid version releases detected',
+            package: packageName,
+            severity: 'HIGH',
+            details: `Package "${packageName}" has versions released within ${hoursDiff.toFixed(1)} hours, which could indicate automated malicious releases`
+          });
+        }
+      }
+    }
+    
+  } catch (error) {
+    // Skip integrity checks if there's an error
+  }
+  
+  return threats;
+}
+
+/**
+ * Check tarball signatures and detect tampering
+ * @param {object} packageData - Package metadata
+ * @param {string} packageName - Package name
+ * @param {object} options - Scan options
+ * @returns {Promise<Array>} Array of tarball signature threats
+ */
+async function checkTarballSignatures(packageData, packageName, options) {
+  const threats = [];
+  
+  try {
+    // Get tarball URL
+    const tarballUrl = packageData.dist?.tarball;
+    if (!tarballUrl) {
+      return threats;
+    }
+    
+    // Download tarball for analysis
+    const tarballBuffer = await downloadTarball(tarballUrl);
+    if (!tarballBuffer) {
+      return threats;
+    }
+    
+    // Check tarball size (suspiciously large or small)
+    const tarballSize = tarballBuffer.length;
+    const expectedSize = packageData.dist?.size;
+    
+    if (expectedSize && Math.abs(tarballSize - expectedSize) > 1024) { // 1KB difference
+      threats.push({
+        type: 'TARBALL_SIZE_MISMATCH',
+        message: 'Tarball size mismatch detected',
+        package: packageName,
+        severity: 'HIGH',
+        details: `Package "${packageName}" tarball size (${tarballSize}) doesn't match expected size (${expectedSize}), indicating possible tampering`
+      });
+    }
+    
+    // Check for suspiciously large tarballs (potential malware)
+    if (tarballSize > 50 * 1024 * 1024) { // 50MB
+      threats.push({
+        type: 'SUSPICIOUSLY_LARGE_TARBALL',
+        message: 'Suspiciously large tarball detected',
+        package: packageName,
+        severity: 'MEDIUM',
+        details: `Package "${packageName}" tarball is ${(tarballSize / 1024 / 1024).toFixed(1)}MB, which is unusually large and could contain malicious content`
+      });
+    }
+    
+    // Calculate and verify checksums
+    const crypto = require('crypto');
+    const sha1Hash = crypto.createHash('sha1').update(tarballBuffer).digest('hex');
+    const sha256Hash = crypto.createHash('sha256').update(tarballBuffer).digest('hex');
+    
+    // Check against npm registry hash if available
+    if (packageData.dist?.shasum && packageData.dist.shasum !== sha1Hash) {
+      threats.push({
+        type: 'CHECKSUM_MISMATCH',
+        message: 'Tarball checksum mismatch detected',
+        package: packageName,
+        severity: 'CRITICAL',
+        details: `Package "${packageName}" tarball SHA1 checksum (${sha1Hash}) doesn't match registry checksum (${packageData.dist.shasum}), indicating tampering`
+      });
+    }
+    
+    // Store calculated hashes for future verification
+    if (options.verbose) {
+      console.log(`Package ${packageName} tarball verification:`);
+      console.log(`  SHA1: ${sha1Hash}`);
+      console.log(`  SHA256: ${sha256Hash}`);
+      console.log(`  Size: ${tarballSize} bytes`);
+    }
+    
+  } catch (error) {
+    if (options.verbose) {
+      console.warn(`Warning: Could not verify tarball signatures for ${packageName}: ${error.message}`);
+    }
+  }
+  
+  return threats;
+}
+
+/**
+ * Check package.json signatures and detect tampering
+ * @param {object} packageData - Package metadata
+ * @param {string} packageName - Package name
+ * @returns {Promise<Array>} Array of package.json signature threats
+ */
+async function checkPackageJsonSignatures(packageData, packageName) {
+  const threats = [];
+  
+  try {
+    // Check for suspicious package.json modifications
+    const packageJsonString = JSON.stringify(packageData, null, 2);
+    
+    // Check for unexpected fields that could indicate tampering
+    const suspiciousFields = [
+      'eval(',
+      'Function(',
+      'require(',
+      'import(',
+      'exec(',
+      'spawn(',
+      'child_process'
+    ];
+    
+    for (const field of suspiciousFields) {
+      if (packageJsonString.includes(field)) {
+        threats.push({
+          type: 'SUSPICIOUS_PACKAGE_JSON_CONTENT',
+          message: 'Suspicious content detected in package metadata',
+          package: packageName,
+          severity: 'HIGH',
+          details: `Package "${packageName}" contains suspicious field "${field}" in package.json, which could indicate tampering`
+        });
+      }
+    }
+    
+    // Check for missing essential fields
+    const essentialFields = ['name', 'version', 'description'];
+    for (const field of essentialFields) {
+      if (!packageData[field]) {
+        threats.push({
+          type: 'MISSING_ESSENTIAL_FIELD',
+          message: `Missing essential field: ${field}`,
+          package: packageName,
+          severity: 'MEDIUM',
+          details: `Package "${packageName}" is missing essential field "${field}", which could indicate incomplete or tampered package`
+        });
+      }
+    }
+    
+    // Check for suspicious version patterns
+    if (packageData.version) {
+      const version = packageData.version;
+      
+      // Check for suspicious version patterns
+      if (version.includes('+') || version.includes('~') || version.includes('^')) {
+        threats.push({
+          type: 'SUSPICIOUS_VERSION_PATTERN',
+          message: 'Suspicious version pattern detected',
+          package: packageName,
+          severity: 'LOW',
+          details: `Package "${packageName}" has suspicious version pattern "${version}", which could indicate tampering`
+        });
+      }
+      
+      // Check for extremely high version numbers (potential automated releases)
+      const versionParts = version.split('.');
+      const majorVersion = parseInt(versionParts[0]);
+      if (majorVersion > 100) {
+        threats.push({
+          type: 'SUSPICIOUS_VERSION_NUMBER',
+          message: 'Suspiciously high version number detected',
+          package: packageName,
+          severity: 'MEDIUM',
+          details: `Package "${packageName}" has suspiciously high major version number ${majorVersion}, which could indicate automated malicious releases`
+        });
+      }
+    }
+    
+  } catch (error) {
+    // Skip package.json signature checks if there's an error
+  }
+  
+  return threats;
+}
+
+/**
+ * Check maintainer signatures and detect account takeover
+ * @param {object} packageData - Package metadata
+ * @param {string} packageName - Package name
+ * @returns {Promise<Array>} Array of maintainer signature threats
+ */
+async function checkMaintainerSignatures(packageData, packageName) {
+  const threats = [];
+  
+  try {
+    // Check maintainer information
+    if (packageData.maintainers && Array.isArray(packageData.maintainers)) {
+      for (const maintainer of packageData.maintainers) {
+        // Check for suspicious maintainer patterns
+        if (maintainer.email) {
+          // Check for suspicious email patterns
+          const suspiciousEmailPatterns = [
+            /temp/i,
+            /test/i,
+            /fake/i,
+            /spam/i,
+            /throwaway/i,
+            /disposable/i
+          ];
+          
+          for (const pattern of suspiciousEmailPatterns) {
+            if (pattern.test(maintainer.email)) {
+              threats.push({
+                type: 'SUSPICIOUS_MAINTAINER',
+                message: 'Suspicious maintainer email detected',
+                package: packageName,
+                severity: 'HIGH',
+                details: `Package "${packageName}" has maintainer with suspicious email "${maintainer.email}", which could indicate account takeover`
+              });
+            }
+          }
+          
+          // Check for recently created email domains
+          const emailDomain = maintainer.email.split('@')[1];
+          if (emailDomain && emailDomain.includes('temp') || emailDomain.includes('throwaway')) {
+            threats.push({
+              type: 'SUSPICIOUS_MAINTAINER_DOMAIN',
+              message: 'Suspicious maintainer email domain detected',
+              package: packageName,
+              severity: 'MEDIUM',
+              details: `Package "${packageName}" has maintainer with suspicious email domain "${emailDomain}", which could indicate account takeover`
+            });
+          }
+        }
+        
+        // Check for missing maintainer information
+        if (!maintainer.email && !maintainer.name) {
+          threats.push({
+            type: 'INCOMPLETE_MAINTAINER_INFO',
+            message: 'Incomplete maintainer information detected',
+            package: packageName,
+            severity: 'LOW',
+            details: `Package "${packageName}" has maintainer with incomplete information, which could indicate account takeover`
+          });
+        }
+      }
+    }
+    
+    // Check for recent maintainer changes (potential account takeover)
+    if (packageData.time && packageData.time.modified) {
+      const modifiedTime = new Date(packageData.time.modified);
+      const now = new Date();
+      const daysSinceModified = (now - modifiedTime) / (1000 * 60 * 60 * 24);
+      
+      if (daysSinceModified < 7) { // Modified within last week
+        threats.push({
+          type: 'RECENT_MAINTAINER_CHANGE',
+          message: 'Recent maintainer changes detected',
+          package: packageName,
+          severity: 'MEDIUM',
+          details: `Package "${packageName}" was modified ${daysSinceModified.toFixed(1)} days ago, which could indicate recent account takeover`
+        });
+      }
+    }
+    
+  } catch (error) {
+    // Skip maintainer signature checks if there's an error
+  }
+  
+  return threats;
+}
+
 module.exports = {
   scan,
   analyzeJavaScriptAST,
   checkObfuscatedIoCs,
   analyzePackageJson,
   detectDynamicRequires,
+  checkPackageSignatures,
+  checkPackageIntegrity,
+  checkTarballSignatures,
+  checkPackageJsonSignatures,
+  checkMaintainerSignatures,
   analyzeContentEntropy,
   scanNodeModules,
   scanDirectory,

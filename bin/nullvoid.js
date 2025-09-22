@@ -14,7 +14,7 @@ program
 program
   .command('scan')
   .description('Scan npm packages for malicious behavior')
-  .argument('[package]', 'Package name to scan (default: scan package.json)')
+  .argument('[package]', 'Package name or directory path to scan (default: scan package.json)')
   .option('-v, --verbose', 'Enable verbose output')
   .option('-o, --output <format>', 'Output format (json, table)', 'table')
   .option('-d, --depth <number>', 'Maximum dependency tree depth to scan', '3')
@@ -68,7 +68,8 @@ function displayResults(results, options = {}) {
       
       console.log(severityColor(`${index + 1}. ${threat.type}: ${threat.message}`));
       if (threat.package) {
-        console.log(chalk.gray(`   Package: ${threat.package}`));
+        const packageDisplay = threat.packagePath || threat.package;
+        console.log(chalk.gray(`   Package: ${packageDisplay}`));
       }
       if (threat.severity) {
         console.log(severityColor(`   Severity: ${threat.severity}`));

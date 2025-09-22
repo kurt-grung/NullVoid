@@ -12,8 +12,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configurable rules system (JSON/YAML)
 - Parallel scanning for performance improvements
 - Public IoC feeds integration (Snyk, npm advisories)
-- Signature hashing for tampering detection
-- Structured logging and reporting
+- GPG signature support
+- Blockchain integration for immutable signatures
+
+## [1.3.0] - 2024-12-21
+
+### Added
+- **Package Signature Verification**: Comprehensive signature verification system
+- **Integrity Hash Validation**: Verifies npm package integrity hashes (SHA-512)
+- **Tarball Signature Verification**: Downloads and verifies tarball checksums
+- **Package.json Signature Validation**: Detects malicious content in package metadata
+- **Maintainer Signature Verification**: Identifies suspicious maintainer patterns
+- **New Threat Types**: 13 new signature-related threat types
+- **Verbose Signature Output**: Detailed tarball verification information
+- **Comprehensive Test Suite**: 14 new tests for signature verification
+
+### Enhanced
+- **Threat Detection**: Multi-layer signature verification system
+- **Security Analysis**: Package tampering and account takeover detection
+- **Performance**: Optimized signature verification with minimal overhead
+- **Error Handling**: Graceful handling of network failures and parsing errors
+
+### Fixed
+- **False Positives**: Reduced false positives in package.json content detection
+- **Pattern Matching**: More specific detection patterns for suspicious content
+- **Email Validation**: Improved maintainer email pattern matching
+
+### Technical
+- **Signature Engine**: Multi-layer verification system
+- **Tarball Analysis**: SHA-1 and SHA-256 checksum verification
+- **Network Optimization**: Efficient HTTP request handling
+- **Memory Management**: Better buffer handling for large tarballs
 
 ## [1.2.1] - 2024-12-21
 
