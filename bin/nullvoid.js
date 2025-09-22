@@ -19,6 +19,9 @@ program
   .option('-o, --output <format>', 'Output format (json, table)', 'table')
   .option('-d, --depth <number>', 'Maximum dependency tree depth to scan', '3')
   .option('--tree', 'Show dependency tree structure in output')
+  .option('--parallel', 'Enable parallel scanning for better performance', true)
+  .option('--no-parallel', 'Disable parallel scanning')
+  .option('--workers <number>', 'Number of parallel workers to use', 'auto')
   .action(async (packageName, options) => {
     const spinner = ora('Scanning packages...').start();
     
@@ -26,7 +29,9 @@ program
       // Parse depth option
       const scanOptions = {
         ...options,
-        maxDepth: parseInt(options.depth) || 3
+        maxDepth: parseInt(options.depth) || 3,
+        parallel: options.parallel !== false, // Default to true unless explicitly disabled
+        workers: options.workers === 'auto' ? undefined : parseInt(options.workers) || undefined
       };
       
       const results = await scan(packageName, scanOptions);
@@ -111,6 +116,9 @@ function displayResults(results, options = {}) {
     console.log(chalk.gray(`   Packages per second: ${results.performance.packagesPerSecond.toFixed(1)}`));
     console.log(chalk.gray(`   Network requests: ${results.performance.networkRequests}`));
     console.log(chalk.gray(`   Errors: ${results.performance.errors}`));
+    if (results.metrics && results.metrics.parallelWorkers > 0) {
+      console.log(chalk.gray(`   Parallel workers: ${results.metrics.parallelWorkers}`));
+    }
     console.log(chalk.gray(`   Duration: ${results.performance.duration}ms`));
   }
   

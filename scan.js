@@ -8,6 +8,7 @@ const t = require('@babel/types');
 const acorn = require('acorn');
 const walk = require('acorn-walk');
 const tar = require('tar');
+// Parallel scanning will be imported when needed to avoid circular dependencies
 const glob = require('glob');
 const fse = require('fs-extra');
 const os = require('os');
@@ -118,10 +119,23 @@ async function scan(packageName, options = {}) {
         
         // Build dependency tree and scan all transitive dependencies
         const maxDepth = options.maxDepth || 3; // Default to 3 levels deep
-        const treeResult = await buildAndScanDependencyTree(dependencies, maxDepth, options, 'root');
-        threats.push(...treeResult.threats);
-        packagesScanned = treeResult.packagesScanned;
-        dependencyTree = treeResult.tree;
+        
+        // Use parallel processing if enabled and multiple dependencies
+        const useParallel = options.parallel !== false && Object.keys(dependencies).length > 1;
+        
+        if (useParallel) {
+          const { scanPackagesInParallel, getParallelConfig } = require('./lib/parallel');
+          const parallelConfig = getParallelConfig();
+          const treeResult = await buildAndScanDependencyTreeParallel(dependencies, maxDepth, options, 'root', parallelConfig);
+          threats.push(...treeResult.threats);
+          packagesScanned = treeResult.packagesScanned;
+          dependencyTree = treeResult.tree;
+        } else {
+          const treeResult = await buildAndScanDependencyTree(dependencies, maxDepth, options, 'root');
+          threats.push(...treeResult.threats);
+          packagesScanned = treeResult.packagesScanned;
+          dependencyTree = treeResult.tree;
+        }
         
         // Also scan node_modules directory for additional threats
         // Note: Disabled due to false positives with legitimate packages
@@ -341,6 +355,118 @@ function detectCircularDependencies(tree) {
   }
   
   return circular;
+}
+
+/**
+ * Build and scan dependency tree in parallel
+ * @param {object} dependencies - Direct dependencies
+ * @param {number} maxDepth - Maximum depth to scan
+ * @param {object} options - Scan options
+ * @param {string} rootPackage - Root package name
+ * @param {object} parallelConfig - Parallel processing configuration
+ * @returns {Promise<object>} Scan results
+ */
+async function buildAndScanDependencyTreeParallel(dependencies, maxDepth, options, rootPackage = 'root', parallelConfig) {
+  const threats = [];
+  const tree = {};
+  let packagesScanned = 0;
+  const scannedPackages = new Set();
+
+  // Convert dependencies to array for parallel processing
+  const dependencyArray = Object.entries(dependencies).map(([name, version]) => ({
+    name,
+    version,
+    depth: 0,
+    parent: rootPackage,
+    path: rootPackage && rootPackage !== name ? `${rootPackage} → ${name}` : name
+  }));
+
+  // Use parallel scanning for the first level
+  if (dependencyArray.length > 1) {
+    const { scanPackagesInParallel } = require('./lib/parallel');
+    const parallelResults = await scanPackagesInParallel(dependencyArray, options);
+    threats.push(...parallelResults.threats);
+    packagesScanned += parallelResults.metrics.scannedPackages;
+
+    // Build tree structure from parallel results
+    parallelResults.packages.forEach(pkg => {
+      if (!tree[pkg.name]) {
+        tree[pkg.name] = {
+          version: pkg.version,
+          threats: pkg.threatCount,
+          dependencies: {}
+        };
+      }
+    });
+
+    // Process sub-dependencies sequentially to maintain tree structure
+    for (const pkg of parallelResults.packages) {
+      if (maxDepth > 0) {
+        try {
+          const packageData = await getPackageData(pkg.name, pkg.version);
+          if (packageData && packageData.dependencies) {
+            const subTreeResult = await buildAndScanDependencyTree(
+              packageData.dependencies,
+              maxDepth - 1,
+              options,
+              pkg.name
+            );
+            threats.push(...subTreeResult.threats);
+            packagesScanned += subTreeResult.packagesScanned;
+            tree[pkg.name].dependencies = subTreeResult.tree;
+          }
+        } catch (error) {
+          if (options.verbose) {
+            console.warn(`Warning: Could not scan sub-dependencies for ${pkg.name}: ${error.message}`);
+          }
+        }
+      }
+    }
+  } else {
+    // Fall back to sequential for single dependency
+    for (const [name, version] of Object.entries(dependencies)) {
+      if (scannedPackages.has(name)) continue;
+      scannedPackages.add(name);
+
+      try {
+        const packageThreats = await scanPackage(name, version, options);
+        threats.push(...packageThreats);
+        packagesScanned++;
+
+        tree[name] = {
+          version,
+          threats: packageThreats.length,
+          dependencies: {}
+        };
+
+        // Recursively scan dependencies if within depth limit
+        if (maxDepth > 0) {
+          const packageData = await getPackageData(name, version);
+          if (packageData && packageData.dependencies) {
+            const subTreeResult = await buildAndScanDependencyTree(
+              packageData.dependencies,
+              maxDepth - 1,
+              options,
+              name
+            );
+            threats.push(...subTreeResult.threats);
+            packagesScanned += subTreeResult.packagesScanned;
+            tree[name].dependencies = subTreeResult.tree;
+          }
+        }
+      } catch (error) {
+        if (options.verbose) {
+          console.warn(`Warning: Could not scan dependency ${name}: ${error.message}`);
+        }
+      }
+    }
+  }
+
+  return {
+    threats,
+    tree,
+    packagesScanned
+  };
 }
 
 /**
@@ -2616,6 +2742,7 @@ module.exports = {
   scanNodeModules,
   scanDirectory,
   buildAndScanDependencyTree,
+  buildAndScanDependencyTreeParallel,
   analyzeDependencyTree,
   detectCircularDependencies,
   calculateShannonEntropy
