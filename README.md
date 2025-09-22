@@ -78,6 +78,13 @@ NullVoid uses multiple heuristic checks to identify potentially malicious packag
 - Detects credential theft attempts
 - Identifies data exfiltration mechanisms
 
+### 9. **GPG Signature Verification** 🔐
+- **Package Signature Validation**: Verifies GPG signatures in package metadata
+- **Tarball Signature Files**: Checks for accompanying .asc signature files
+- **Invalid Signature Detection**: Flags packages with invalid or corrupted GPG signatures
+- **Suspicious Key Detection**: Identifies packages using suspiciously short or weak GPG keys
+- **Package.json Signature Check**: Validates GPG signature information in package.json
+
 ## 📋 Usage Examples
 
 ### Scan Your Project
@@ -261,7 +268,7 @@ express@4.18.2 [25 deps]
 ### Performance & Integration
 - **Parallel Scanning** - Multi-threaded analysis for faster results
 - **Public IoC Feeds** - Integration with Snyk, npm advisories, and other threat intelligence
-- **Signature Hashing** - Detect package tampering and verify integrity
+- **Signature Verification** - Detect package tampering and verify integrity with GPG signatures
 - **Structured Logging** - Comprehensive reporting and audit trails
 
 ## 🤝 Contributing

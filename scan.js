@@ -2135,6 +2135,10 @@ async function checkPackageSignatures(packageData, packageName, options) {
     const maintainerThreats = await checkMaintainerSignatures(packageData, packageName);
     threats.push(...maintainerThreats);
     
+    // Check 5: GPG signature verification
+    const gpgThreats = await checkGpgSignatures(packageData, packageName, options);
+    threats.push(...gpgThreats);
+    
   } catch (error) {
     if (options.verbose) {
       console.warn(`Warning: Could not verify signatures for ${packageName}: ${error.message}`);
@@ -2471,6 +2475,131 @@ async function checkMaintainerSignatures(packageData, packageName) {
   return threats;
 }
 
+/**
+ * Check GPG signatures for package verification
+ * @param {object} packageData - Package metadata
+ * @param {string} packageName - Package name
+ * @param {object} options - Scan options
+ * @returns {Promise<Array>} Array of threats found
+ */
+async function checkGpgSignatures(packageData, packageName, options) {
+  const threats = [];
+  
+  if (!packageData) {
+    return threats;
+  }
+  
+  try {
+    let gpgSignatures = [];
+    
+    // Check for GPG signature in package metadata
+    if (packageData.signatures) {
+      // Check if package has GPG signatures
+      gpgSignatures = packageData.signatures.filter(sig => 
+        sig.type === 'gpg' || sig.type === 'pgp' || sig.keyid
+      );
+      
+      if (gpgSignatures.length === 0) {
+        threats.push({
+          type: 'MISSING_GPG_SIGNATURE',
+          message: 'Package missing GPG signature verification',
+          package: packageName,
+          severity: 'MEDIUM',
+          details: `Package "${packageName}" does not have GPG signature verification, which could indicate tampering`
+        });
+      } else {
+        // Verify GPG signatures
+        for (const signature of gpgSignatures) {
+          // Check signature validity
+          if (!signature.valid) {
+            threats.push({
+              type: 'INVALID_GPG_SIGNATURE',
+              message: 'Invalid GPG signature detected',
+              package: packageName,
+              severity: 'HIGH',
+              details: `Package "${packageName}" has invalid GPG signature: ${signature.keyid || 'unknown'}`
+            });
+          }
+          
+          // Check for suspicious key patterns
+          if (signature.keyid && signature.keyid.length < 8) {
+            threats.push({
+              type: 'SUSPICIOUS_GPG_KEY',
+              message: 'Suspicious GPG key detected',
+              package: packageName,
+              severity: 'MEDIUM',
+              details: `Package "${packageName}" uses suspiciously short GPG key: ${signature.keyid}`
+            });
+          }
+        }
+      }
+    } else {
+      // No signatures field at all
+      threats.push({
+        type: 'MISSING_GPG_SIGNATURE',
+        message: 'Package missing GPG signature verification',
+        package: packageName,
+        severity: 'MEDIUM',
+        details: `Package "${packageName}" does not have any signature verification, which could indicate tampering`
+      });
+    }
+    
+    // Check for GPG signature in package.json
+    if (packageData._hasShrinkwrap === false && !packageData.signatures) {
+      threats.push({
+        type: 'MISSING_GPG_SIGNATURE',
+        message: 'Package missing GPG signature in package.json',
+        package: packageName,
+        severity: 'LOW',
+        details: `Package "${packageName}" package.json does not contain GPG signature information`
+      });
+    }
+    
+    // Check for GPG signature in tarball (only if no valid signatures exist)
+    if (packageData.dist && packageData.dist.tarball && (!packageData.signatures || gpgSignatures.length === 0)) {
+      try {
+        const tarballUrl = packageData.dist.tarball;
+        const signatureUrl = tarballUrl + '.asc'; // GPG signature file
+        
+        // Try to fetch GPG signature file
+        const https = require('https');
+        
+        const signatureExists = await new Promise((resolve) => {
+          const req = https.get(signatureUrl, (res) => {
+            resolve(res.statusCode === 200);
+          });
+          req.on('error', () => resolve(false));
+          req.setTimeout(5000, () => {
+            req.destroy();
+            resolve(false);
+          });
+        });
+        
+        if (!signatureExists) {
+          threats.push({
+            type: 'MISSING_GPG_SIGNATURE',
+            message: 'Package tarball missing GPG signature file',
+            package: packageName,
+            severity: 'MEDIUM',
+            details: `Package "${packageName}" tarball does not have accompanying GPG signature file (.asc)`
+          });
+        }
+      } catch (error) {
+        if (options.verbose) {
+          console.warn(`Warning: Could not check GPG signature for ${packageName}: ${error.message}`);
+        }
+      }
+    }
+    
+  } catch (error) {
+    if (options.verbose) {
+      console.warn(`Warning: Could not verify GPG signatures for ${packageName}: ${error.message}`);
+    }
+  }
+  
+  return threats;
+}
+
 module.exports = {
   scan,
   analyzeJavaScriptAST,
@@ -2482,6 +2611,7 @@ module.exports = {
   checkTarballSignatures,
   checkPackageJsonSignatures,
   checkMaintainerSignatures,
+  checkGpgSignatures,
   analyzeContentEntropy,
   scanNodeModules,
   scanDirectory,
