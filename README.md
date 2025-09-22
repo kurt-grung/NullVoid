@@ -73,17 +73,20 @@ NullVoid uses multiple heuristic checks to identify potentially malicious packag
 - **Hidden Control Mechanisms**: Flags packages with concealed malicious functionality
 - **Eval/Decode Patterns**: Identifies dynamic code execution attempts
 
-### 8. **Traditional Malicious Patterns**
-- Searches for crypto-mining code patterns
-- Detects credential theft attempts
-- Identifies data exfiltration mechanisms
-
 ### 9. **GPG Signature Verification** 🔐
 - **Package Signature Validation**: Verifies GPG signatures in package metadata
 - **Tarball Signature Files**: Checks for accompanying .asc signature files
 - **Invalid Signature Detection**: Flags packages with invalid or corrupted GPG signatures
 - **Suspicious Key Detection**: Identifies packages using suspiciously short or weak GPG keys
 - **Package.json Signature Check**: Validates GPG signature information in package.json
+
+### 10. **Configurable Rules System** ⚙️
+- **Custom Pattern Detection**: Define your own threat detection patterns via JSON/YAML
+- **Severity Configuration**: Adjust threat severity levels (CRITICAL, HIGH, MEDIUM, LOW)
+- **Rule Categories**: Organized threat detection (wallet_hijacking, network_manipulation, etc.)
+- **Global Configuration**: Set entropy thresholds, timeouts, and scan options
+- **Enterprise Rules**: Company-specific threat pattern examples
+- **Strict Security Rules**: High-security configuration examples
 
 ## 📋 Usage Examples
 
@@ -94,6 +97,38 @@ cd my-project
 
 # Scan all dependencies in package.json
 npx nullvoid scan
+```
+
+### Custom Rules Configuration
+```bash
+# Use custom rules file
+nullvoid scan --rules ./rules/example-rules.yml
+
+# Use enterprise rules
+nullvoid scan --rules ./rules/enterprise-rules.yml
+
+# Use strict security rules
+nullvoid scan --rules ./rules/strict-rules.yml
+```
+
+### Rule File Example
+```yaml
+detection_rules:
+  wallet_hijacking:
+    patterns:
+      - '_0x112fa8'
+      - 'stealthProxyControl'
+    severity: HIGH
+    description: 'Detects wallet hijacking patterns'
+
+global_config:
+  entropy_threshold: 5.0
+  max_file_size: '10MB'
+  scan_timeout: 30000
+
+severity_overrides:
+  wallet_hijacking: CRITICAL
+  network_manipulation: HIGH
 ```
 
 ### Scan Specific Packages
@@ -268,7 +303,7 @@ express@4.18.2 [25 deps]
 ### Performance & Integration
 - **Parallel Scanning** - Multi-threaded analysis for faster results
 - **Public IoC Feeds** - Integration with Snyk, npm advisories, and other threat intelligence
-- **Signature Verification** - Detect package tampering and verify integrity with GPG signatures
+- **Configurable Rules** - Custom threat detection patterns via JSON/YAML configuration
 - **Structured Logging** - Comprehensive reporting and audit trails
 
 ## 🤝 Contributing

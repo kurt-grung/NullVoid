@@ -9,10 +9,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Planned
 - SARIF output format for CI/CD integration
-- Configurable rules system (JSON/YAML)
 - Parallel scanning for performance improvements
 - Public IoC feeds integration (Snyk, npm advisories)
 - Blockchain integration for immutable signatures
+
+## [1.3.6] - 2024-12-21
+
+### Added
+- **Configurable Rules System**: Complete JSON/YAML rules engine for custom threat detection
+- **Pattern Customization**: Define custom threat detection patterns via configuration files
+- **Severity Configuration**: Adjust threat severity levels (CRITICAL, HIGH, MEDIUM, LOW)
+- **Rule Categories**: Organized threat detection categories (wallet_hijacking, network_manipulation, etc.)
+- **Global Configuration**: Set entropy thresholds, timeouts, and other scan options
+- **Multiple Rule Formats**: Support for both JSON and YAML configuration files
+- **Example Rule Files**: Comprehensive examples for different use cases
+- **Enterprise Rules**: Company-specific threat pattern examples
+- **Strict Security Rules**: High-security configuration examples
+
+### Technical Details
+- **New File**: `lib/rules.js` - Complete rules engine with JSON/YAML support
+- **Dependencies**: Added `js-yaml` for YAML parsing support
+- **Rule Engine**: `loadRules()`, `mergeRules()`, `applyRules()` functions
+- **Configuration**: Support for custom patterns, severity levels, and global settings
+- **Documentation**: Comprehensive rules documentation in `rules/README.md`
+
+### Files Added
+- `lib/rules.js` - Rules engine implementation
+- `rules/README.md` - Rules documentation
+- `rules/example-rules.yml` - YAML example rules
+- `rules/example-rules.json` - JSON example rules
+- `rules/enterprise-rules.yml` - Enterprise-specific rules
+- `rules/strict-rules.yml` - Strict security rules
+
+### Security Impact
+- **Enhanced Customization**: Organizations can add company-specific threat patterns
+- **Compliance Support**: Meet regulatory security requirements with custom rules
+- **False Positive Reduction**: Tune detection sensitivity for specific environments
+- **Advanced Threat Detection**: Define new attack patterns as they emerge
 
 ## [1.3.5] - 2024-12-21
 

@@ -1,0 +1,86 @@
+{
+  "detection_rules": {
+    "wallet_hijacking": {
+      "patterns": [
+        "_0x112fa8",
+        "stealthProxyControl",
+        "runmask",
+        "newdlocal",
+        "window.ethereum",
+        "ethereum.request"
+      ],
+      "severity": "HIGH",
+      "description": "Detects wallet hijacking and transaction manipulation"
+    },
+    "network_manipulation": {
+      "patterns": [
+        "fetch.*override",
+        "XMLHttpRequest.*intercept",
+        "response.json.*replace",
+        "blockchain.*address.*replace"
+      ],
+      "severity": "HIGH",
+      "description": "Detects network response manipulation"
+    },
+    "obfuscated_code": {
+      "patterns": [
+        "eval(",
+        "new Function(",
+        "atob(",
+        "fromCharCode"
+      ],
+      "entropy_threshold": 5,
+      "severity": "MEDIUM",
+      "description": "Detects obfuscated or suspicious code patterns"
+    },
+    "suspicious_scripts": {
+      "patterns": [
+        "postinstall.*curl",
+        "postinstall.*wget",
+        "postinstall.*npm.*install",
+        "prepare.*download"
+      ],
+      "severity": "HIGH",
+      "description": "Detects suspicious package lifecycle scripts"
+    },
+    "crypto_mining": {
+      "patterns": [
+        "crypto.*mining",
+        "coin.*mining",
+        "hashrate",
+        "mining.*pool"
+      ],
+      "severity": "MEDIUM",
+      "description": "Detects cryptocurrency mining code"
+    },
+    "enterprise_threats": {
+      "patterns": [
+        "company-internal-api",
+        "staging-environment",
+        "dev-secrets"
+      ],
+      "severity": "LOW",
+      "description": "Enterprise-specific threat patterns"
+    },
+    "competitor_analysis": {
+      "patterns": [
+        "competitor-data-scraper",
+        "market-analysis-tool",
+        "price-monitoring"
+      ],
+      "severity": "HIGH",
+      "description": "Detects competitor analysis tools"
+    }
+  },
+  "global_config": {
+    "entropy_threshold": 5,
+    "max_file_size": "10MB",
+    "scan_timeout": 30000,
+    "enable_verbose": false
+  },
+  "severity_overrides": {
+    "wallet_hijacking": "CRITICAL",
+    "network_manipulation": "HIGH",
+    "obfuscated_code": "MEDIUM"
+  }
+}
