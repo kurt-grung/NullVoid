@@ -15,6 +15,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GPG signature support
 - Blockchain integration for immutable signatures
 
+## [1.3.4] - 2024-12-21
+
+### Added
+- Comprehensive GPG signature verification system
+- Package metadata signature validation
+- Tarball signature file (.asc) checking
+- Invalid signature detection
+- Suspicious key detection
+- Package.json signature validation
+- Comprehensive test suite with 10 test cases
+
+### Changed
+- Enhanced signature verification with GPG support
+- Updated README with GPG signature verification section
+- Improved signature validation documentation
+- Enhanced detection capabilities with GPG features
+
+### Fixed
+- Fixed deprecation warning in URL parsing
+- Improved error handling for signature validation
+- Enhanced timeout protection for signature file checks
+
+### Performance
+- Efficient GPG signature validation with minimal overhead
+- No impact on scanning performance
+- Optimized signature file checking with timeout protection
+
 ## [1.3.3] - 2024-12-21
 
 ### Added
