@@ -12,7 +12,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configurable rules system (JSON/YAML)
 - Parallel scanning for performance improvements
 - Public IoC feeds integration (Snyk, npm advisories)
-- GPG signature support
 - Blockchain integration for immutable signatures
 
 ## [1.3.5] - 2024-12-21
