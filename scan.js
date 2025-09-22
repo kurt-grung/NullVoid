@@ -2086,23 +2086,23 @@ async function scanDirectory(dirPath, options = {}) {
       try {
         filesScanned++;
         const content = fs.readFileSync(filePath, 'utf8');
-        // Use relative path from the scanned directory for better context
-        const relativePath = path.relative(dirPath, filePath);
+        // Use absolute path for better context
+        const absolutePath = path.resolve(filePath);
         
         // Run AST analysis on JavaScript files
-        const astThreats = analyzeJavaScriptAST(content, relativePath);
+        const astThreats = analyzeJavaScriptAST(content, absolutePath);
         threats.push(...astThreats);
         
         // Check for obfuscated IoCs
-        const iocThreats = checkObfuscatedIoCs(content, relativePath);
+        const iocThreats = checkObfuscatedIoCs(content, absolutePath);
         threats.push(...iocThreats);
         
         // Check for dynamic requires
-        const requireThreats = detectDynamicRequires(content, relativePath);
+        const requireThreats = detectDynamicRequires(content, absolutePath);
         threats.push(...requireThreats);
         
         // Analyze content entropy
-        const entropyThreats = analyzeContentEntropy(content, 'JAVASCRIPT', relativePath);
+        const entropyThreats = analyzeContentEntropy(content, 'JAVASCRIPT', absolutePath);
         threats.push(...entropyThreats);
         
       } catch (error) {
