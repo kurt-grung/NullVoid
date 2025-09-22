@@ -6,6 +6,8 @@ This directory contains detailed release notes for all NullVoid versions.
 
 | Version | Date | Release Notes | Key Features |
 |---------|------|---------------|--------------|
+| **[v1.3.3](v1.3.3.md)** | Dec 21, 2024 | Absolute File Path Support | Real file system paths for packages |
+| **[v1.3.1](v1.3.1.md)** | Dec 21, 2024 | Directory Scanning Fix | Fixed CLI directory scanning bug |
 | **[v1.3.0](v1.3.0.md)** | Dec 21, 2024 | Signature Verification & Tampering Detection | Package signature verification, integrity validation, tampering detection |
 | **[v1.2.1](v1.2.1.md)** | Dec 21, 2024 | False Positive Reduction | Tuned detection thresholds, reduced false positives |
 | **[v1.2.0](v1.2.0.md)** | Dec 20, 2024 | Dependency Tree Analysis | Transitive dependency scanning, tree visualization, depth controls |
@@ -21,12 +23,15 @@ This directory contains detailed release notes for all NullVoid versions.
 ## 🎯 **Quick Navigation**
 
 ### **Major Releases**
+- **[v1.3.3](v1.3.3.md)** - Absolute File Path Support (Major Enhancement)
 - **[v1.3.0](v1.3.0.md)** - Signature Verification & Tampering Detection (Major Feature)
 - **[v1.2.0](v1.2.0.md)** - Dependency Tree Analysis (Major Feature)
 - **[v1.1.0](v1.1.0.md)** - Real Package Tarball Analysis (Major Feature)
 - **[v1.0.0](v1.0.0.md)** - Initial Release (Foundation)
 
 ### **Feature Releases**
+- **[v1.3.1](v1.3.1.md)** - Directory Scanning Fix
+- **[v1.2.1](v1.2.1.md)** - False Positive Reduction
 - **[v1.1.1](v1.1.1.md)** - Enhanced Directory Structure Display
 - **[v1.0.3](v1.0.3.md)** - Directory Scanning Capability
 - **[v1.0.2](v1.0.2.md)** - Advanced AST Analysis
@@ -39,16 +44,16 @@ This directory contains detailed release notes for all NullVoid versions.
 
 ## 📊 **Release Statistics**
 
-- **Total Releases**: 10
-- **Major Releases**: 4 (v1.0.0, v1.1.0, v1.2.0, v1.3.0)
-- **Feature Releases**: 4 (v1.0.1, v1.0.2, v1.0.3, v1.1.1)
-- **Bug Fix Releases**: 3 (v1.0.4, v1.0.5, v1.2.1)
+- **Total Releases**: 12
+- **Major Releases**: 5 (v1.0.0, v1.1.0, v1.2.0, v1.3.0, v1.3.3)
+- **Feature Releases**: 5 (v1.0.1, v1.0.2, v1.0.3, v1.1.1, v1.2.1)
+- **Bug Fix Releases**: 3 (v1.0.4, v1.0.5, v1.3.1)
 - **Release Period**: December 19-21, 2024
 
 ## 📊 **Release Timeline**
 
 ```
-v1.0.0 ──► v1.0.1 ──► v1.0.2 ──► v1.0.3 ──► v1.0.4 ──► v1.0.5 ──► v1.1.0 ──► v1.1.1 ──► v1.2.0 ──► v1.2.1 ──► v1.3.0
+v1.0.0 ──► v1.0.1 ──► v1.0.2 ──► v1.0.3 ──► v1.0.4 ──► v1.0.5 ──► v1.1.0 ──► v1.1.1 ──► v1.2.0 ──► v1.2.1 ──► v1.3.0 ──► v1.3.1 ──► v1.3.3
   │         │         │         │         │         │         │         │         │         │         │
   │         │         │         │         │         │         │         │         │         │         └─ Signature Verification & Tampering Detection
   │         │         │         │         │         │         │         │         │         └─ False Positive Reduction

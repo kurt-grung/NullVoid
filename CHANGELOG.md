@@ -15,6 +15,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GPG signature support
 - Blockchain integration for immutable signatures
 
+## [1.3.3] - 2024-12-21
+
+### Added
+- Absolute file path support for package locations
+- Comprehensive path detection for multiple npm environments
+- Enhanced CLI output with real file system paths
+- Fallback path resolution for remote packages
+
+### Changed
+- Package path display format from dependency chains to absolute paths
+- CLI output to show actual file system locations
+- Path resolution logic for better package location detection
+
+### Fixed
+- Package path display now shows actual file system locations
+- Better package location detection across different environments
+- Enhanced debugging capabilities with real file paths
+
+### Performance
+- Efficient path detection with minimal overhead
+- No impact on scanning performance
+- Optimized file system checks
+
+## [1.3.1] - 2024-12-21
+
+### Fixed
+- Fixed CLI directory scanning bug where directories were treated as package names
+- Corrected scan output to show "Scanned X directory(s), Y file(s)" for directory scans
+- Updated CLI help text to clarify directory path support
+
 ## [1.3.0] - 2024-12-21
 
 ### Added
