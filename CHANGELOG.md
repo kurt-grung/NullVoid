@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SARIF output format for CI/CD integration
 - Public IoC feeds integration (Snyk, npm advisories)
 - Blockchain integration for immutable signatures
+- **Dependency Confusion Detection**: Timeline analysis comparing git history with npm registry creation dates
+- **Git Integration**: Commit history analysis for package introduction tracking
+- **Scope-Aware Detection**: Handle scoped packages and namespace ownership warnings
+- **Enhanced Timeline Analysis**: Package vulnerability detection based on creation vs usage dates
 
 ## [1.3.7] - 2024-12-21
 
