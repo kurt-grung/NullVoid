@@ -8,7 +8,9 @@
 [![GitHub issues](https://img.shields.io/github/issues/kurt-grung/NullVoid.svg)](https://github.com/kurt-grung/NullVoid/issues)
 [![GitHub Actions](https://github.com/kurt-grung/NullVoid/workflows/NullVoid%20Security%20Scan/badge.svg)](https://github.com/kurt-grung/NullVoid/actions)
 
-**Ø NullVoid** - Detect and invalidate malicious npm packages before they reach prod.
+**Ø NullVoid** - Detect and invalidate malicious npm packages before they reach prod. 
+
+Pre-flight security against supply-chain attacks.
 
 Detect malicious or compromised npm packages and flag risky code before it reaches production — without executing unsafe code.
 
