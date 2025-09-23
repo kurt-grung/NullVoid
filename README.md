@@ -228,6 +228,10 @@ NullVoid detects the exact obfuscated strings and patterns used in the recent at
 - **Real-time Scanning**: Fast analysis without network dependencies
 - **CI/CD Ready**: Easy integration into automated workflows
 - **Supply Chain Focus**: Specifically designed to detect npm package compromises
+- **Enhanced Path Display**: Full absolute file system paths for all packages
+- **Clickable npm Links**: Direct links to npm package pages for verification
+- **Color-Coded Output**: Visual distinction between local and registry packages
+- **Interactive Experience**: Rich, user-friendly interface with visual indicators
 
 ## 🔧 Configuration
 
@@ -250,11 +254,13 @@ NullVoid detects the exact obfuscated strings and patterns used in the recent at
 ⚠️  2 threat(s) detected:
 
 1. POSTINSTALL_SCRIPT: Package contains postinstall script with suspicious commands
-   Package: suspicious-package
+   Package: 📁 /Users/username/project/node_modules/suspicious-package/index.js
+   🔗 https://www.npmjs.com/package/suspicious-package
    Severity: HIGH
 
 2. HIGH_ENTROPY: Package contains files with unusually high entropy
-   Package: obfuscated-lib
+   Package: 📦 npm-registry://obfuscated-lib@latest
+   🔗 https://www.npmjs.com/package/obfuscated-lib
    Severity: MEDIUM
 
 Scanned 15 package(s) in 234ms

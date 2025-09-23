@@ -373,13 +373,78 @@ async function buildAndScanDependencyTreeParallel(dependencies, maxDepth, option
   const scannedPackages = new Set();
 
   // Convert dependencies to array for parallel processing
-  const dependencyArray = Object.entries(dependencies).map(([name, version]) => ({
-    name,
-    version,
-    depth: 0,
-    parent: rootPackage,
-    path: rootPackage && rootPackage !== name ? `${rootPackage} → ${name}` : name
-  }));
+  const dependencyArray = Object.entries(dependencies).map(([name, version]) => {
+    // Try to get the actual file system path for the package
+    let packagePath = name;
+    try {
+      const resolvedPath = require.resolve(name);
+      packagePath = resolvedPath;
+    } catch (error) {
+      // If require.resolve fails, try to find the package in common locations
+      const fs = require('fs');
+      const path = require('path');
+      
+      const possiblePaths = [];
+      
+      // 1. Local project node_modules (highest priority)
+      possiblePaths.push(
+        path.join(process.cwd(), 'node_modules', name),
+        path.join(process.cwd(), 'node_modules', name, 'package.json')
+      );
+      
+      // 2. Get npm global prefix and use it
+      try {
+        const { execSync } = require('child_process');
+        const npmGlobalPrefix = execSync('npm config get prefix', { encoding: 'utf8' }).trim();
+        if (npmGlobalPrefix && npmGlobalPrefix !== 'undefined') {
+          possiblePaths.push(
+            path.join(npmGlobalPrefix, 'lib', 'node_modules', name),
+            path.join(npmGlobalPrefix, 'lib', 'node_modules', name, 'package.json')
+          );
+        }
+      } catch (error) {
+        // Fallback to common locations if npm config fails
+        if (process.env.HOME) {
+          possiblePaths.push(
+            path.join(process.env.HOME, '.npm-global', 'lib', 'node_modules', name),
+            path.join(process.env.HOME, '.npm-global', 'lib', 'node_modules', name, 'package.json')
+          );
+        }
+      }
+      
+      // 3. Check npm cache locations
+      if (process.env.HOME) {
+        possiblePaths.push(
+          path.join(process.env.HOME, '.npm', 'packages', name),
+          path.join(process.env.HOME, '.npm', 'packages', name, 'package.json')
+        );
+      }
+      
+      // Find the first existing path
+      for (const possiblePath of possiblePaths) {
+        if (fs.existsSync(possiblePath)) {
+          packagePath = possiblePath;
+          break;
+        }
+      }
+      
+      // If still no path found, use registry path as fallback
+      if (packagePath === name) {
+        // Clean version number by removing semver operators (^, ~, etc.)
+        const cleanVersion = version.replace(/^[\^~>=<]/, '');
+        const npmLink = `https://www.npmjs.com/package/${name}${cleanVersion !== 'latest' ? `/v/${cleanVersion}` : ''}`;
+        packagePath = `📦 npm-registry://${name}@${version}\n🔗 ${npmLink}`;
+      }
+    }
+    
+    return {
+      name,
+      version,
+      depth: 0,
+      parent: rootPackage,
+      path: packagePath
+    };
+  });
 
   // Use parallel scanning for the first level
   if (dependencyArray.length > 1) {
@@ -483,11 +548,76 @@ async function buildAndScanDependencyTree(dependencies, maxDepth, options, rootP
   let packagesScanned = 0;
 
   // Process dependencies level by level
-  let currentLevel = Object.entries(dependencies).map(([name, version]) => ({
-    name,
-    version,
-    path: rootPackage && rootPackage !== name ? `${rootPackage} → ${name}` : name
-  }));
+  let currentLevel = Object.entries(dependencies).map(([name, version]) => {
+    // Always try to get the actual file system path for the package
+    let packagePath = name;
+    try {
+      const resolvedPath = require.resolve(name);
+      packagePath = resolvedPath;
+    } catch (error) {
+      // If require.resolve fails, try to find the package in common locations
+      const fs = require('fs');
+      const path = require('path');
+      
+      const possiblePaths = [];
+      
+      // 1. Local project node_modules (highest priority)
+      possiblePaths.push(
+        path.join(process.cwd(), 'node_modules', name),
+        path.join(process.cwd(), 'node_modules', name, 'package.json')
+      );
+      
+      // 2. Get npm global prefix and use it
+      try {
+        const { execSync } = require('child_process');
+        const npmGlobalPrefix = execSync('npm config get prefix', { encoding: 'utf8' }).trim();
+        if (npmGlobalPrefix && npmGlobalPrefix !== 'undefined') {
+          possiblePaths.push(
+            path.join(npmGlobalPrefix, 'lib', 'node_modules', name),
+            path.join(npmGlobalPrefix, 'lib', 'node_modules', name, 'package.json')
+          );
+        }
+      } catch (error) {
+        // Fallback to common locations if npm config fails
+        if (process.env.HOME) {
+          possiblePaths.push(
+            path.join(process.env.HOME, '.npm-global', 'lib', 'node_modules', name),
+            path.join(process.env.HOME, '.npm-global', 'lib', 'node_modules', name, 'package.json')
+          );
+        }
+      }
+      
+      // 3. Check npm cache locations
+      if (process.env.HOME) {
+        possiblePaths.push(
+          path.join(process.env.HOME, '.npm', 'packages', name),
+          path.join(process.env.HOME, '.npm', 'packages', name, 'package.json')
+        );
+      }
+      
+      // Find the first existing path
+      for (const possiblePath of possiblePaths) {
+        if (fs.existsSync(possiblePath)) {
+          packagePath = possiblePath;
+          break;
+        }
+      }
+      
+      // If still no path found, use registry path as fallback
+      if (packagePath === name) {
+        // Clean version number by removing semver operators (^, ~, etc.)
+        const cleanVersion = version.replace(/^[\^~>=<]/, '');
+        const npmLink = `https://www.npmjs.com/package/${name}${cleanVersion !== 'latest' ? `/v/${cleanVersion}` : ''}`;
+        packagePath = `📦 npm-registry://${name}@${version}\n🔗 ${npmLink}`;
+      }
+    }
+    
+    return {
+      name,
+      version,
+      path: packagePath
+    };
+  });
   let depth = 0;
 
   while (currentLevel.length > 0 && depth < maxDepth) {
@@ -531,10 +661,70 @@ async function buildAndScanDependencyTree(dependencies, maxDepth, options, rootP
           for (const [depName, depVersion] of packageDeps) {
             const depKey = `${depName}@${depVersion || 'unknown'}`;
             if (!scannedPackages.has(depKey)) {
+              // Try to get the actual file system path for the dependency
+              let depPath = depName;
+              try {
+                const resolvedPath = require.resolve(depName);
+                depPath = resolvedPath;
+              } catch (error) {
+                // If require.resolve fails, try to find the package in common locations
+                const fs = require('fs');
+                const path = require('path');
+                
+                const possiblePaths = [];
+                
+                // 1. Local project node_modules (highest priority)
+                possiblePaths.push(
+                  path.join(process.cwd(), 'node_modules', depName),
+                  path.join(process.cwd(), 'node_modules', depName, 'package.json')
+                );
+                
+                // 2. Get npm global prefix and use it
+                try {
+                  const { execSync } = require('child_process');
+                  const npmGlobalPrefix = execSync('npm config get prefix', { encoding: 'utf8' }).trim();
+                  if (npmGlobalPrefix && npmGlobalPrefix !== 'undefined') {
+                    possiblePaths.push(
+                      path.join(npmGlobalPrefix, 'lib', 'node_modules', depName),
+                      path.join(npmGlobalPrefix, 'lib', 'node_modules', depName, 'package.json')
+                    );
+                  }
+                } catch (error) {
+                  // Fallback to common locations if npm config fails
+                  if (process.env.HOME) {
+                    possiblePaths.push(
+                      path.join(process.env.HOME, '.npm-global', 'lib', 'node_modules', depName),
+                      path.join(process.env.HOME, '.npm-global', 'lib', 'node_modules', depName, 'package.json')
+                    );
+                  }
+                }
+                
+                // 3. Check npm cache locations
+                if (process.env.HOME) {
+                  possiblePaths.push(
+                    path.join(process.env.HOME, '.npm', 'packages', depName),
+                    path.join(process.env.HOME, '.npm', 'packages', depName, 'package.json')
+                  );
+                }
+                
+                // Find the first existing path
+                for (const possiblePath of possiblePaths) {
+                  if (fs.existsSync(possiblePath)) {
+                    depPath = possiblePath;
+                    break;
+                  }
+                }
+                
+                // If still no path found, use package name and version as fallback
+                if (depPath === depName) {
+                  depPath = `${depName}@${depVersion || 'latest'}`;
+                }
+              }
+              
               nextLevel.push({
                 name: depName,
                 version: depVersion || 'latest',
-                path: packagePath.includes(depName) ? packagePath : `${packagePath} → ${depName}`
+                path: depPath
               });
             }
           }
@@ -663,32 +853,96 @@ async function scanPackage(packageName, version, options, packagePath = null) {
   // Add package path to threats if provided
   if (packagePath) {
     threats.forEach(threat => {
-      // Try to find the actual file system path for the package
-      const fs = require('fs');
-      const path = require('path');
-      
-      // Check common locations for the package
-      const possiblePaths = [
-        path.join(process.cwd(), 'node_modules', packageName),
-        path.join(process.cwd(), 'node_modules', packageName, 'package.json'),
-        path.join('/usr/local/lib/node_modules', packageName),
-        path.join('/usr/local/lib/node_modules', packageName, 'package.json'),
+      // Use the package path directly for dependency tree context, but enhance it with npm link
+      if (packagePath.includes('📦') || packagePath.includes('📁')) {
+        // Already enhanced format
+        threat.package = packagePath;
+      } else {
+        // Add npm link to existing path
+        // Clean version number by removing semver operators (^, ~, etc.)
+        const cleanVersion = version.replace(/^[\^~>=<]/, '');
+        const npmLink = `https://www.npmjs.com/package/${packageName}${cleanVersion !== 'latest' ? `/v/${cleanVersion}` : ''}`;
+        threat.package = `📁 ${packagePath}\n🔗 ${npmLink}`;
+      }
+    });
+  } else {
+    // If no package path provided, try to find the actual file system path for the package
+    const fs = require('fs');
+    const path = require('path');
+    
+    // Dynamically detect package locations using Node.js built-in methods
+    const possiblePaths = [];
+    
+    // 1. Local project node_modules (highest priority)
+    possiblePaths.push(
+      path.join(process.cwd(), 'node_modules', packageName),
+      path.join(process.cwd(), 'node_modules', packageName, 'package.json')
+    );
+    
+    // 2. Get npm global prefix and use it
+    try {
+      const { execSync } = require('child_process');
+      const npmGlobalPrefix = execSync('npm config get prefix', { encoding: 'utf8' }).trim();
+      if (npmGlobalPrefix && npmGlobalPrefix !== 'undefined') {
+        possiblePaths.push(
+          path.join(npmGlobalPrefix, 'lib', 'node_modules', packageName),
+          path.join(npmGlobalPrefix, 'lib', 'node_modules', packageName, 'package.json')
+        );
+      }
+    } catch (error) {
+      // Fallback to common locations if npm config fails
+      if (process.env.HOME) {
+        possiblePaths.push(
+          path.join(process.env.HOME, '.npm-global', 'lib', 'node_modules', packageName),
+          path.join(process.env.HOME, '.npm-global', 'lib', 'node_modules', packageName, 'package.json')
+        );
+      }
+    }
+    
+    // 3. Check npm cache locations
+    if (process.env.HOME) {
+      possiblePaths.push(
         path.join(process.env.HOME, '.npm', 'packages', packageName),
         path.join(process.env.HOME, '.npm', 'packages', packageName, 'package.json'),
         path.join(process.env.HOME, '.npm', '_cacache', 'content-v2', 'sha512'),
-        path.join('/usr/local/share/.cache/npm', packageName),
-        path.join(process.env.HOME, '.npm-global', 'lib', 'node_modules', packageName)
-      ];
-      
-      let actualPath = null;
-      for (const possiblePath of possiblePaths) {
-        if (fs.existsSync(possiblePath)) {
-          actualPath = possiblePath;
-          break;
-        }
+        path.join(process.env.HOME, '.npm', '_cacache', 'content-v2', 'sha1')
+      );
+    }
+    
+    // 4. Check if package is available via require.resolve (most reliable)
+    try {
+      const resolvedPath = require.resolve(packageName);
+      possiblePaths.push(resolvedPath);
+    } catch (error) {
+      // Package not found via require.resolve, continue with other methods
+    }
+    
+    let actualPath = null;
+    for (const possiblePath of possiblePaths) {
+      if (fs.existsSync(possiblePath)) {
+        actualPath = possiblePath;
+        break;
       }
-      
-      threat.packagePath = actualPath || `/npm/registry/${packageName}`;
+    }
+    
+    // Use actual file system path if found, otherwise use package name and version
+    let packageDisplay;
+    if (actualPath) {
+      // Show the full absolute file system path with clickable npm link
+      // Clean version number by removing semver operators (^, ~, etc.)
+      const cleanVersion = version.replace(/^[\^~>=<]+/, '');
+      const npmLink = `https://www.npmjs.com/package/${packageName}${cleanVersion !== 'latest' ? `/v/${cleanVersion}` : ''}`;
+      packageDisplay = `📁 ${actualPath}\n🔗 ${npmLink}`;
+    } else {
+      // For packages scanned from npm registry (not installed locally), show registry path with npm link
+      // Clean version number by removing semver operators (^, ~, etc.)
+      const cleanVersion = version.replace(/^[\^~>=<]+/, '');
+      const npmLink = `https://www.npmjs.com/package/${packageName}${cleanVersion !== 'latest' ? `/v/${cleanVersion}` : ''}`;
+      packageDisplay = `📦 npm-registry://${packageName}@${version}\n🔗 ${npmLink}`;
+    }
+    
+    threats.forEach(threat => {
+      threat.package = packageDisplay;
     });
   }
   
@@ -2016,12 +2270,29 @@ if (require.main === module) {
       console.log(`⚠️  ${results.threats.length} threat(s) detected:\n`);
       
       results.threats.forEach((threat, index) => {
+        // Color code based on severity
+        let severityColor = '';
+        if (threat.severity === 'HIGH') {
+          severityColor = '\x1b[31m'; // Red
+        } else if (threat.severity === 'MEDIUM') {
+          severityColor = '\x1b[33m'; // Yellow
+        } else if (threat.severity === 'LOW') {
+          severityColor = '\x1b[34m'; // Blue
+        }
+        
         console.log(`${index + 1}. ${threat.type}: ${threat.message}`);
         if (threat.package) {
-          console.log(`   Package: ${threat.package}`);
+          // Color code package paths
+          let packageColor = '';
+          if (threat.package.includes('📁')) {
+            packageColor = '\x1b[32m'; // Green for local packages
+          } else if (threat.package.includes('📦')) {
+            packageColor = '\x1b[33m'; // Yellow for registry packages
+          }
+          console.log(`   Package: ${packageColor}${threat.package}\x1b[0m`);
         }
         if (threat.severity) {
-          console.log(`   Severity: ${threat.severity}`);
+          console.log(`   Severity: ${severityColor}${threat.severity}\x1b[0m`);
         }
         console.log('');
       });

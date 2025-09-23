@@ -16,6 +16,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Scope-Aware Detection**: Handle scoped packages and namespace ownership warnings
 - **Enhanced Timeline Analysis**: Package vulnerability detection based on creation vs usage dates
 
+## [1.3.8] - 2024-12-21
+
+### Added
+- **Enhanced Path Display**: Full absolute file system paths for all packages
+- **Clickable npm Links**: Direct links to npm package pages for all scanned packages
+- **Color Coding**: Visual distinction between local (green) and registry (yellow) packages
+- **Visual Indicators**: 📁 for local packages, 📦 for registry packages
+- **Semver Cleaning**: Automatic removal of semver operators (`^`, `~`, `>=`, `<`) from URLs
+- **Dynamic Path Detection**: Uses `require.resolve()` and npm cache detection for accurate paths
+- **Cross-Platform Support**: Consistent path display across macOS, Linux, and Windows
+- **Interactive Experience**: Rich, user-friendly output with emojis and colors
+
+### Enhanced
+- **Package Path Display**: Shows complete file system locations instead of relative paths
+- **User Experience**: Interactive links and visual indicators for better security analysis
+- **Debugging Capabilities**: Full paths make it easier to locate and investigate threats
+- **Professional Output**: Rich, informative display with clickable elements
+- **URL Validity**: All npm links are properly formatted and functional
+
+### Fixed
+- **Semver Operators in URLs**: Fixed invalid URLs like `v/^1.0.0` → `v/1.0.0`
+- **Hardcoded Paths**: Replaced static paths with dynamic detection
+- **Cross-Platform Compatibility**: Improved path handling across different operating systems
+- **Package Path Consistency**: Unified path display format across all scanning modes
+
+### Technical Details
+- **Path Detection Logic**: Implements `require.resolve()` for accurate package resolution
+- **Fallback Mechanisms**: Multiple fallback strategies for package location detection
+- **Color Coding System**: ANSI escape codes for terminal color support
+- **URL Generation**: Dynamic npm link generation with version cleaning
+- **Performance**: No impact on scan speed while adding rich output features
+
 ## [1.3.7] - 2024-12-21
 
 ### Added
