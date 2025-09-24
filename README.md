@@ -25,6 +25,11 @@ nullvoid scan express
 nullvoid scan /path/to/project
 ```
 
+## Scan 
+
+![NullVoid Scan](https://github.com/kurt-grung/NullVoid/blob/main/nullvoid-scan.png)
+
+
 ## 📋 Scan Commands
 
 ### Basic Scans
@@ -109,6 +114,33 @@ nullvoid scan --verbose --parallel
 
 ## 📊 Example Output
 
+### Real-Time Progress Display (v1.3.9)
+```
+⠋ 🔍 Scanning ...
+📁 nullvoid.js (detected: security tools)
+📁 colors.js
+📁 parallel.js
+📁 rules.js (detected: security tools)
+📁 scan.js (detected: security tools)
+📁 scan.test.js (detected: test file)
+📁 setup.js
+📁 cache.test.js
+📁 entropy.test.js
+📁 gpg-signature.test.js
+📁 parallel.test.js
+📁 signature-verification.test.js
+✔ ✅ Scan completed
+
+🔍 NullVoid Scan Results
+
+✅ No high-severity threats detected
+ℹ️  43 low/medium severity threats were filtered out
+💡 Use --all flag to see all threats
+
+📊 Scanned 1 directory(s), 13 file(s) in 197ms
+```
+
+### Threat Detection Results
 ```
 🔍 NullVoid Scan Results
 
