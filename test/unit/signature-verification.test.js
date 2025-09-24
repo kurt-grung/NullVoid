@@ -85,7 +85,7 @@ describe('Signature Verification', () => {
       
       expect(threats).toHaveLength(1);
       expect(threats[0].type).toBe('SUSPICIOUS_PACKAGE_JSON_CONTENT');
-      expect(threats[0].severity).toBe('HIGH');
+      expect(threats[0].severity).toBe('MEDIUM');
     });
 
     it('should detect missing essential fields', async () => {

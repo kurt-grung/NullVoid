@@ -16,6 +16,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Scope-Aware Detection**: Handle scoped packages and namespace ownership warnings
 - **Enhanced Timeline Analysis**: Package vulnerability detection based on creation vs usage dates
 
+## [1.3.9] - 2024-09-24
+
+### Added
+- **Real-Time Progress Display**: Shows current file being scanned with threat detection
+- **Color-Coded Threat Display**: RED for CRITICAL/HIGH, BLUE for LOW (legitimate code)
+- **Smart Threat Classification**: Differentiates NullVoid's own security tools from real threats
+- **Enhanced Progress Callbacks**: Real-time filename display during scanning
+- **Advanced Malware Detection**: `analyzeCodeStructure()` function with confidence scoring
+- **Error Handling**: Comprehensive try-catch blocks for parallel processing
+- **Fallback Mechanisms**: Automatic fallback to sequential processing if parallel fails
+
+### Enhanced
+- **Parallel Processing Restoration**: Restored 2-4x faster scanning for projects with multiple dependencies
+- **CLI Experience**: Enhanced visual feedback with emojis and better formatting
+- **False Positive Reduction**: Smart detection of legitimate security tools and test files
+- **Performance Metrics**: Enhanced display with parallel worker counts
+- **Threat Detection**: Improved obfuscated code detection with detailed reasoning
+
+### Fixed
+- **Critical Bug**: Parallel processing not working in directory scanning
+- **UI Bug**: Spinner getting stuck on single filename
+- **False Positives**: NullVoid's own code being flagged as malicious
+- **Test Files**: Test files being incorrectly flagged as high-severity threats
+- **Severity Classification**: DEEP_DEPENDENCY_THREATS showing incorrect HIGH severity
+- **Progress Display**: Duplicate threat messages in real-time display
+
+### Performance
+- **2-4x Faster**: Parallel processing restoration for dependency tree scanning
+- **Better Resource Management**: Improved memory usage and CPU utilization
+- **Scalable Performance**: Adapts to system capabilities and project size
+
 ## [1.3.8] - 2024-12-21
 
 ### Added

@@ -81,8 +81,11 @@ describe('Integration Tests', () => {
       process.chdir(tempDir);
 
       try {
-        // This should throw an error for invalid JSON
-        await expect(scan()).rejects.toThrow();
+        // With new behavior, scan() scans directory instead of package.json
+        // So it should not throw an error, just scan the directory
+        const result = await scan();
+        expect(result).toBeDefined();
+        expect(result.threats).toBeDefined();
       } finally {
         process.chdir(originalCwd);
       }

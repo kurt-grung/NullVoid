@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
 const { program } = require('commander');
-const chalk = require('../colors');
+const colors = require('../colors');
 const ora = require('ora');
+const path = require('path');
 const { scan } = require('../scan');
 const packageJson = require('../package.json');
 
@@ -14,7 +15,7 @@ program
 program
   .command('scan')
   .description('Scan npm packages for malicious behavior')
-  .argument('[package]', 'Package name or directory path to scan (default: scan package.json)')
+  .argument('[package]', 'Package name or directory path to scan (default: scan current directory)')
   .option('-v, --verbose', 'Enable verbose output')
   .option('-o, --output <format>', 'Output format (json, table)', 'table')
   .option('-d, --depth <number>', 'Maximum dependency tree depth to scan', '3')
@@ -22,8 +23,9 @@ program
   .option('--parallel', 'Enable parallel scanning for better performance', true)
   .option('--no-parallel', 'Disable parallel scanning')
   .option('--workers <number>', 'Number of parallel workers to use', 'auto')
+  .option('--all', 'Show all threats including low/medium severity')
   .action(async (packageName, options) => {
-    const spinner = ora('Scanning packages...').start();
+    const spinner = ora('🔍 Scanning ...').start();
     
     try {
       // Parse depth option
@@ -34,8 +36,122 @@ program
         workers: options.workers === 'auto' ? undefined : parseInt(options.workers) || undefined
       };
       
-      const results = await scan(packageName, scanOptions);
-      spinner.succeed('Scan completed');
+      // Progress callback to show current file with threat detection
+      const progressCallback = (filePath) => {
+        const fileName = path.basename(filePath);
+        const fs = require('fs');
+        
+        try {
+          // Check if this is NullVoid's own code or test files
+          const isNullVoidCode = fileName && (
+            fileName === 'scan.js' ||
+            fileName === 'rules.js' ||
+            fileName === 'nullvoid.js' ||
+            fileName === 'colors.js' ||
+            fileName === 'package.json' ||
+            fileName === 'README.md' ||
+            fileName === 'CHANGELOG.md' ||
+            fileName === 'LICENSE' ||
+            fileName === 'CONTRIBUTING.md' ||
+            fileName === 'SECURITY.md' ||
+            fileName === 'CODE_OF_CONDUCT.md'
+          );
+          
+          const isTestFile = fileName && (
+            fileName.endsWith('.test.js') ||
+            fileName.endsWith('.spec.js') ||
+            fileName.includes('test/') ||
+            fileName.includes('__tests__/')
+          );
+          
+          // Quick threat check for this file
+          const content = fs.readFileSync(filePath, 'utf8');
+          const threats = [];
+          let maxSeverity = 'LOW';
+          let hasThreats = false;
+          
+          // Check for obfuscated patterns (HIGH severity)
+          if (content.includes('_0x') || content.match(/const\s+[a-z]\d+\s*=\s*[A-Z]/)) {
+            hasThreats = true;
+            if (isNullVoidCode) {
+              if (!threats.includes('security tools')) threats.push('security tools');
+              maxSeverity = 'LOW';
+            } else if (isTestFile) {
+              if (!threats.includes('test file')) threats.push('test file');
+              maxSeverity = 'LOW';
+            } else {
+              threats.push('OBFUSCATED_CODE');
+              maxSeverity = 'HIGH';
+            }
+          }
+          
+          // Check for suspicious modules (CRITICAL severity)
+          if (content.includes('require(\'fs\')') || content.includes('require(\'child_process\')') || 
+              content.includes('require(\'eval\')') || content.includes('require(\'vm\')')) {
+            hasThreats = true;
+            if (isNullVoidCode) {
+              if (!threats.includes('security tools')) threats.push('security tools');
+              maxSeverity = 'LOW';
+            } else if (isTestFile) {
+              if (!threats.includes('test file')) threats.push('test file');
+              maxSeverity = 'LOW';
+            } else {
+              threats.push('SUSPICIOUS_MODULE');
+              maxSeverity = 'CRITICAL';
+            }
+          }
+          
+          // Check for malicious code structure (CRITICAL severity)
+          if (content.match(/const\s+[a-z]\d+\s*=\s*[A-Z]\s*,\s*[a-z]\d+\s*=\s*[A-Z]/) ||
+              content.split('\n').some(line => line.length > 1000)) {
+            hasThreats = true;
+            if (isNullVoidCode) {
+              if (!threats.includes('security tools')) threats.push('security tools');
+              maxSeverity = 'LOW';
+            } else if (isTestFile) {
+              if (!threats.includes('test file')) threats.push('test file');
+              maxSeverity = 'LOW';
+            } else {
+              threats.push('MALICIOUS_CODE_STRUCTURE');
+              maxSeverity = 'CRITICAL';
+            }
+          }
+          
+          // Display filename with threat info using severity-based colors
+          if (hasThreats) {
+            // Remove duplicates and join
+            const uniqueThreats = [...new Set(threats)];
+            const threatText = uniqueThreats.join(', ');
+            let colorFunc;
+            
+            // Color code based on severity (same as results display)
+            if (maxSeverity === 'CRITICAL') {
+              colorFunc = colors.red; // Red for CRITICAL
+            } else if (maxSeverity === 'HIGH') {
+              colorFunc = colors.red; // Red for HIGH
+            } else if (maxSeverity === 'MEDIUM') {
+              colorFunc = colors.yellow; // Yellow for MEDIUM
+            } else {
+              colorFunc = colors.blue; // Blue for LOW
+            }
+            
+            process.stdout.write(`\n📁 ${fileName} ${colorFunc(`(detected: ${threatText})`)}`);
+          } else {
+            process.stdout.write(`\n📁 ${fileName}`);
+          }
+          
+          // Debug: Log progress updates
+          if (process.env.NULLVOID_DEBUG) {
+            console.log(`\nDEBUG: Scanning file: ${fileName}`);
+          }
+        } catch (error) {
+          // If we can't read the file, just show the filename
+          process.stdout.write(`\n📁 ${fileName}`);
+        }
+      };
+      
+      const results = await scan(packageName, scanOptions, progressCallback);
+      spinner.succeed('✅ Scan completed');
       
       if (options.output === 'json') {
         console.log(JSON.stringify(results, null, 2));
@@ -43,8 +159,8 @@ program
         displayResults(results, options);
       }
     } catch (error) {
-      spinner.fail('Scan failed');
-      console.error(chalk.red('Error:'), error.message);
+      spinner.fail('❌ Scan failed');
+      console.error(colors.red('Error:'), error.message);
       process.exit(1);
     }
   });
@@ -52,77 +168,105 @@ program
 program.parse();
 
 function displayResults(results, options = {}) {
-  console.log(chalk.bold('\n🔍 NullVoid Scan Results\n'));
+  // Use the enhanced output from scan.js instead of custom logic
+  // The scan.js file already handles severity filtering and sorting
+  console.log(colors.bold('\n🔍 NullVoid Scan Results\n'));
   
   if (results.threats.length === 0) {
-    console.log(chalk.green('✅ No threats detected'));
+    console.log(colors.green('✅ No threats detected'));
   } else {
-    console.log(chalk.red(`⚠️  ${results.threats.length} threat(s) detected:\n`));
-    
-    results.threats.forEach((threat, index) => {
-      const severityColor = threat.severity === 'CRITICAL' ? chalk.red.bold :
-                           threat.severity === 'HIGH' ? chalk.red :
-                           threat.severity === 'MEDIUM' ? chalk.yellow :
-                           threat.severity === 'INFO' ? chalk.blue :
-                           chalk.green;
-      
-      // Skip INFO threats in normal output, show them in verbose mode
-      if (threat.severity === 'INFO' && !options.verbose) {
-        return;
-      }
-      
-      console.log(severityColor(`${index + 1}. ${threat.type}: ${threat.message}`));
-      if (threat.package) {
-        const packageDisplay = threat.packagePath || threat.package;
-        console.log(chalk.gray(`   Package: ${packageDisplay}`));
-      }
-      if (threat.severity) {
-        console.log(severityColor(`   Severity: ${threat.severity}`));
-      }
-      if (threat.directory) {
-        console.log(chalk.gray(`   Directory: ${threat.directory}`));
-      }
-      console.log('');
+    // Sort threats by severity (HIGH first, then MEDIUM, then LOW)
+    const severityOrder = { 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3, 'CRITICAL': 0 };
+    const sortedThreats = results.threats.sort((a, b) => {
+      const aOrder = severityOrder[a.severity] || 4;
+      const bOrder = severityOrder[b.severity] || 4;
+      return aOrder - bOrder;
     });
+    
+    // Filter to only show HIGH and above severity (unless --all flag is used)
+    const showAllThreats = options.all;
+    const highSeverityThreats = showAllThreats ? sortedThreats : sortedThreats.filter(threat => 
+      threat.severity === 'HIGH' || threat.severity === 'CRITICAL'
+    );
+    
+    if (highSeverityThreats.length === 0) {
+        console.log(colors.green('✅ No high-severity threats detected'));
+        if (!showAllThreats) {
+          console.log(colors.blue(`ℹ️  ${results.threats.length - highSeverityThreats.length} low/medium severity threats were filtered out`));
+          console.log(colors.blue('💡 Use --all flag to see all threats'));
+        }
+    } else {
+      const threatCount = showAllThreats ? results.threats.length : highSeverityThreats.length;
+      const severityText = showAllThreats ? 'threat(s)' : 'high-severity threat(s)';
+      console.log(colors.red(`⚠️  ${threatCount} ${severityText} detected:\n`));
+      
+      highSeverityThreats.forEach((threat, index) => {
+        // Color code based on severity
+        let severityColor = '';
+        if (threat.severity === 'HIGH') {
+          severityColor = '\x1b[31m'; // Red
+        } else if (threat.severity === 'MEDIUM') {
+          severityColor = '\x1b[33m'; // Yellow
+        } else if (threat.severity === 'LOW') {
+          severityColor = '\x1b[34m'; // Blue
+        }
+        
+        console.log(`${index + 1}. ${threat.type}: ${threat.message}`);
+        if (threat.package) {
+          // Color code package paths
+          let packageColor = '';
+          if (threat.package.includes('📁')) {
+            packageColor = '\x1b[32m'; // Green for local packages
+          } else if (threat.package.includes('📦')) {
+            packageColor = '\x1b[33m'; // Yellow for registry packages
+          }
+          console.log(`   Package: ${packageColor}${threat.package}\x1b[0m`);
+        }
+        if (threat.severity) {
+          console.log(`   Severity: ${severityColor}${threat.severity}\x1b[0m`);
+        }
+        console.log('');
+      });
+    }
   }
   
   // Display directory structure for directory scans
   if (results.directoryStructure && results.packagesScanned === 0) {
-    console.log(chalk.blue(`\n📁 Directory Structure:`));
-    console.log(chalk.gray(`   ${results.directoryStructure.totalDirectories} directories: ${results.directoryStructure.directories.slice(0, 5).join(', ')}${results.directoryStructure.directories.length > 5 ? '...' : ''}`));
-    console.log(chalk.gray(`   ${results.directoryStructure.totalFiles} files: ${results.directoryStructure.files.slice(0, 5).join(', ')}${results.directoryStructure.files.length > 5 ? '...' : ''}`));
+    console.log(colors.blue(`\n📁 Directory Structure:`));
+    console.log(colors.gray(`   ${results.directoryStructure.totalDirectories} directories: ${results.directoryStructure.directories.slice(0, 5).join(', ')}${results.directoryStructure.directories.length > 5 ? '...' : ''}`));
+    console.log(colors.gray(`   ${results.directoryStructure.totalFiles} files: ${results.directoryStructure.files.slice(0, 5).join(', ')}${results.directoryStructure.files.length > 5 ? '...' : ''}`));
   }
   
   // Display dependency tree structure for package scans
   if (results.dependencyTree && options.tree) {
-    console.log(chalk.blue(`\n🌳 Dependency Tree Structure:`));
+    console.log(colors.blue(`\n🌳 Dependency Tree Structure:`));
     displayDependencyTree(results.dependencyTree, 0, options.verbose);
   }
   
   // Show dependency tree summary
   if (results.dependencyTree) {
     const treeStats = analyzeTreeStats(results.dependencyTree);
-    console.log(chalk.blue(`\n📊 Dependency Tree Analysis:`));
-    console.log(chalk.gray(`   Total packages scanned: ${treeStats.totalPackages}`));
-    console.log(chalk.gray(`   Max depth reached: ${treeStats.maxDepth}`));
-    console.log(chalk.gray(`   Packages with threats: ${treeStats.packagesWithThreats}`));
-    console.log(chalk.gray(`   Deep dependencies (depth ≥2): ${treeStats.deepDependencies}`));
+    console.log(colors.blue(`\n📊 Dependency Tree Analysis:`));
+    console.log(colors.gray(`   Total packages scanned: ${treeStats.totalPackages}`));
+    console.log(colors.gray(`   Max depth reached: ${treeStats.maxDepth}`));
+    console.log(colors.gray(`   Packages with threats: ${treeStats.packagesWithThreats}`));
+    console.log(colors.gray(`   Deep dependencies (depth ≥2): ${treeStats.deepDependencies}`));
   }
   
   // Show performance metrics
   if (results.performance && options.verbose) {
-    console.log(chalk.blue(`\n⚡ Performance Metrics:`));
-    console.log(chalk.gray(`   Cache hit rate: ${(results.performance.cacheHitRate * 100).toFixed(1)}%`));
-    console.log(chalk.gray(`   Packages per second: ${results.performance.packagesPerSecond.toFixed(1)}`));
-    console.log(chalk.gray(`   Network requests: ${results.performance.networkRequests}`));
-    console.log(chalk.gray(`   Errors: ${results.performance.errors}`));
+    console.log(colors.blue(`\n⚡ Performance Metrics:`));
+    console.log(colors.gray(`   Cache hit rate: ${(results.performance.cacheHitRate * 100).toFixed(1)}%`));
+    console.log(colors.gray(`   Packages per second: ${results.performance.packagesPerSecond.toFixed(1)}`));
+    console.log(colors.gray(`   Network requests: ${results.performance.networkRequests}`));
+    console.log(colors.gray(`   Errors: ${results.performance.errors}`));
     if (results.metrics && results.metrics.parallelWorkers > 0) {
-      console.log(chalk.gray(`   Parallel workers: ${results.metrics.parallelWorkers}`));
+      console.log(colors.gray(`   Parallel workers: ${results.metrics.parallelWorkers}`));
     }
-    console.log(chalk.gray(`   Duration: ${results.performance.duration}ms`));
+    console.log(colors.gray(`   Duration: ${results.performance.duration}ms`));
   }
   
-  console.log(chalk.gray(`\nScanned ${results.packagesScanned > 0 ? results.packagesScanned : 1} ${results.packagesScanned > 0 ? 'package' : 'directory'}(s)${results.filesScanned ? `, ${results.filesScanned} file(s)` : ''} in ${results.duration}ms`));
+  console.log(colors.gray(`\n📊 Scanned ${results.packagesScanned > 0 ? results.packagesScanned : 1} ${results.packagesScanned > 0 ? 'package' : 'directory'}(s)${results.filesScanned ? `, ${results.filesScanned} file(s)` : ''} in ${results.duration}ms`));
 }
 
 /**
@@ -139,7 +283,7 @@ function displayDependencyTree(tree, depth = 0, verbose = false) {
     const depCount = packageInfo.dependencies && typeof packageInfo.dependencies === 'object' ? Object.keys(packageInfo.dependencies).length : 0;
     
     // Color based on threat level
-    let packageColor = chalk.gray;
+    let packageColor = colors.gray;
     if (threatCount > 0 && Array.isArray(packageInfo.threats)) {
       const maxSeverity = Math.max(...packageInfo.threats.map(t => 
         t.severity === 'CRITICAL' ? 4 : 
@@ -147,18 +291,18 @@ function displayDependencyTree(tree, depth = 0, verbose = false) {
         t.severity === 'MEDIUM' ? 2 : 1
       ));
       
-      packageColor = maxSeverity === 4 ? chalk.red.bold :
-                    maxSeverity === 3 ? chalk.red :
-                    maxSeverity === 2 ? chalk.yellow : chalk.gray;
+      packageColor = maxSeverity === 4 ? colors.red.bold :
+                    maxSeverity === 3 ? colors.red :
+                    maxSeverity === 2 ? colors.yellow : colors.gray;
     }
     
     // Display package info
     let packageDisplay = `${indent}${packageColor(packageName)}@${packageInfo.version}`;
     if (threatCount > 0) {
-      packageDisplay += chalk.red(` (${threatCount} threat${threatCount > 1 ? 's' : ''})`);
+      packageDisplay += colors.red(` (${threatCount} threat${threatCount > 1 ? 's' : ''})`);
     }
     if (depCount > 0) {
-      packageDisplay += chalk.gray(` [${depCount} deps]`);
+      packageDisplay += colors.gray(` [${depCount} deps]`);
     }
     
     console.log(packageDisplay);
@@ -166,9 +310,9 @@ function displayDependencyTree(tree, depth = 0, verbose = false) {
     // Show threats in verbose mode
     if (verbose && threatCount > 0) {
       packageInfo.threats.forEach(threat => {
-        const severityColor = threat.severity === 'CRITICAL' ? chalk.red.bold :
-                             threat.severity === 'HIGH' ? chalk.red :
-                             threat.severity === 'MEDIUM' ? chalk.yellow : chalk.gray;
+        const severityColor = threat.severity === 'CRITICAL' ? colors.red.bold :
+                             threat.severity === 'HIGH' ? colors.red :
+                             threat.severity === 'MEDIUM' ? colors.yellow : colors.gray;
         console.log(`${indent}  ${severityColor('⚠')} ${threat.type}: ${threat.message}`);
       });
     }
