@@ -27,7 +27,41 @@ nullvoid scan /path/to/project
 
 ## Scan 
 
-![NullVoid Scan](https://github.com/kurt-grung/NullVoid/blob/main/nullvoid-scan.png)
+```
+% nullvoid scan
+⠋ 🔍 Scanning ...
+📁 nullvoid.js (detected: security tools)
+📁 colors.js
+📁 parallel.js
+📁 rules.js (detected: security tools)
+📁 scan.js (detected: security tools)
+📁 scan.test.js (detected: test file)
+📁 setup.js
+📁 cache.test.js
+📁 entropy.test.js
+📁 gpg-signature.test.js
+📁 parallel.test.js
+📁 signature-verification.test.js
+✔ ✅ Scan completed
+
+🔍 NullVoid Scan Results
+
+✅ No high-severity threats detected
+ℹ️  43 low/medium severity threats were filtered out
+💡 Use --all flag to see all threats
+
+📁 Directory Structure:
+   1082 directories: bin, lib, node_modules, release-notes, rules...
+   6401 files: CHANGELOG.md, CODE_OF_CONDUCT.md, CONTRIBUTING.md, LICENSE, NullVoid.png...
+
+📊 Dependency Tree Analysis:
+   Total packages scanned: 0
+   Max depth reached: 0
+   Packages with threats: 0
+   Deep dependencies (depth ≥2): 0
+
+📊 Scanned 1 directory(s), 13 file(s) in 207ms
+```
 
 
 ## 📋 Scan Commands

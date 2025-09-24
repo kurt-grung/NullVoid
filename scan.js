@@ -1261,8 +1261,12 @@ function analyzeCodeStructure(code, packageName) {
   const analysis = {
     isMalicious: false,
     reason: '',
-    confidence: 0
+    confidence: 0,
+    lineNumber: null,
+    sampleCode: ''
   };
+  
+  const lines = code.split('\n');
   
   // Pattern 1: Variable name mangling (const b3=I,b4=I,b5=I...)
   const variableManglingPattern = /const\s+[a-z]\d+\s*=\s*[A-Z]\s*,\s*[a-z]\d+\s*=\s*[A-Z]/g;
@@ -1270,14 +1274,35 @@ function analyzeCodeStructure(code, packageName) {
   if (manglingMatches && manglingMatches.length > 0) {
     analysis.confidence += 30;
     analysis.reason += `Variable name mangling detected (${manglingMatches.length} instances). `;
+    
+    // Find line number for the first match
+    if (!analysis.lineNumber) {
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].match(variableManglingPattern)) {
+          analysis.lineNumber = i + 1;
+          analysis.sampleCode = lines[i].substring(0, 100) + (lines[i].length > 100 ? '...' : '');
+          break;
+        }
+      }
+    }
   }
   
   // Pattern 2: Massive obfuscated blob (long line with no spaces)
-  const lines = code.split('\n');
   const longLines = lines.filter(line => line.length > 1000 && line.trim().length > 500);
   if (longLines.length > 0) {
     analysis.confidence += 25;
     analysis.reason += `Massive obfuscated code blob detected (${longLines[0].length} characters). `;
+    
+    // Find line number for the first long line
+    if (!analysis.lineNumber) {
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].length > 1000 && lines[i].trim().length > 500) {
+          analysis.lineNumber = i + 1;
+          analysis.sampleCode = lines[i].substring(0, 100) + '...';
+          break;
+        }
+      }
+    }
   }
   
   // Pattern 3: Hex encoding arrays ([0x30,0xd0,0x59,0x18])
@@ -1286,6 +1311,17 @@ function analyzeCodeStructure(code, packageName) {
   if (hexMatches && hexMatches.length > 0) {
     analysis.confidence += 20;
     analysis.reason += `Hex encoding arrays detected (${hexMatches.length} instances). `;
+    
+    // Find line number for the first match
+    if (!analysis.lineNumber) {
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].match(hexArrayPattern)) {
+          analysis.lineNumber = i + 1;
+          analysis.sampleCode = lines[i].substring(0, 100) + (lines[i].length > 100 ? '...' : '');
+          break;
+        }
+      }
+    }
   }
   
   // Pattern 4: Base64 string arrays (['dXNlcm5hbW','783EgSmpe'...])
@@ -1294,6 +1330,17 @@ function analyzeCodeStructure(code, packageName) {
   if (base64Matches && base64Matches.length > 0) {
     analysis.confidence += 20;
     analysis.reason += `Base64 string arrays detected (${base64Matches.length} instances). `;
+    
+    // Find line number for the first match
+    if (!analysis.lineNumber) {
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].match(base64ArrayPattern)) {
+          analysis.lineNumber = i + 1;
+          analysis.sampleCode = lines[i].substring(0, 100) + (lines[i].length > 100 ? '...' : '');
+          break;
+        }
+      }
+    }
   }
   
   // Pattern 5: Anti-debugging patterns
@@ -1302,6 +1349,17 @@ function analyzeCodeStructure(code, packageName) {
   if (antiDebugMatches && antiDebugMatches.length > 0) {
     analysis.confidence += 15;
     analysis.reason += `Anti-debugging patterns detected. `;
+    
+    // Find line number for the first match
+    if (!analysis.lineNumber) {
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].match(antiDebugPattern)) {
+          analysis.lineNumber = i + 1;
+          analysis.sampleCode = lines[i].substring(0, 100) + (lines[i].length > 100 ? '...' : '');
+          break;
+        }
+      }
+    }
   }
   
   // Pattern 6: Code appended to legitimate file (module.exports followed by obfuscated code)
@@ -1310,6 +1368,17 @@ function analyzeCodeStructure(code, packageName) {
   if (appendedCodeMatches && appendedCodeMatches.length > 0) {
     analysis.confidence += 25;
     analysis.reason += `Code appended to legitimate module.exports detected. `;
+    
+    // Find line number for the first match
+    if (!analysis.lineNumber) {
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].match(moduleExportPattern)) {
+          analysis.lineNumber = i + 1;
+          analysis.sampleCode = lines[i].substring(0, 100) + (lines[i].length > 100 ? '...' : '');
+          break;
+        }
+      }
+    }
   }
   
   // Pattern 7: High entropy (random-looking strings)
@@ -1317,6 +1386,23 @@ function analyzeCodeStructure(code, packageName) {
   if (entropy > 4.5) {
     analysis.confidence += 15;
     analysis.reason += `High entropy detected (${entropy.toFixed(2)}). `;
+    
+    // Find line with highest entropy
+    if (!analysis.lineNumber) {
+      let maxEntropy = 0;
+      let maxEntropyLine = 0;
+      for (let i = 0; i < lines.length; i++) {
+        const lineEntropy = calculateEntropy(lines[i]);
+        if (lineEntropy > maxEntropy) {
+          maxEntropy = lineEntropy;
+          maxEntropyLine = i + 1;
+        }
+      }
+      if (maxEntropyLine > 0) {
+        analysis.lineNumber = maxEntropyLine;
+        analysis.sampleCode = lines[maxEntropyLine - 1].substring(0, 100) + (lines[maxEntropyLine - 1].length > 100 ? '...' : '');
+      }
+    }
   }
   
   // Pattern 8: Suspicious function patterns
@@ -1325,6 +1411,17 @@ function analyzeCodeStructure(code, packageName) {
   if (suspiciousFunctionMatches && suspiciousFunctionMatches.length > 0) {
     analysis.confidence += 10;
     analysis.reason += `Suspicious function patterns detected. `;
+    
+    // Find line number for the first match
+    if (!analysis.lineNumber) {
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].match(suspiciousFunctionPattern)) {
+          analysis.lineNumber = i + 1;
+          analysis.sampleCode = lines[i].substring(0, 100) + (lines[i].length > 100 ? '...' : '');
+          break;
+        }
+      }
+    }
   }
   
   // Determine if malicious based on confidence score
@@ -1399,7 +1496,9 @@ function analyzeJavaScriptAST(code, packageName) {
       message: 'Code structure indicates malicious obfuscated content',
       package: packageName,
       severity: 'CRITICAL',
-      details: codeAnalysis.reason
+      details: codeAnalysis.reason,
+      lineNumber: codeAnalysis.lineNumber,
+      sampleCode: codeAnalysis.sampleCode
     });
   }
   
@@ -2620,12 +2719,14 @@ if (require.main === module) {
       results.threats.forEach((threat, index) => {
         // Color code based on severity
         let severityColor = '';
-        if (threat.severity === 'HIGH') {
-          severityColor = '\x1b[31m'; // Red
+        if (threat.severity === 'CRITICAL') {
+          severityColor = '\x1b[31m'; // Red for CRITICAL
+        } else if (threat.severity === 'HIGH') {
+          severityColor = '\x1b[31m'; // Red for HIGH
         } else if (threat.severity === 'MEDIUM') {
-          severityColor = '\x1b[33m'; // Yellow
+          severityColor = '\x1b[33m'; // Yellow for MEDIUM
         } else if (threat.severity === 'LOW') {
-          severityColor = '\x1b[34m'; // Blue
+          severityColor = '\x1b[34m'; // Blue for LOW
         }
         
         console.log(`${index + 1}. ${threat.type}: ${threat.message}`);
@@ -2639,14 +2740,17 @@ if (require.main === module) {
           }
           console.log(`   Package: ${packageColor}${threat.package}\x1b[0m`);
         }
+        if (threat.lineNumber) {
+          console.log(`   Line: ${threat.lineNumber}`);
+        }
+        if (threat.sampleCode) {
+          console.log(`   Sample: ${threat.sampleCode}`);
+        }
         if (threat.severity) {
           console.log(`   Severity: ${severityColor}${threat.severity}\x1b[0m`);
         }
         if (threat.details) {
           console.log(`   Details: ${threat.details}`);
-        } else {
-          // Debug: Check if threat has details field
-          console.log(`   Debug: threat.details = ${threat.details}`);
         }
         console.log('');
       });

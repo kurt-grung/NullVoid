@@ -203,12 +203,14 @@ function displayResults(results, options = {}) {
       highSeverityThreats.forEach((threat, index) => {
         // Color code based on severity
         let severityColor = '';
-        if (threat.severity === 'HIGH') {
-          severityColor = '\x1b[31m'; // Red
+        if (threat.severity === 'CRITICAL') {
+          severityColor = '\x1b[31m'; // Red for CRITICAL
+        } else if (threat.severity === 'HIGH') {
+          severityColor = '\x1b[31m'; // Red for HIGH
         } else if (threat.severity === 'MEDIUM') {
-          severityColor = '\x1b[33m'; // Yellow
+          severityColor = '\x1b[33m'; // Yellow for MEDIUM
         } else if (threat.severity === 'LOW') {
-          severityColor = '\x1b[34m'; // Blue
+          severityColor = '\x1b[34m'; // Blue for LOW
         }
         
         console.log(`${index + 1}. ${threat.type}: ${threat.message}`);
@@ -222,8 +224,17 @@ function displayResults(results, options = {}) {
           }
           console.log(`   Package: ${packageColor}${threat.package}\x1b[0m`);
         }
+        if (threat.lineNumber) {
+          console.log(`   Line: ${threat.lineNumber}`);
+        }
+        if (threat.sampleCode) {
+          console.log(`   Sample: ${threat.sampleCode}`);
+        }
         if (threat.severity) {
           console.log(`   Severity: ${severityColor}${threat.severity}\x1b[0m`);
+        }
+        if (threat.details) {
+          console.log(`   Details: ${threat.details}`);
         }
         console.log('');
       });
