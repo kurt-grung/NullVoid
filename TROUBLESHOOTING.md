@@ -540,7 +540,7 @@ When reporting issues, include:
 
 - **GitHub Issues:** https://github.com/kurt-grung/NullVoid/issues
 - **Documentation:** https://github.com/kurt-grung/NullVoid#readme
-- **Security Issues:** security@nullvoid.dev
+- **Security Issues:** kurtgrung@gmail.com
 
 ### Community Support
 

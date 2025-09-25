@@ -13,9 +13,9 @@ const glob = require('glob');
 const fse = require('fs-extra');
 const os = require('os');
 
-// Import new utilities
+// Import new secure utilities
 const { logger, createLogger } = require('./lib/logger');
-const { validatePackageName, validateScanOptions, ValidationError } = require('./lib/validation');
+const { validateScanOptions, ValidationError } = require('./lib/validation');
 const { 
   CACHE_CONFIG, 
   NETWORK_CONFIG, 
@@ -35,6 +35,16 @@ const {
   TimeoutError,
   CacheError 
 } = require('./lib/errorHandler');
+
+// Import new secure components
+const { analyzeFileSafely, analyzeWalletThreats } = require('./lib/sandbox');
+const { safeReadFile, safeReadDir, validatePath, PathValidationError } = require('./lib/pathSecurity');
+const { 
+  InputValidator, 
+  SecurityError, 
+  safeExecute 
+} = require('./lib/secureErrorHandler');
+const { isNullVoidCode, isTestFile } = require('./lib/nullvoidDetection');
 
 // Create package cache instance
 const packageCache = new PackageCache({
@@ -121,9 +131,9 @@ async function scan(packageName, options = {}, progressCallback = null) {
   
   // Validate inputs
   try {
-    if (packageName && !packageName.startsWith('/') && !packageName.startsWith('./') && !packageName.startsWith('../')) {
-      // Only validate if it looks like a package name, not a file path
-      validatePackageName(packageName);
+    if (packageName) {
+      // Use secure validation that allows both package names and local paths
+      InputValidator.validatePackageName(packageName);
     }
     validateScanOptions(options);
   } catch (error) {
@@ -268,50 +278,111 @@ async function scan(packageName, options = {}, progressCallback = null) {
           }
         }
       } else if (fs.existsSync(packageName) && fs.statSync(packageName).isFile()) {
-        // Scan individual file for malware patterns
-        const filePath = path.resolve(packageName);
+        // Scan individual file for malware patterns using secure analysis
+        const filePath = validatePath(packageName);
         const fileName = path.basename(filePath);
         
         // Check if it's a JavaScript file
         if (fileName.endsWith('.js') || fileName.endsWith('.mjs') || fileName.endsWith('.ts')) {
           try {
-            const fileContent = fs.readFileSync(filePath, 'utf8');
+            const content = safeReadFile(filePath);
             
-            // Run JavaScript AST analysis for malware detection
-            const astThreats = analyzeJavaScriptAST(fileContent, filePath);
+            // Use secure file analysis
+            const analysisResult = analyzeFileSafely(filePath);
+            
+            if (!analysisResult.safe) {
+              threats.push(...analysisResult.threats);
+            }
+            
+            // Additional wallet threat analysis
+            const walletThreats = analyzeWalletThreats(content, fileName);
+            threats.push(...walletThreats);
+            
+            // Critical: Add malicious code structure analysis
+            const codeAnalysis = analyzeCodeStructure(content, filePath);
+            if (codeAnalysis.isMalicious) {
+              threats.push({
+                type: 'MALICIOUS_CODE_STRUCTURE',
+                message: 'Code structure indicates malicious obfuscated content',
+                package: filePath,
+                severity: 'CRITICAL',
+                details: codeAnalysis.reason,
+                lineNumber: codeAnalysis.lineNumber,
+                sampleCode: codeAnalysis.sampleCode
+              });
+            }
+            
+            // Additional AST analysis for comprehensive detection
+            const astThreats = analyzeJavaScriptAST(content, filePath);
             threats.push(...astThreats);
             
-            // Run obfuscated IoC detection
-            const iocThreats = checkObfuscatedIoCs(fileContent, filePath);
+            // Check for obfuscated IoCs
+            const iocThreats = checkObfuscatedIoCs(content, filePath);
             threats.push(...iocThreats);
             
-            // Run dynamic require detection
-            const requireThreats = detectDynamicRequires(fileContent, filePath);
+            // Check for dynamic requires
+            const requireThreats = detectDynamicRequires(content, filePath);
             threats.push(...requireThreats);
             
             filesScanned = 1;
             packagesScanned = 0;
             
             if (options.verbose) {
-              console.log(`Scanned individual file: ${filePath}`);
+              console.log(`Scanned individual file securely: ${filePath}`);
             }
           } catch (error) {
+            if (error instanceof PathValidationError) {
+              threats.push({
+                type: 'PATH_TRAVERSAL_ATTEMPT',
+                message: 'Path traversal attempt detected',
+                package: fileName,
+                severity: 'CRITICAL',
+                details: error.message
+              });
+            } else {
+              threats.push({
+                type: 'FILE_ANALYSIS_ERROR',
+                message: 'Failed to analyze file safely',
+                package: fileName,
+                severity: 'MEDIUM',
+                details: error.message
+              });
+            }
+            
             if (options.verbose) {
               console.warn(`Warning: Could not analyze file ${filePath}: ${error.message}`);
             }
           }
         } else {
-          // Non-JavaScript file - check for suspicious patterns
+          // Non-JavaScript file - check for suspicious patterns safely
           try {
-            const fileContent = fs.readFileSync(filePath, 'utf8');
+            const fileContent = safeReadFile(filePath);
             
             // Check for obfuscated patterns even in non-JS files
-            const iocThreats = checkObfuscatedIoCs(fileContent, filePath);
+            const iocThreats = checkObfuscatedIoCs(fileContent, fileName);
             threats.push(...iocThreats);
             
             filesScanned = 1;
             packagesScanned = 0;
           } catch (error) {
+            if (error instanceof PathValidationError) {
+              threats.push({
+                type: 'PATH_TRAVERSAL_ATTEMPT',
+                message: 'Path traversal attempt detected',
+                package: fileName,
+                severity: 'CRITICAL',
+                details: error.message
+              });
+            } else {
+              threats.push({
+                type: 'FILE_READ_ERROR',
+                message: 'Failed to read file safely',
+                package: fileName,
+                severity: 'MEDIUM',
+                details: error.message
+              });
+            }
+            
             if (options.verbose) {
               console.warn(`Warning: Could not analyze file ${filePath}: ${error.message}`);
             }
@@ -1102,7 +1173,11 @@ async function getPackageMetadata(packageName, version) {
     const timeout = NETWORK_CONFIG.TIMEOUT;
     
     performanceMetrics.networkRequests++;
-    const request = https.get(url, { timeout }, (res) => {
+    const request = https.get(url, { 
+      timeout,
+      agent: false, // Disable connection pooling
+      keepAlive: false // Disable keep-alive
+    }, (res) => {
       let data = '';
       
       // Handle different status codes
@@ -1176,8 +1251,21 @@ async function getPackageMetadata(packageName, version) {
     });
     
     request.on('error', (error) => {
+      request.destroy();
       reject(new Error(`Request error for ${packageName}: ${error.message}`));
     });
+    
+    // Ensure proper cleanup and prevent hanging
+    request.setTimeout(timeout);
+    request.setKeepAlive(false);
+    
+    // Force cleanup after a reasonable time
+    const cleanupTimer = setTimeout(() => {
+      if (!request.destroyed) {
+        request.destroy();
+      }
+    }, timeout + 1000);
+    cleanupTimer.unref(); // Don't keep process alive
   });
 }
 
@@ -1308,6 +1396,13 @@ function analyzeCodeStructure(code, packageName) {
     lineNumber: null,
     sampleCode: ''
   };
+  
+  // Check if this is NullVoid's own code - if so, skip malicious detection
+  
+  // If this is NullVoid's own code, return safe analysis
+  if (isNullVoidCode(packageName)) {
+    return analysis;
+  }
   
   const lines = code.split('\n');
   
@@ -1509,41 +1604,10 @@ function analyzeJavaScriptAST(code, packageName) {
   const threats = [];
   
   // Check if this is NullVoid's own code for special handling
-  const isNullVoidCode = packageName && (
-    // Only match specific NullVoid project files, not arbitrary subdirectories
-    packageName.includes('scan.js') ||
-    packageName.includes('lib/rules.js') ||
-    packageName.includes('lib/benchmarks.js') ||
-    packageName.includes('lib/cache.js') ||
-    packageName.includes('lib/config.js') ||
-    packageName.includes('lib/errorHandler.js') ||
-    packageName.includes('lib/logger.js') ||
-    packageName.includes('lib/parallel.js') ||
-    packageName.includes('lib/rateLimiter.js') ||
-    packageName.includes('lib/streaming.js') ||
-    packageName.includes('lib/validation.js') ||
-    packageName.includes('bin/nullvoid.js') ||
-    packageName.includes('colors.js') ||
-    packageName.includes('package.json') ||
-    packageName.includes('README.md') ||
-    packageName.includes('CHANGELOG.md') ||
-    packageName.includes('LICENSE') ||
-    packageName.includes('CONTRIBUTING.md') ||
-    packageName.includes('SECURITY.md') ||
-    packageName.includes('CODE_OF_CONDUCT.md')
-  );
-  
-  // Check if this is a test file
-  const isTestFile = packageName && (
-    packageName.includes('test/') ||
-    packageName.includes('.test.js') ||
-    packageName.includes('.spec.js') ||
-    packageName.includes('__tests__/')
-  );
   
   // SMART DETECTION: Analyze code structure and patterns
   const codeAnalysis = analyzeCodeStructure(code, packageName);
-  if (codeAnalysis.isMalicious && !isNullVoidCode && !isTestFile) {
+  if (codeAnalysis.isMalicious && !isNullVoidCode(packageName) && !isTestFile(packageName)) {
     threats.push({
       type: 'MALICIOUS_CODE_STRUCTURE',
       message: 'Code structure indicates malicious obfuscated content',
@@ -1979,37 +2043,6 @@ function checkObfuscatedIoCs(content, packageName) {
   const threats = [];
   
   // Check if this is NullVoid's own code for special handling
-  const isNullVoidCode = packageName && (
-    // Only match specific NullVoid project files, not arbitrary subdirectories
-    packageName.includes('scan.js') ||
-    packageName.includes('lib/rules.js') ||
-    packageName.includes('lib/benchmarks.js') ||
-    packageName.includes('lib/cache.js') ||
-    packageName.includes('lib/config.js') ||
-    packageName.includes('lib/errorHandler.js') ||
-    packageName.includes('lib/logger.js') ||
-    packageName.includes('lib/parallel.js') ||
-    packageName.includes('lib/rateLimiter.js') ||
-    packageName.includes('lib/streaming.js') ||
-    packageName.includes('lib/validation.js') ||
-    packageName.includes('bin/nullvoid.js') ||
-    packageName.includes('colors.js') ||
-    packageName.includes('package.json') ||
-    packageName.includes('README.md') ||
-    packageName.includes('CHANGELOG.md') ||
-    packageName.includes('LICENSE') ||
-    packageName.includes('CONTRIBUTING.md') ||
-    packageName.includes('SECURITY.md') ||
-    packageName.includes('CODE_OF_CONDUCT.md')
-  );
-  
-  // Check if this is a test file
-  const isTestFile = packageName && (
-    packageName.includes('test/') ||
-    packageName.includes('.test.js') ||
-    packageName.includes('.spec.js') ||
-    packageName.includes('__tests__/')
-  );
   
   // Known obfuscated patterns from recent npm attacks
   const obfuscatedPatterns = [
@@ -2026,7 +2059,7 @@ function checkObfuscatedIoCs(content, packageName) {
   
   for (const pattern of obfuscatedPatterns) {
     if (content.includes(pattern)) {
-      if (isNullVoidCode) {
+      if (isNullVoidCode(packageName)) {
         // For NullVoid's own code, these are legitimate security detection patterns
         threats.push({
           type: 'OBFUSCATED_IOC',
@@ -2035,7 +2068,7 @@ function checkObfuscatedIoCs(content, packageName) {
           severity: 'LOW',
           details: `Found obfuscated pattern ${pattern} - This is legitimate security detection code in NullVoid, not malicious`
         });
-      } else if (isTestFile) {
+      } else if (isTestFile(packageName)) {
         // For test files, these are legitimate test patterns
         threats.push({
           type: 'OBFUSCATED_IOC',
@@ -2230,37 +2263,6 @@ function detectDynamicRequires(code, packageName) {
   
   
   // Check if this is NullVoid's own code for special handling
-  const isNullVoidCode = packageName && (
-    // Only match specific NullVoid project files, not arbitrary subdirectories
-    packageName.includes('scan.js') ||
-    packageName.includes('lib/rules.js') ||
-    packageName.includes('lib/benchmarks.js') ||
-    packageName.includes('lib/cache.js') ||
-    packageName.includes('lib/config.js') ||
-    packageName.includes('lib/errorHandler.js') ||
-    packageName.includes('lib/logger.js') ||
-    packageName.includes('lib/parallel.js') ||
-    packageName.includes('lib/rateLimiter.js') ||
-    packageName.includes('lib/streaming.js') ||
-    packageName.includes('lib/validation.js') ||
-    packageName.includes('bin/nullvoid.js') ||
-    packageName.includes('colors.js') ||
-    packageName.includes('package.json') ||
-    packageName.includes('README.md') ||
-    packageName.includes('CHANGELOG.md') ||
-    packageName.includes('LICENSE') ||
-    packageName.includes('CONTRIBUTING.md') ||
-    packageName.includes('SECURITY.md') ||
-    packageName.includes('CODE_OF_CONDUCT.md')
-  );
-  
-  // Check if this is a test file
-  const isTestFile = packageName && (
-    packageName.includes('test/') ||
-    packageName.includes('.test.js') ||
-    packageName.includes('.spec.js') ||
-    packageName.includes('__tests__/')
-  );
   
   try {
     const ast = parser.parse(code, {
@@ -2301,7 +2303,7 @@ function detectDynamicRequires(code, packageName) {
                   module === 'child_process' ||
                   module === 'fs' ||
                   module.match(/^[a-z0-9]{32,}$/)) { // Random-looking module names
-                if (isNullVoidCode) {
+                if (isNullVoidCode(packageName)) {
                   // For NullVoid's own code, these are legitimate security tools
                   threats.push({
                     type: 'SUSPICIOUS_MODULE',
@@ -2310,7 +2312,7 @@ function detectDynamicRequires(code, packageName) {
                     severity: 'LOW',
                     details: `Code requires module: ${module} - This is legitimate security detection code in NullVoid, not malicious`
                   });
-                } else if (isTestFile) {
+                } else if (isTestFile(packageName)) {
                   // For test files, these are legitimate test patterns
                   threats.push({
                     type: 'SUSPICIOUS_MODULE',
@@ -3576,10 +3578,11 @@ async function checkGpgSignatures(packageData, packageName, options) {
             resolve(res.statusCode === 200);
           });
           req.on('error', () => resolve(false));
-          req.setTimeout(5000, () => {
+          const timeoutRef = req.setTimeout(5000, () => {
             req.destroy();
             resolve(false);
           });
+          timeoutRef.unref(); // Don't keep process alive
         });
         
         if (!signatureExists) {
@@ -3613,6 +3616,7 @@ module.exports = {
   checkObfuscatedIoCs,
   analyzePackageJson,
   detectDynamicRequires,
+  analyzeCodeStructure,
   checkPackageSignatures,
   checkPackageIntegrity,
   checkTarballSignatures,

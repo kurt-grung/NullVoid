@@ -11,7 +11,7 @@
 If you discover a security vulnerability in NullVoid, please report it responsibly:
 
 1. **Do not** open a public issue
-2. Email security details to: security@nullvoid.dev
+2. Email security details to: kurtgrung@gmail.com
 3. Include:
    - Description of the vulnerability
    - Steps to reproduce
@@ -45,4 +45,4 @@ When using NullVoid:
 
 ## Contact
 
-For security-related questions: security@nullvoid.dev
+For security-related questions: kurtgrung@gmail.com

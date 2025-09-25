@@ -454,4 +454,4 @@ For issues, feature requests, or questions:
 
 - GitHub Issues: https://github.com/kurt-grung/NullVoid/issues
 - Documentation: https://github.com/kurt-grung/NullVoid#readme
-- Security: security@nullvoid.dev
+- Security: kurtgrung@gmail.com

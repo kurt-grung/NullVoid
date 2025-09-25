@@ -7,6 +7,10 @@ const path = require('path');
 const { scan } = require('../scan');
 const packageJson = require('../package.json');
 
+// Import secure validation
+const { InputValidator, SecurityError, ValidationError } = require('../lib/secureErrorHandler');
+const { isNullVoidCode, isTestFile } = require('../lib/nullvoidDetection');
+
 program
   .name('nullvoid')
   .description('Detect and invalidate malicious npm packages before they reach prod')
@@ -28,12 +32,41 @@ program
     const spinner = ora('🔍 Scanning ...').start();
     
     try {
+      // Validate input parameters securely
+      let validatedPackageName = packageName;
+      if (packageName) {
+        try {
+          validatedPackageName = InputValidator.validatePackageName(packageName);
+        } catch (error) {
+          if (error instanceof SecurityError) {
+            spinner.fail('🚨 Security Error');
+            console.error(colors.red('Security Error:'), error.message);
+            console.error(colors.red('Details:'), error.details);
+            process.exit(1);
+          } else if (error instanceof ValidationError) {
+            spinner.fail('❌ Validation Error');
+            console.error(colors.red('Validation Error:'), error.message);
+            process.exit(1);
+          }
+        }
+      }
+      
+      // Validate scan options
+      let validatedOptions;
+      try {
+        validatedOptions = InputValidator.validateScanOptions(options);
+      } catch (error) {
+        spinner.fail('❌ Invalid Options');
+        console.error(colors.red('Invalid Options:'), error.message);
+        process.exit(1);
+      }
+      
       // Parse depth option
       const scanOptions = {
-        ...options,
-        maxDepth: parseInt(options.depth) || 3,
-        parallel: options.parallel !== false, // Default to true unless explicitly disabled
-        workers: options.workers === 'auto' ? undefined : parseInt(options.workers) || undefined
+        ...validatedOptions,
+        maxDepth: parseInt(validatedOptions.depth) || 3,
+        parallel: validatedOptions.parallel !== false, // Default to true unless explicitly disabled
+        workers: validatedOptions.workers === 'auto' ? undefined : parseInt(validatedOptions.workers) || undefined
       };
       
       // Progress callback to show current file with threat detection
@@ -43,35 +76,6 @@ program
         
         try {
           // Check if this is NullVoid's own code or test files
-          const isNullVoidCode = fileName && (
-            fileName === 'scan.js' ||
-            fileName === 'rules.js' ||
-            fileName === 'benchmarks.js' ||
-            fileName === 'cache.js' ||
-            fileName === 'config.js' ||
-            fileName === 'errorHandler.js' ||
-            fileName === 'logger.js' ||
-            fileName === 'parallel.js' ||
-            fileName === 'rateLimiter.js' ||
-            fileName === 'streaming.js' ||
-            fileName === 'validation.js' ||
-            fileName === 'nullvoid.js' ||
-            fileName === 'colors.js' ||
-            fileName === 'package.json' ||
-            fileName === 'README.md' ||
-            fileName === 'CHANGELOG.md' ||
-            fileName === 'LICENSE' ||
-            fileName === 'CONTRIBUTING.md' ||
-            fileName === 'SECURITY.md' ||
-            fileName === 'CODE_OF_CONDUCT.md'
-          );
-          
-          const isTestFile = fileName && (
-            fileName.endsWith('.test.js') ||
-            fileName.endsWith('.spec.js') ||
-            fileName.includes('test/') ||
-            fileName.includes('__tests__/')
-          );
           
           // Quick threat check for this file
           const content = fs.readFileSync(filePath, 'utf8');
@@ -82,10 +86,10 @@ program
           // Check for obfuscated patterns (HIGH severity)
           if (content.includes('_0x') || content.match(/const\s+[a-z]\d+\s*=\s*[A-Z]/)) {
             hasThreats = true;
-            if (isNullVoidCode) {
+            if (isNullVoidCode(filePath)) {
               if (!threats.includes('security tools')) threats.push('security tools');
               maxSeverity = 'LOW';
-            } else if (isTestFile) {
+            } else if (isTestFile(filePath)) {
               if (!threats.includes('test file')) threats.push('test file');
               maxSeverity = 'LOW';
             } else {
@@ -98,10 +102,10 @@ program
           if (content.includes('require(\'fs\')') || content.includes('require(\'child_process\')') || 
               content.includes('require(\'eval\')') || content.includes('require(\'vm\')')) {
             hasThreats = true;
-            if (isNullVoidCode) {
+            if (isNullVoidCode(filePath)) {
               if (!threats.includes('security tools')) threats.push('security tools');
               maxSeverity = 'LOW';
-            } else if (isTestFile) {
+            } else if (isTestFile(filePath)) {
               if (!threats.includes('test file')) threats.push('test file');
               maxSeverity = 'LOW';
             } else {
@@ -114,10 +118,10 @@ program
           if (content.match(/const\s+[a-z]\d+\s*=\s*[A-Z]\s*,\s*[a-z]\d+\s*=\s*[A-Z]/) ||
               content.split('\n').some(line => line.length > 1000)) {
             hasThreats = true;
-            if (isNullVoidCode) {
+            if (isNullVoidCode(filePath)) {
               if (!threats.includes('security tools')) threats.push('security tools');
               maxSeverity = 'LOW';
-            } else if (isTestFile) {
+            } else if (isTestFile(filePath)) {
               if (!threats.includes('test file')) threats.push('test file');
               maxSeverity = 'LOW';
             } else {
@@ -159,7 +163,7 @@ program
         }
       };
       
-      const results = await scan(packageName, scanOptions, progressCallback);
+      const results = await scan(validatedPackageName, scanOptions, progressCallback);
       spinner.succeed('✅ Scan completed');
       
       if (options.output === 'json') {

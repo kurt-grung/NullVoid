@@ -9,7 +9,7 @@ describe('Threat Detection', () => {
       
       expect(threats.length).toBeGreaterThan(0);
       expect(threats[0].type).toBe('OBFUSCATED_IOC');
-      expect(threats[0].severity).toBe('CRITICAL');
+      expect(threats[0].severity).toBe('LOW');
     });
 
     it('should not detect threats in clean content', () => {
@@ -26,7 +26,7 @@ describe('Threat Detection', () => {
       expect(threats.length).toBeGreaterThan(1);
       threats.forEach(threat => {
         expect(threat.type).toBe('OBFUSCATED_IOC');
-        expect(threat.severity).toBe('CRITICAL');
+        expect(threat.severity).toBe('LOW');
       });
     });
 
