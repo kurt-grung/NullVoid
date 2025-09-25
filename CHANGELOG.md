@@ -16,6 +16,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Scope-Aware Detection**: Handle scoped packages and namespace ownership warnings
 - **Enhanced Timeline Analysis**: Package vulnerability detection based on creation vs usage dates
 
+## [1.3.14]
+
+### Added
+- **Centralized Configuration System**: All malware detection patterns now centralized in `DETECTION_CONFIG`
+- **LEGITIMATE_PATTERNS**: 8 patterns for intelligent legitimate code detection
+- **MALWARE_PATTERNS**: 10 comprehensive categories of malware detection patterns
+- **Pattern Documentation**: Clear comments for each pattern type and purpose
+- **Configuration Consistency**: Follows same naming convention as other config constants
+
+### Changed
+- **Detection Module**: Now imports patterns from centralized `DETECTION_CONFIG`
+- **Pattern Management**: Moved from scattered definitions to single source of truth
+- **Code Organization**: Improved maintainability and extensibility
+- **Architecture**: Better separation of configuration and business logic
+
+### Fixed
+- **Pattern Duplication**: Removed duplicate pattern definitions across files
+- **Maintainability**: Easier to update patterns without modifying detection logic
+- **Consistency**: All patterns now follow consistent naming conventions
+
+### Security
+- **Enhanced Detection**: Comprehensive malware pattern categories
+- **Intelligent Samples**: Smart legitimate code removal in sample display
+- **Pattern Accuracy**: Centralized patterns ensure consistent detection across modules
+- **False Positive Prevention**: Improved whitelist logic with centralized patterns
+
 ## [1.3.10]
 
 ### Added
