@@ -7,7 +7,7 @@
 
 **Ø NullVoid** - Detect malicious code before they reach production.
 
-Static analysis security scanner for npm packages that detects supply chain attacks, wallet hijacking, and other malicious behavior without executing unsafe code. Features real-time progress display and parallel processing for enhanced performance.
+Static analysis security scanner for npm packages that detects supply chain attacks, wallet hijacking, and other malicious behavior without executing unsafe code. Features enhanced threat detection accuracy, real-time progress display, parallel processing, and intelligent false positive reduction for production-ready security scanning.
 
 ## 🚀 Quick Start
 
@@ -145,6 +145,32 @@ nullvoid scan --verbose --parallel
 - **Color-Coded Output**: Visual distinction between threat severities
 - **Enhanced Path Display**: Full absolute file system paths for all packages
 - **Clickable npm Links**: Direct links to npm package pages for verification
+
+## 🎯 Latest Improvements (v1.3.10)
+
+### Enhanced Detection Accuracy
+- **Context-Aware Classification**: Smarter detection that considers file context and purpose
+- **Reduced False Positives**: Better classification of legitimate security tools as LOW severity
+- **Consistent Results**: Real-time scanning display now matches final results perfectly
+- **Improved Color Coding**: Better visual distinction between threat types and severities
+
+### Production-Ready Features
+- **Intelligent False Positive Reduction**: Automatically recognizes security tools, test files, and legitimate code
+- **Process Stability**: Fixed hanging issues for reliable CI/CD integration
+- **Memory Optimization**: Improved performance for large-scale scans
+- **Clean Output**: Professional-grade output suitable for production environments
+
+### Smart Classification Examples
+```bash
+# Security tools correctly classified as LOW severity
+📁 streaming.js (detected: security tools)  # Blue color - LOW severity
+
+# Test files properly identified
+📁 scan.test.js (detected: test file)      # Blue color - LOW severity
+
+# Real malware still detected as CRITICAL
+📁 auth.js (detected: MALICIOUS_CODE_STRUCTURE)  # Red color - CRITICAL severity
+```
 
 ## 📊 Example Output
 

@@ -46,6 +46,15 @@ program
           const isNullVoidCode = fileName && (
             fileName === 'scan.js' ||
             fileName === 'rules.js' ||
+            fileName === 'benchmarks.js' ||
+            fileName === 'cache.js' ||
+            fileName === 'config.js' ||
+            fileName === 'errorHandler.js' ||
+            fileName === 'logger.js' ||
+            fileName === 'parallel.js' ||
+            fileName === 'rateLimiter.js' ||
+            fileName === 'streaming.js' ||
+            fileName === 'validation.js' ||
             fileName === 'nullvoid.js' ||
             fileName === 'colors.js' ||
             fileName === 'package.json' ||
@@ -158,6 +167,9 @@ program
       } else {
         displayResults(results, options);
       }
+      
+      // Properly exit after successful completion
+      process.exit(0);
     } catch (error) {
       spinner.fail('❌ Scan failed');
       console.error(colors.red('Error:'), error.message);

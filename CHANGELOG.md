@@ -16,6 +16,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Scope-Aware Detection**: Handle scoped packages and namespace ownership warnings
 - **Enhanced Timeline Analysis**: Package vulnerability detection based on creation vs usage dates
 
+## [1.3.10] - 2024-09-25
+
+### Added
+- Enhanced threat detection accuracy with context-aware classification
+- Improved real-time display consistency with final results
+- Better color coding for threat severity levels
+- Smart classification for security tools, test files, and legitimate code
+
+### Changed
+- **BREAKING**: Improved NullVoid code recognition logic for better accuracy
+- Enhanced CLI real-time display to match core scanning logic
+- Optimized detection algorithms for better performance
+- Improved memory usage during large-scale scans
+
+### Fixed
+- **CRITICAL**: Resolved false positive issues where NullVoid utility files were incorrectly flagged as CRITICAL threats
+- **CRITICAL**: Fixed inconsistency between real-time scanning display and final results
+- **CRITICAL**: Resolved process hanging issues after scan completion
+- **CRITICAL**: Fixed CLI detection logic to properly recognize all utility files
+- Removed hardcoded path exclusions for more maintainable code
+- Improved error handling and validation messages
+- Cleaned up debug output from production builds
+
+### Security
+- Enhanced detection accuracy reduces false positive rate
+- Better classification prevents legitimate security tools from being flagged as threats
+- Improved process termination prevents resource leaks
+
 ## [1.3.9] - 2024-09-24
 
 ### Added

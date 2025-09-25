@@ -13,9 +13,47 @@ const glob = require('glob');
 const fse = require('fs-extra');
 const os = require('os');
 
-// Simple in-memory cache for package analysis
-const packageCache = new Map();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+// Import new utilities
+const { logger, createLogger } = require('./lib/logger');
+const { validatePackageName, validateScanOptions, ValidationError } = require('./lib/validation');
+const { 
+  CACHE_CONFIG, 
+  NETWORK_CONFIG, 
+  PARALLEL_CONFIG, 
+  FILE_CONFIG, 
+  ENTROPY_THRESHOLDS, 
+  SCAN_CONFIG,
+  SECURITY_CONFIG,
+  PERFORMANCE_CONFIG
+} = require('./lib/config');
+const { PackageCache } = require('./lib/cache');
+const { rateLimitedRequest, getNpmRegistryStatus } = require('./lib/rateLimiter');
+const { 
+  globalErrorHandler, 
+  NetworkError, 
+  FileSystemError, 
+  TimeoutError,
+  CacheError 
+} = require('./lib/errorHandler');
+
+// Create package cache instance
+const packageCache = new PackageCache({
+  maxSize: CACHE_CONFIG.MAX_SIZE,
+  defaultTTL: CACHE_CONFIG.TTL
+});
+
+/**
+ * Utility function to get npm global prefix
+ * @returns {string} npm global prefix path
+ */
+function getNpmGlobalPrefix() {
+  try {
+    return execSync('npm config get prefix', { encoding: 'utf8' }).trim();
+  } catch (error) {
+    logger.warn('Could not get npm global prefix', { error: error.message });
+    return '/usr/local'; // fallback
+  }
+}
 
 // Simple performance monitoring
 const performanceMetrics = {
@@ -25,14 +63,6 @@ const performanceMetrics = {
   cacheMisses: 0,
   networkRequests: 0,
   errors: 0
-};
-
-// Enhanced entropy thresholds for different content types
-const ENTROPY_THRESHOLDS = {
-  JAVASCRIPT: 5.0,    // Higher threshold for JS (more random)
-  JSON: 4.2,          // Higher threshold for JSON
-  TEXT: 4.0,          // Higher threshold for general text
-  BINARY: 7.5         // Higher threshold for binary/encoded content
 };
 
 // Suspicious package.json patterns
@@ -67,20 +97,17 @@ const SUSPICIOUS_PACKAGE_PATTERNS = {
  * Cache management functions
  */
 function getCachedResult(key) {
-  const cached = packageCache.get(key);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+  const result = packageCache.get(key);
+  if (result) {
     performanceMetrics.cacheHits++;
-    return cached.data;
+    return result;
   }
   performanceMetrics.cacheMisses++;
   return null;
 }
 
 function setCachedResult(key, data) {
-  packageCache.set(key, {
-    data,
-    timestamp: Date.now()
-  });
+  packageCache.set(key, data);
 }
 
 /**
@@ -91,6 +118,22 @@ function setCachedResult(key, data) {
  */
 async function scan(packageName, options = {}, progressCallback = null) {
   const startTime = Date.now();
+  
+  // Validate inputs
+  try {
+    if (packageName && !packageName.startsWith('/') && !packageName.startsWith('./') && !packageName.startsWith('../')) {
+      // Only validate if it looks like a package name, not a file path
+      validatePackageName(packageName);
+    }
+    validateScanOptions(options);
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      logger.error(`Validation error: ${error.message}`, { field: error.field, value: error.value });
+      throw error;
+    }
+    throw error;
+  }
+  
   const threats = [];
   let packagesScanned = 0;
   let filesScanned = 0;
@@ -493,7 +536,7 @@ async function buildAndScanDependencyTreeParallel(dependencies, maxDepth, option
       // 2. Get npm global prefix and use it
       try {
         const { execSync } = require('child_process');
-        const npmGlobalPrefix = execSync('npm config get prefix', { encoding: 'utf8' }).trim();
+        const npmGlobalPrefix = getNpmGlobalPrefix();
         if (npmGlobalPrefix && npmGlobalPrefix !== 'undefined') {
           possiblePaths.push(
             path.join(npmGlobalPrefix, 'lib', 'node_modules', name),
@@ -668,7 +711,7 @@ async function buildAndScanDependencyTree(dependencies, maxDepth, options, rootP
       // 2. Get npm global prefix and use it
       try {
         const { execSync } = require('child_process');
-        const npmGlobalPrefix = execSync('npm config get prefix', { encoding: 'utf8' }).trim();
+        const npmGlobalPrefix = getNpmGlobalPrefix();
         if (npmGlobalPrefix && npmGlobalPrefix !== 'undefined') {
           possiblePaths.push(
             path.join(npmGlobalPrefix, 'lib', 'node_modules', name),
@@ -780,7 +823,7 @@ async function buildAndScanDependencyTree(dependencies, maxDepth, options, rootP
                 // 2. Get npm global prefix and use it
                 try {
                   const { execSync } = require('child_process');
-                  const npmGlobalPrefix = execSync('npm config get prefix', { encoding: 'utf8' }).trim();
+                  const npmGlobalPrefix = getNpmGlobalPrefix();
                   if (npmGlobalPrefix && npmGlobalPrefix !== 'undefined') {
                     possiblePaths.push(
                       path.join(npmGlobalPrefix, 'lib', 'node_modules', depName),
@@ -980,7 +1023,7 @@ async function scanPackage(packageName, version, options, packagePath = null) {
     // 2. Get npm global prefix and use it
     try {
       const { execSync } = require('child_process');
-      const npmGlobalPrefix = execSync('npm config get prefix', { encoding: 'utf8' }).trim();
+      const npmGlobalPrefix = getNpmGlobalPrefix();
       if (npmGlobalPrefix && npmGlobalPrefix !== 'undefined') {
         possiblePaths.push(
           path.join(npmGlobalPrefix, 'lib', 'node_modules', packageName),
@@ -1056,7 +1099,7 @@ async function scanPackage(packageName, version, options, packagePath = null) {
 async function getPackageMetadata(packageName, version) {
   return new Promise((resolve, reject) => {
     const url = `https://registry.npmjs.org/${packageName}`;
-    const timeout = 5000; // 5 second timeout
+    const timeout = NETWORK_CONFIG.TIMEOUT;
     
     performanceMetrics.networkRequests++;
     const request = https.get(url, { timeout }, (res) => {
@@ -1467,8 +1510,18 @@ function analyzeJavaScriptAST(code, packageName) {
   
   // Check if this is NullVoid's own code for special handling
   const isNullVoidCode = packageName && (
+    // Only match specific NullVoid project files, not arbitrary subdirectories
     packageName.includes('scan.js') ||
     packageName.includes('lib/rules.js') ||
+    packageName.includes('lib/benchmarks.js') ||
+    packageName.includes('lib/cache.js') ||
+    packageName.includes('lib/config.js') ||
+    packageName.includes('lib/errorHandler.js') ||
+    packageName.includes('lib/logger.js') ||
+    packageName.includes('lib/parallel.js') ||
+    packageName.includes('lib/rateLimiter.js') ||
+    packageName.includes('lib/streaming.js') ||
+    packageName.includes('lib/validation.js') ||
     packageName.includes('bin/nullvoid.js') ||
     packageName.includes('colors.js') ||
     packageName.includes('package.json') ||
@@ -1630,6 +1683,7 @@ function analyzeJavaScriptAST(code, packageName) {
       });
     }
   }
+  
   
   return threats;
 }
@@ -1926,8 +1980,18 @@ function checkObfuscatedIoCs(content, packageName) {
   
   // Check if this is NullVoid's own code for special handling
   const isNullVoidCode = packageName && (
+    // Only match specific NullVoid project files, not arbitrary subdirectories
     packageName.includes('scan.js') ||
     packageName.includes('lib/rules.js') ||
+    packageName.includes('lib/benchmarks.js') ||
+    packageName.includes('lib/cache.js') ||
+    packageName.includes('lib/config.js') ||
+    packageName.includes('lib/errorHandler.js') ||
+    packageName.includes('lib/logger.js') ||
+    packageName.includes('lib/parallel.js') ||
+    packageName.includes('lib/rateLimiter.js') ||
+    packageName.includes('lib/streaming.js') ||
+    packageName.includes('lib/validation.js') ||
     packageName.includes('bin/nullvoid.js') ||
     packageName.includes('colors.js') ||
     packageName.includes('package.json') ||
@@ -2088,6 +2152,74 @@ function analyzePackageJson(packageData, packageName) {
 }
 
 /**
+ * Analyze fs module usage context to determine if it's suspicious
+ * @param {string} code - Code to analyze
+ * @param {Object} path - AST path object
+ * @returns {Object} Analysis result with isSuspicious flag and reason
+ */
+function analyzeFsUsageContext(code, path) {
+  const suspiciousPatterns = [
+    // File system operations that could be malicious
+    /\.writeFileSync\s*\(/,
+    /\.writeFile\s*\(/,
+    /\.unlinkSync\s*\(/,
+    /\.unlink\s*\(/,
+    /\.rmdirSync\s*\(/,
+    /\.rmdir\s*\(/,
+    /\.rmSync\s*\(/,
+    /\.rm\s*\(/,
+    /\.chmodSync\s*\(/,
+    /\.chmod\s*\(/,
+    /\.chownSync\s*\(/,
+    /\.chown\s*\(/,
+    // Reading sensitive files
+    /\.readFileSync\s*\(\s*['"`]\/etc\/passwd['"`]/,
+    /\.readFileSync\s*\(\s*['"`]\/etc\/shadow['"`]/,
+    /\.readFileSync\s*\(\s*['"`]\/proc\/version['"`]/,
+    /\.readFileSync\s*\(\s*['"`]\/proc\/cpuinfo['"`]/,
+    // Writing to system directories
+    /\.writeFileSync\s*\(\s*['"`]\/tmp\//,
+    /\.writeFileSync\s*\(\s*['"`]\/var\//,
+    /\.writeFileSync\s*\(\s*['"`]\/etc\//,
+    /\.writeFileSync\s*\(\s*['"`]\/usr\//,
+    /\.writeFileSync\s*\(\s*['"`]\/bin\//,
+    /\.writeFileSync\s*\(\s*['"`]\/sbin\//
+  ];
+  
+  const codeAroundPath = code.substring(Math.max(0, path.node.start - 200), path.node.end + 200);
+  
+  for (const pattern of suspiciousPatterns) {
+    if (pattern.test(codeAroundPath)) {
+      return {
+        isSuspicious: true,
+        reason: `Detected suspicious fs operation: ${pattern.source}`
+      };
+    }
+  }
+  
+  // Check for dynamic file paths (could be obfuscated)
+  const dynamicPathPatterns = [
+    /\.readFileSync\s*\(\s*[^'"`\s]/,
+    /\.writeFileSync\s*\(\s*[^'"`\s]/,
+    /\.unlinkSync\s*\(\s*[^'"`\s]/
+  ];
+  
+  for (const pattern of dynamicPathPatterns) {
+    if (pattern.test(codeAroundPath)) {
+      return {
+        isSuspicious: true,
+        reason: 'Dynamic file path detected (potential obfuscation)'
+      };
+    }
+  }
+  
+  return {
+    isSuspicious: false,
+    reason: 'Legitimate fs usage detected'
+  };
+}
+
+/**
  * Detect dynamic require() calls and suspicious module loading
  * @param {string} code - JavaScript code to analyze
  * @param {string} packageName - Package name
@@ -2096,10 +2228,21 @@ function analyzePackageJson(packageData, packageName) {
 function detectDynamicRequires(code, packageName) {
   const threats = [];
   
+  
   // Check if this is NullVoid's own code for special handling
   const isNullVoidCode = packageName && (
+    // Only match specific NullVoid project files, not arbitrary subdirectories
     packageName.includes('scan.js') ||
     packageName.includes('lib/rules.js') ||
+    packageName.includes('lib/benchmarks.js') ||
+    packageName.includes('lib/cache.js') ||
+    packageName.includes('lib/config.js') ||
+    packageName.includes('lib/errorHandler.js') ||
+    packageName.includes('lib/logger.js') ||
+    packageName.includes('lib/parallel.js') ||
+    packageName.includes('lib/rateLimiter.js') ||
+    packageName.includes('lib/streaming.js') ||
+    packageName.includes('lib/validation.js') ||
     packageName.includes('bin/nullvoid.js') ||
     packageName.includes('colors.js') ||
     packageName.includes('package.json') ||
@@ -2152,7 +2295,7 @@ function detectDynamicRequires(code, packageName) {
             if (t.isStringLiteral(moduleName)) {
               const module = moduleName.value;
               
-              // Check for suspicious patterns
+              // Check for highly suspicious patterns (always dangerous)
               if (module === 'eval' || 
                   module === 'vm' || 
                   module === 'child_process' ||
@@ -2286,6 +2429,7 @@ function detectDynamicRequires(code, packageName) {
       });
     }
   }
+  
   
   return threats;
 }
@@ -2757,6 +2901,9 @@ if (require.main === module) {
     }
     
     console.log(`\nScanned ${results.packagesScanned > 0 ? results.packagesScanned : 1} ${results.packagesScanned > 0 ? 'package' : 'directory'}(s)${results.filesScanned ? `, ${results.filesScanned} file(s)` : ''} in ${results.duration}ms`);
+    
+    // Properly exit the process
+    process.exit(0);
   }).catch(error => {
     console.error('Error:', error.message);
     process.exit(1);

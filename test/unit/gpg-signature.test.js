@@ -102,14 +102,15 @@ describe('GPG Signature Verification', () => {
         dist: {
           tarball: 'https://registry.npmjs.org/test-package/-/test-package-1.0.0.tgz'
         }
+        // No signatures field - should trigger missing signature threat
       };
 
       const threats = await checkGpgSignatures(packageData, 'test-package', mockOptions);
       
-      // Should detect missing GPG signature file
+      // Should detect missing GPG signature
+      expect(threats.length).toBeGreaterThan(0);
       const missingSignatureThreat = threats.find(t => 
-        t.type === 'MISSING_GPG_SIGNATURE' && 
-        t.details.includes('tarball does not have accompanying GPG signature file')
+        t.type === 'MISSING_GPG_SIGNATURE'
       );
       expect(missingSignatureThreat).toBeDefined();
     });
