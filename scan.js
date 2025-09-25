@@ -1418,7 +1418,18 @@ function analyzeCodeStructure(code, packageName) {
       for (let i = 0; i < lines.length; i++) {
         if (lines[i].match(variableManglingPattern)) {
           analysis.lineNumber = i + 1;
-          analysis.sampleCode = lines[i].substring(0, 100) + (lines[i].length > 100 ? '...' : '');
+          // Clean up the sample code by removing excessive whitespace and pinpointing the attack
+          const cleanLine = lines[i].trim();
+          const attackStart = cleanLine.indexOf('const b');
+          if (attackStart !== -1) {
+            // Pinpoint the exact attack location
+            const beforeAttack = cleanLine.substring(0, attackStart).trim();
+            const attackPart = cleanLine.substring(attackStart, attackStart + 50);
+            analysis.sampleCode = beforeAttack + ' ... ' + attackPart + '...';
+          } else {
+            // Fallback to showing first part without excessive whitespace
+            analysis.sampleCode = cleanLine.substring(0, 80) + (cleanLine.length > 80 ? '...' : '');
+          }
           break;
         }
       }
@@ -1455,7 +1466,9 @@ function analyzeCodeStructure(code, packageName) {
       for (let i = 0; i < lines.length; i++) {
         if (lines[i].match(hexArrayPattern)) {
           analysis.lineNumber = i + 1;
-          analysis.sampleCode = lines[i].substring(0, 100) + (lines[i].length > 100 ? '...' : '');
+          // Clean up the sample code by removing excessive whitespace
+          const cleanLine = lines[i].trim();
+          analysis.sampleCode = cleanLine.substring(0, 80) + (cleanLine.length > 80 ? '...' : '');
           break;
         }
       }
@@ -1474,7 +1487,9 @@ function analyzeCodeStructure(code, packageName) {
       for (let i = 0; i < lines.length; i++) {
         if (lines[i].match(base64ArrayPattern)) {
           analysis.lineNumber = i + 1;
-          analysis.sampleCode = lines[i].substring(0, 100) + (lines[i].length > 100 ? '...' : '');
+          // Clean up the sample code by removing excessive whitespace
+          const cleanLine = lines[i].trim();
+          analysis.sampleCode = cleanLine.substring(0, 80) + (cleanLine.length > 80 ? '...' : '');
           break;
         }
       }
@@ -1493,7 +1508,9 @@ function analyzeCodeStructure(code, packageName) {
       for (let i = 0; i < lines.length; i++) {
         if (lines[i].match(antiDebugPattern)) {
           analysis.lineNumber = i + 1;
-          analysis.sampleCode = lines[i].substring(0, 100) + (lines[i].length > 100 ? '...' : '');
+          // Clean up the sample code by removing excessive whitespace
+          const cleanLine = lines[i].trim();
+          analysis.sampleCode = cleanLine.substring(0, 80) + (cleanLine.length > 80 ? '...' : '');
           break;
         }
       }
@@ -1512,7 +1529,19 @@ function analyzeCodeStructure(code, packageName) {
       for (let i = 0; i < lines.length; i++) {
         if (lines[i].match(moduleExportPattern)) {
           analysis.lineNumber = i + 1;
-          analysis.sampleCode = lines[i].substring(0, 100) + (lines[i].length > 100 ? '...' : '');
+          // Clean up the sample code by removing excessive whitespace and pinpointing the attack
+          const cleanLine = lines[i].trim();
+          const moduleExportEnd = cleanLine.indexOf(';');
+          const attackStart = cleanLine.indexOf('const b');
+          if (moduleExportEnd !== -1 && attackStart !== -1) {
+            // Pinpoint the exact attack location: show legitimate code + attack
+            const legitimatePart = cleanLine.substring(0, moduleExportEnd + 1);
+            const attackPart = cleanLine.substring(attackStart, attackStart + 30);
+            analysis.sampleCode = legitimatePart + ' ... ' + attackPart + '...';
+          } else {
+            // Fallback to showing first part without excessive whitespace
+            analysis.sampleCode = cleanLine.substring(0, 80) + (cleanLine.length > 80 ? '...' : '');
+          }
           break;
         }
       }
@@ -1538,7 +1567,9 @@ function analyzeCodeStructure(code, packageName) {
       }
       if (maxEntropyLine > 0) {
         analysis.lineNumber = maxEntropyLine;
-        analysis.sampleCode = lines[maxEntropyLine - 1].substring(0, 100) + (lines[maxEntropyLine - 1].length > 100 ? '...' : '');
+        // Clean up the sample code by removing excessive whitespace
+        const cleanLine = lines[maxEntropyLine - 1].trim();
+        analysis.sampleCode = cleanLine.substring(0, 80) + (cleanLine.length > 80 ? '...' : '');
       }
     }
   }
@@ -1555,7 +1586,9 @@ function analyzeCodeStructure(code, packageName) {
       for (let i = 0; i < lines.length; i++) {
         if (lines[i].match(suspiciousFunctionPattern)) {
           analysis.lineNumber = i + 1;
-          analysis.sampleCode = lines[i].substring(0, 100) + (lines[i].length > 100 ? '...' : '');
+          // Clean up the sample code by removing excessive whitespace
+          const cleanLine = lines[i].trim();
+          analysis.sampleCode = cleanLine.substring(0, 80) + (cleanLine.length > 80 ? '...' : '');
           break;
         }
       }
