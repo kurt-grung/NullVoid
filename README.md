@@ -191,7 +191,21 @@ nullvoid scan --verbose --parallel
 - **Smart Classification**: Intelligent differentiation between legitimate tools and real threats
 - **Color-Coded Output**: Visual distinction between threat severities and types
 
-## 🎯 Latest Improvements (v1.3.10)
+## 🎯 Latest Improvements (v1.3.14)
+
+### **Centralized Configuration System**
+- **DETECTION_CONFIG**: All malware detection patterns now centralized in `lib/config.js`
+- **Consistent Naming**: Follows same convention as other config constants (`CACHE_CONFIG`, `NETWORK_CONFIG`, etc.)
+- **LEGITIMATE_PATTERNS**: 8 patterns for intelligent legitimate code detection
+- **MALWARE_PATTERNS**: 10 comprehensive categories of malware detection patterns
+- **Maintainability**: Easy to update patterns without modifying detection logic
+- **Extensibility**: Simple to add new detection patterns
+
+### **Enhanced Detection Architecture**
+- **Centralized Import**: Detection module now imports `DETECTION_CONFIG` from config
+- **Pattern Reusability**: Other modules can easily import and use these patterns
+- **Clean Code**: Removed duplicate pattern definitions across files
+- **Documentation**: Clear comments for each pattern type and purpose
 
 ### **Enhanced Detection Accuracy**
 - **Context-Aware Classification**: Smarter detection that considers file context and purpose
@@ -360,23 +374,41 @@ nullvoid scan
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+**This project does not accept external contributions.**
 
-### Development Setup
-```bash
-# Clone the repository
-git clone https://github.com/kurt-grung/NullVoid.git
-cd NullVoid
+NullVoid is maintained as a focused, security-first tool with a single development direction. However, we welcome your feedback and suggestions!
 
-# Install dependencies
-npm install
+### 🐛 **Reporting Issues**
+- **Security Issues**: Please report security vulnerabilities privately to `kurtgrung@gmail.com`
+- **Bug Reports**: Open an issue with detailed reproduction steps
+- **Feature Requests**: Open an issue to discuss potential enhancements
+- **Documentation**: Report documentation issues or suggest improvements
 
-# Run tests
-npm test
+### 💡 **Getting Help**
+- **Questions**: Open an issue with the `question` label
+- **Usage Help**: Check the [Troubleshooting Guide](TROUBLESHOOTING.md)
+- **Security Concerns**: Review the [Security Policy](SECURITY.md)
 
-# Test the CLI
-node bin/nullvoid.js scan
-```
+### 🔒 **Security-First Approach**
+- **No External Code**: All code is written and reviewed by the core team
+- **Focused Development**: Single direction ensures consistent security standards
+- **Quality Assurance**: 111+ tests ensure reliability and security
+- **Regular Updates**: Continuous security improvements and threat detection updates
+
+### 📋 **Issue Guidelines**
+When opening an issue, please include:
+- **Clear Description**: What you're trying to do
+- **Expected Behavior**: What should happen
+- **Actual Behavior**: What actually happens
+- **Environment**: OS, Node.js version, NullVoid version
+- **Reproduction Steps**: How to reproduce the issue
+
+### 🎯 **Development Philosophy**
+NullVoid follows a security-first development approach:
+- **Zero Trust**: All code is carefully reviewed for security implications
+- **Minimal Dependencies**: Reduced attack surface through careful dependency management
+- **Comprehensive Testing**: Extensive test coverage ensures reliability
+- **Clear Documentation**: Detailed documentation for all features and security considerations
 
 ## 📄 License
 
