@@ -4,6 +4,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/nullvoid.svg)](https://www.npmjs.com/package/nullvoid)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub stars](https://img.shields.io/github/stars/kurt-grung/NullVoid.svg)](https://github.com/kurt-grung/NullVoid/stargazers)
+[![Tests](https://github.com/kurt-grung/NullVoid/workflows/Tests/badge.svg)](https://github.com/kurt-grung/NullVoid/actions)
 
 **Ø NullVoid** - Detect malicious code.
 

@@ -13,7 +13,10 @@
     "test:performance": "jest test/performance",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "scan": "node scan.js"
+    "scan": "node scan.js",
+    "badge": "node scripts/generate-badge.js",
+    "badge:running": "node -e \"require('./scripts/generate-badge.js').setRunningBadge()\"",
+    "badge:update": "npm run badge && git add README.md && git commit -m 'chore: Update dynamic test badge' || true"
   },
   "keywords": [
     "security",
