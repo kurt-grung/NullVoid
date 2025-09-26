@@ -72,12 +72,9 @@ program
       };
       
       // Progress callback to show current file with threat detection
-      let isFirstFile = true;
       const progressCallback = (filePath) => {
-        // Get relative path from the original scan target directory
-        const originalScanTarget = packageName || process.cwd();
-        const relativePath = path.relative(originalScanTarget, filePath);
-        const displayPath = relativePath || path.basename(filePath);
+        // Show the full absolute path
+        const displayPath = filePath;
         
         const fs = require('fs');
         
@@ -155,13 +152,9 @@ program
               colorFunc = colors.blue; // Blue for LOW
             }
             
-            const prefix = isFirstFile ? '\n' : '';
-            console.log(`${prefix}📁 ${displayPath} ${colorFunc(`(detected: ${threatText})`)}`);
-            isFirstFile = false;
+            process.stdout.write(`\n📁 ${displayPath} ${colorFunc(`(detected: ${threatText})`)}`);
           } else {
-            const prefix = isFirstFile ? '\n' : '';
-            console.log(`${prefix}📁 ${displayPath}`);
-            isFirstFile = false;
+            process.stdout.write(`\n📁 ${displayPath}`);
           }
           
           // Debug: Log progress updates
@@ -170,9 +163,7 @@ program
           }
         } catch (error) {
           // If we can't read the file, just show the relative path
-          const prefix = isFirstFile ? '\n' : '';
-          console.log(`${prefix}📁 ${displayPath}`);
-          isFirstFile = false;
+          process.stdout.write(`\n📁 ${displayPath}`);
         }
       };
       

@@ -8,13 +8,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Planned
-- SARIF output format for CI/CD integration
 - Public IoC feeds integration (Snyk, npm advisories)
 - Blockchain integration for immutable signatures
 - **Dependency Confusion Detection**: Timeline analysis comparing git history with npm registry creation dates
 - **Git Integration**: Commit history analysis for package introduction tracking
 - **Scope-Aware Detection**: Handle scoped packages and namespace ownership warnings
 - **Enhanced Timeline Analysis**: Package vulnerability detection based on creation vs usage dates
+
+## [1.3.16]
+
+### Added
+- **SARIF Output Format**: Complete SARIF (Static Analysis Results Interchange Format) support for CI/CD integration
+- **SARIF File Output**: `--sarif-file` option to write SARIF results to file
+- **CI/CD Integration**: GitHub Actions, GitLab CI, and Azure DevOps workflow examples
+- **Comprehensive Rule Definitions**: 10 threat types with detailed SARIF rule definitions
+- **SARIF Validation**: Built-in validation for SARIF output structure and content
+- **Enterprise Integration**: Support for GitHub Security, GitLab Security, SonarQube, and CodeQL
+
+### Enhanced
+- **CLI Options**: Added `sarif` to supported output formats
+- **Documentation**: Complete SARIF integration guide with real-world examples
+- **Validation System**: Updated to support SARIF output format validation
+- **Test Coverage**: 25 comprehensive tests for SARIF functionality
+- **Progress Callback Display**: Enhanced real-time file scanning progress with clean formatting
+- **User Experience**: Improved terminal output with proper spinner separation and relative path display
+- **Configuration Management**: Centralized validation constants in `VALIDATION_CONFIG` for better maintainability
+
+### Fixed
+- **Terminal Display Issues**: Fixed progress callback output appearing on same line as spinner
+- **Output Formatting**: Resolved extra blank lines between file listings in progress display
+- **Code Quality**: Removed duplicate imports and improved error handling
+- **False Positives**: Enhanced whitelisting for NullVoid's own security tools and test files
+
+### Technical Details
+- **SARIF Schema**: Full compliance with SARIF 2.1.0 specification
+- **Threat Mapping**: Intelligent mapping of NullVoid threat types to SARIF severity levels
+- **Location Information**: Accurate file paths and line numbers in SARIF results
+- **Rule Metadata**: Rich rule definitions with help text, descriptions, and properties
+- **Performance**: No impact on scan performance, SARIF generation is post-processing only
 
 ## [1.3.14]
 

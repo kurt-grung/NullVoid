@@ -8,6 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const { TEST_PATTERNS_CONFIG } = require('../lib/config');
 
 // Badge configuration
 const BADGE_CONFIG = {
@@ -65,14 +66,8 @@ function getTestResults() {
     // Jest output: "Tests:       111 passed, 111 total"
     let passing, total, failing;
     
-    // Try multiple Jest output patterns
-    const patterns = [
-      /Tests:\s*(\d+)\s+passed,\s*(\d+)\s+total/,
-      /Tests:\s*(\d+)\s+passed/,
-      /(\d+)\s+passed,\s*(\d+)\s+total/,
-      /(\d+)\s+passing,\s*(\d+)\s+total/,
-      /(\d+)\s+passing/
-    ];
+    // Use centralized Jest output patterns from config
+    const patterns = TEST_PATTERNS_CONFIG.JEST_PATTERNS;
     
     let matched = false;
     for (const pattern of patterns) {
@@ -177,8 +172,8 @@ function updateReadme(badgeUrl) {
   
   let readmeContent = fs.readFileSync(readmePath, 'utf8');
   
-  // Find and replace the tests badge
-  const badgeRegex = /\[!\[Tests\]\([^)]+\)\]/g;
+  // Find and replace the tests badge using centralized config
+  const badgeRegex = TEST_PATTERNS_CONFIG.BADGE_REGEX;
   const newBadge = `[![Tests](${badgeUrl})]`;
   
   if (badgeRegex.test(readmeContent)) {

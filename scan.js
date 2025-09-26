@@ -8,6 +8,8 @@ const t = require('@babel/types');
 const acorn = require('acorn');
 const walk = require('acorn-walk');
 const tar = require('tar');
+const { isNullVoidCode } = require('./lib/nullvoidDetection');
+const { VALIDATION_CONFIG } = require('./lib/config');
 // Parallel scanning will be imported when needed to avoid circular dependencies
 const glob = require('glob');
 const fse = require('fs-extra');
@@ -44,7 +46,7 @@ const {
   SecurityError, 
   safeExecute 
 } = require('./lib/secureErrorHandler');
-const { isNullVoidCode, isTestFile } = require('./lib/nullvoidDetection');
+const { isTestFile } = require('./lib/nullvoidDetection');
 const { 
   analyzeCodeStructure: analyzeCodeStructureUtil,
   detectWalletHijacking: detectWalletHijackingUtil,
@@ -307,7 +309,7 @@ async function scan(packageName, options = {}, progressCallback = null) {
             
             // Critical: Add malicious code structure analysis
             const codeAnalysis = analyzeCodeStructure(content, filePath);
-            if (codeAnalysis.isMalicious) {
+            if (codeAnalysis.isMalicious && !isNullVoidCode(filePath) && !isTestFile(filePath)) {
               threats.push({
                 type: 'MALICIOUS_CODE_STRUCTURE',
                 message: 'Code structure indicates malicious obfuscated content',
@@ -472,8 +474,7 @@ function analyzeDependencyTree(tree, options) {
     const depCount = packageInfo.dependencies ? Object.keys(packageInfo.dependencies).length : 0;
     
     // Higher thresholds for popular frameworks and libraries
-    const popularFrameworks = ['express', 'react', 'vue', 'angular', 'next', 'nuxt', 'svelte', 'webpack', 'babel', 'typescript', 'lodash', 'moment', 'axios', 'jquery'];
-    const isPopularFramework = popularFrameworks.some(framework => packageName.toLowerCase().includes(framework));
+    const isPopularFramework = VALIDATION_CONFIG.POPULAR_FRAMEWORKS.some(framework => packageName.toLowerCase().includes(framework));
     
     const threshold = isPopularFramework ? 60 : 40; // Even higher thresholds to reduce false positives
     
@@ -1264,7 +1265,6 @@ async function getPackageMetadata(packageName, version) {
     
     // Ensure proper cleanup and prevent hanging
     request.setTimeout(timeout);
-    request.setKeepAlive(false);
     
     // Force cleanup after a reasonable time
     const cleanupTimer = setTimeout(() => {
@@ -1308,11 +1308,7 @@ async function checkPostinstallScripts(packageData) {
     return threats;
   }
   
-  const suspiciousScripts = [
-    'curl', 'wget', 'eval', 'require', 'child_process',
-    'fs.writeFile', 'fs.unlink', 'process.exit', 'exec',
-    'spawn', 'fork', 'download', 'fetch'
-  ];
+  const suspiciousScripts = VALIDATION_CONFIG.SUSPICIOUS_SCRIPTS;
   
   // Check all scripts for suspicious commands
   for (const [scriptName, scriptContent] of Object.entries(packageData.scripts)) {
@@ -1519,7 +1515,7 @@ function analyzeJavaScriptAST(code, packageName) {
         
         // Check for obfuscated patterns (including _0x20669a and similar)
         if (value.match(/^_0x[a-f0-9]+$/i)) {
-          if (isNullVoidCode) {
+          if (isNullVoidCode(packageName)) {
             // For NullVoid's own code, this is legitimate security detection patterns
             threats.push({
               type: 'OBFUSCATED_CODE',

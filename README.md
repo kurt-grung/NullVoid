@@ -129,6 +129,12 @@ nullvoid scan --tree
 
 # JSON output format
 nullvoid scan --output json
+
+# SARIF output format for CI/CD integration
+nullvoid scan --output sarif
+
+# Write SARIF output to file
+nullvoid scan --output sarif --sarif-file nullvoid-results.sarif
 ```
 
 ### Combined Options
@@ -298,14 +304,49 @@ Scanned 15 package(s) in 234ms
 | Option | Description | Default |
 |--------|-------------|---------|
 | `--verbose` | Enable detailed output | `false` |
-| `--output <format>` | Output format (json, table) | `table` |
+| `--output <format>` | Output format (json, table, sarif) | `table` |
 | `--depth <number>` | Maximum dependency tree depth to scan | `3` |
 | `--tree` | Show dependency tree structure in output | `false` |
 | `--all` | Show all threats including low/medium severity | `false` |
 | `--parallel` | Enable parallel scanning for better performance | `true` |
 | `--workers <number>` | Number of parallel workers to use | `auto` |
+| `--sarif-file <path>` | Write SARIF output to file (requires --output sarif) | - |
 | `--version` | Show version information | - |
 | `--help` | Show help information | - |
+
+## 📊 Real-Time Progress Display
+
+NullVoid provides **real-time progress feedback** during scanning, showing each file as it's analyzed:
+
+### **🎯 Progress Callback Features**
+- **Live File Display**: Shows each file being scanned with relative paths
+- **Threat Detection**: Real-time threat indicators during scanning
+- **Clean Formatting**: Proper spinner separation and clean output
+- **Relative Paths**: Shows files relative to scan target (e.g., `malware-samples/supply-chain-attack-auth.js`)
+- **Threat Classification**: Immediate feedback on detected threat types
+
+### **📋 Example Output**
+```bash
+⠋ 🔍 Scanning ...
+
+📁 malware-samples/supply-chain-attack-auth.js (detected: OBFUSCATED_CODE, SUSPICIOUS_MODULE, MALICIOUS_CODE_STRUCTURE)
+📁 analysis/supply-chain-attack-auth.md
+📁 detection-tests/test-case.js (detected: test file)
+✔ ✅ Scan completed
+```
+
+### **🎨 Threat Indicators**
+- **`(detected: OBFUSCATED_CODE)`**: Obfuscated or encoded content detected
+- **`(detected: SUSPICIOUS_MODULE)`**: Suspicious module imports (fs, child_process, etc.)
+- **`(detected: MALICIOUS_CODE_STRUCTURE)`**: Malicious code patterns identified
+- **`(detected: security tools)`**: NullVoid's own security tools (whitelisted)
+- **`(detected: test file)`**: Test files (whitelisted)
+
+### **⚡ Performance Benefits**
+- **Immediate Feedback**: Know exactly what's being scanned
+- **Progress Tracking**: Visual confirmation of scan progress
+- **Early Detection**: See threats as they're found
+- **Clean Output**: No extra blank lines or formatting issues
 
 ## 🌳 Dependency Tree Analysis
 
@@ -372,6 +413,121 @@ nullvoid scan
 - **Automatic Parallel Detection**: Enables parallel processing when multiple dependencies exist
 - **Performance Optimization**: 2-4x faster scanning for projects with multiple packages
 - **Resource Management**: Automatic worker cleanup and timeout handling
+
+## 📋 SARIF Output for CI/CD Integration
+
+NullVoid supports SARIF (Static Analysis Results Interchange Format) output for seamless integration with CI/CD pipelines and security tools.
+
+### **GitHub Actions Integration**
+```yaml
+# .github/workflows/security.yml
+name: Security Scan
+on: [push, pull_request]
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install NullVoid
+        run: npm install -g nullvoid
+      
+      - name: Run Security Scan
+        run: nullvoid scan --output sarif --sarif-file nullvoid-results.sarif
+      
+      - name: Upload SARIF Results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: nullvoid-results.sarif
+```
+
+### **GitLab CI Integration**
+```yaml
+# .gitlab-ci.yml
+security_scan:
+  stage: test
+  image: node:18
+  script:
+    - npm install -g nullvoid
+    - nullvoid scan --output sarif --sarif-file nullvoid-results.sarif
+  artifacts:
+    reports:
+      sarif: nullvoid-results.sarif
+```
+
+### **Azure DevOps Integration**
+```yaml
+# azure-pipelines.yml
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+- task: NodeTool@0
+  inputs:
+    versionSpec: '18.x'
+  displayName: 'Install Node.js'
+
+- script: |
+    npm install -g nullvoid
+    nullvoid scan --output sarif --sarif-file nullvoid-results.sarif
+  displayName: 'Run NullVoid Security Scan'
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    pathToPublish: 'nullvoid-results.sarif'
+    artifactName: 'sarif-results'
+```
+
+### **SARIF Output Example**
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [{
+    "tool": {
+      "driver": {
+        "name": "NullVoid",
+        "version": "1.3.15",
+        "informationUri": "https://github.com/kurt-grung/NullVoid"
+      }
+    },
+    "results": [{
+      "ruleId": "WALLET_HIJACKING",
+      "level": "error",
+      "message": {
+        "text": "Package may contain wallet hijacking code"
+      },
+      "locations": [{
+        "physicalLocation": {
+          "artifactLocation": {
+            "uri": "node_modules/suspicious-package/index.js"
+          },
+          "region": {
+            "startLine": 42,
+            "startColumn": 1
+          }
+        }
+      }]
+    }]
+  }]
+}
+```
+
+### **Supported CI/CD Platforms**
+- **GitHub Security**: Automatic security alerts and PR checks
+- **GitLab Security**: Security dashboard integration
+- **Azure DevOps**: Security scanning in pipelines
+- **Jenkins**: Security reporting plugins
+- **SonarQube**: Code quality and security analysis
+- **CodeQL**: GitHub's semantic code analysis
 
 ## 🤝 Contributing
 
