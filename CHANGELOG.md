@@ -32,6 +32,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Planned
+- Public IoC feeds integration (Snyk, npm advisories, GitHub Security Advisories)
+- Blockchain integration for immutable signatures
+- Enhanced timeline analysis with machine learning algorithms
+- Real-time threat intelligence integration
+- IDE integration (VS Code, IntelliJ plugins)
+- Enterprise features (multi-tenant support, advanced reporting)
+- AI/ML integration for behavioral analysis and anomaly detection
+- Performance optimizations (caching, parallel processing, network optimization)
+
+*See [ROADMAP.md](./ROADMAP.md) for detailed roadmap information*
+
 ## [1.3.16]
 
 ### Added

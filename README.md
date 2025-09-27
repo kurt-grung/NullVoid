@@ -499,6 +499,39 @@ NULLVOID_REGISTRY_TIMEOUT=10000
 - **Improved**: Proper timeout handling using `setTimeout` instead of `req.setTimeout`
 - **Enhanced**: Cleaner error handling and timeout cleanup
 
+## 🗺️ **Roadmap**
+
+NullVoid has a comprehensive roadmap for 2025 focusing on advanced threat detection, enterprise features, and AI/ML integration.
+
+### **🎯 2025 Roadmap Highlights**
+
+#### **Q1 2025 - Public IoC Integration & Performance**
+- **Snyk Integration**: Real-time vulnerability data from Snyk's database
+- **npm Advisories**: Official npm security advisories integration
+- **GitHub Security Advisories**: GHSA integration for comprehensive threat intelligence
+- **Performance Optimizations**: Enhanced caching, parallel processing, and network optimization
+
+#### **Q2 2025 - Enhanced Detection & Developer Experience**
+- **Advanced Timeline Analysis**: ML-based timeline analysis and commit pattern analysis
+- **IDE Integration**: VS Code, IntelliJ plugins for real-time scanning
+- **Pre-commit Hooks**: Git hooks for automatic scanning
+- **More CI/CD Platforms**: Jenkins, CircleCI, Travis CI integration
+
+#### **Q3 2025 - Enterprise Features & Advanced Analytics**
+- **Multi-tenant Support**: Organization-level scanning and reporting
+- **Advanced Reporting**: Executive dashboards and compliance reports
+- **API Integration**: REST/GraphQL APIs for enterprise systems
+- **Custom Rule Engine**: User-defined detection patterns
+
+#### **Q4 2025 - AI/ML Integration & Blockchain Features**
+- **AI/ML Integration**: Machine learning for threat pattern recognition
+- **Blockchain Integration**: Immutable signatures and decentralized verification
+- **Behavioral Analysis**: AI-powered anomaly detection
+- **Predictive Analysis**: Predicting potential security issues
+
+### **📋 Complete Roadmap**
+For detailed roadmap information, see [ROADMAP.md](./ROADMAP.md)
+
 ## 📋 SARIF Output for CI/CD Integration
 
 NullVoid supports SARIF (Static Analysis Results Interchange Format) output for seamless integration with CI/CD pipelines and security tools.
