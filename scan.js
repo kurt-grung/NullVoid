@@ -1325,6 +1325,11 @@ async function getPackageMetadata(packageName, version) {
       }
     }, timeout + 1000);
     cleanupTimer.unref(); // Don't keep process alive
+    
+    // Ensure request is properly destroyed on completion
+    request.on('close', () => {
+      clearTimeout(cleanupTimer);
+    });
   });
 }
 

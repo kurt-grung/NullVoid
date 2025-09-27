@@ -1,6 +1,6 @@
 /**
  * Raw ANSI color codes for terminal output
- * Eliminates supply chain risk from compromised chalk package
+ * Eliminates supply chain risk from compromised packages
  */
 
 const colors = {
@@ -17,7 +17,7 @@ const colors = {
   gray: '\x1b[90m'
 };
 
-const chalk = {
+const color = {
   // Basic colors
   red: (text) => `${colors.red}${text}${colors.reset}`,
   green: (text) => `${colors.green}${text}${colors.reset}`,
@@ -33,9 +33,9 @@ const chalk = {
 };
 
 // Add combined styles after the main object
-chalk.red.bold = (text) => `${colors.bold}${colors.red}${text}${colors.reset}`;
-chalk.green.bold = (text) => `${colors.bold}${colors.green}${text}${colors.reset}`;
-chalk.yellow.bold = (text) => `${colors.bold}${colors.yellow}${text}${colors.reset}`;
-chalk.blue.bold = (text) => `${colors.bold}${colors.blue}${text}${colors.reset}`;
+color.red.bold = (text) => `${colors.bold}${colors.red}${text}${colors.reset}`;
+color.green.bold = (text) => `${colors.bold}${colors.green}${text}${colors.reset}`;
+color.yellow.bold = (text) => `${colors.bold}${colors.yellow}${text}${colors.reset}`;
+color.blue.bold = (text) => `${colors.bold}${colors.blue}${text}${colors.reset}`;
 
-module.exports = chalk;
+module.exports = color;
