@@ -3,7 +3,7 @@
  * Provides structured logging with different levels and output formatting
  */
 
-const colors = require('../colors');
+const colors = require('./colors');
 
 /**
  * Log levels in order of severity

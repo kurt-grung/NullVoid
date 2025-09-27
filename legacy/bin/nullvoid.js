@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const { program } = require('commander');
-const colors = require('../colors');
+const colors = require('../lib/colors');
 const ora = require('ora');
 const path = require('path');
 const { scan } = require('../scan');
