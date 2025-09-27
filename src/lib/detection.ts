@@ -3,9 +3,21 @@
  * Reusable patterns and functions for detecting malicious code
  */
 
-import parser from '@babel/parser';
-import traverse from '@babel/traverse';
-import * as t from '@babel/types';
+// Optional imports for AST analysis (devDependencies)
+let parser: any;
+let traverse: any;
+let t: any;
+
+try {
+  parser = require('@babel/parser');
+  traverse = require('@babel/traverse').default;
+  t = require('@babel/types');
+} catch (error) {
+  // Babel dependencies not available in production
+  parser = null;
+  traverse = null;
+  t = null;
+}
 import { isNullVoidCode, isTestFile } from './nullvoidDetection';
 import { DETECTION_CONFIG } from './config';
 
@@ -335,6 +347,11 @@ export function analyzeJavaScriptAST(code: string, packageName: string): Array<{
     threats.push(threat);
   }
   
+  // Only perform AST analysis if Babel parser is available
+  if (!parser) {
+    return threats; // Return basic analysis without AST parsing
+  }
+
   try {
     // Parse JavaScript code into AST
     const ast = parser.parse(code, {
