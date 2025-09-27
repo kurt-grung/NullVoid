@@ -60,7 +60,42 @@ NullVoid is not just for npm packages - it's a comprehensive security scanner fo
 - **Code Review**: Security analysis during development
 - **Incident Response**: Analyze suspicious files safely
 - **Compliance**: Meet security requirements and standards
-- **Audit Preparation**: Comprehensive security assessment 
+- **Audit Preparation**: Comprehensive security assessment
+
+### **🔍 Complete Scanning Process**
+
+```mermaid
+graph TD
+    A[File Path Input] --> B[Path Validation]
+    B --> C[Safe File Read]
+    C --> D[Static Analysis]
+    D --> E{Suspicious?}
+    E -->|Yes| F[Sandbox Analysis]
+    E -->|No| G[Basic Analysis]
+    F --> H[Threat Detection]
+    G --> H
+    H --> I[Results]
+
+    %% Styling for all nodes
+    style A fill:#ffebee,stroke:#333,color:#e63946
+    style B fill:#e3f2fd,stroke:#333,color:#1d3557
+    style C fill:#f3e5f5,stroke:#333,color:#7b1fa2
+    style D fill:#e8f5e8,stroke:#333,color:#2e7d32
+    style E fill:#fff3e0,stroke:#333,color:#f57c00
+    style F fill:#ffebee,stroke:#333,color:#d32f2f
+    style G fill:#f1f8e9,stroke:#333,color:#558b2f
+    style H fill:#e0f2f1,stroke:#333,color:#2a9d8f
+    style I fill:#e8eaf6,stroke:#333,color:#3f51b5
+```
+
+**Process Flow:**
+1. **Path Validation**: Secure path checking and traversal protection
+2. **Safe File Read**: Direct filesystem access with security measures
+3. **Static Analysis**: AST-based pattern detection without execution
+4. **Suspicious Detection**: Heuristic analysis for malicious indicators
+5. **Sandbox Analysis**: Isolated VM execution for flagged code only
+6. **Threat Detection**: Comprehensive threat identification and classification
+7. **Results**: Detailed security report with actionable insights 
 
 ```
 % nullvoid scan
