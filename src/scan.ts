@@ -305,7 +305,7 @@ export async function scan(
     const metadata: ScanMetadata = {
       startTime: new Date(startTime),
       endTime: new Date(endTime),
-      version: '1.3.17',
+      version: '1.3.18',
       nodeVersion: process.version,
       platform: process.platform,
       target: packageName || process.cwd()

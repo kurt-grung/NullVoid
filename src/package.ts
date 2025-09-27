@@ -33,7 +33,7 @@ export interface PackageJson {
 
 const packageJson: PackageJson = {
   name: "nullvoid",
-  version: "1.3.17",
+  version: "1.3.18",
   description: "Detect malicious code",
   main: "dist/scan.js",
   bin: {
