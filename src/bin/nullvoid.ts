@@ -35,7 +35,12 @@ program
   .option('--all', 'Show all threats including low/medium severity')
   .option('--sarif-file <path>', 'Write SARIF output to file (requires --output sarif)')
   .action(async (packageName: string | undefined, options: any) => {
-    const spinner = ora('🔍 Scanning ...').start();
+    // Declare variables at function scope
+    let spinner: any;
+    let scanOptions: ScanOptions = { output: 'table' };
+    
+    // Initialize spinner early to prevent runtime errors in error handling
+    spinner = ora('🔍 Initializing...').start();
     
     try {
       // Validate input parameters securely
@@ -68,16 +73,27 @@ program
       }
       
       // Parse depth option
-      const scanOptions: ScanOptions = {
+      scanOptions = {
         ...validatedOptions,
         maxDepth: parseInt(validatedOptions.depth) || 3,
         parallel: validatedOptions.parallel !== false, // Default to true unless explicitly disabled
         workers: validatedOptions.workers === 'auto' ? undefined : parseInt(validatedOptions.workers) || undefined
       };
       
-      // Progress callback to show current file with threat detection
+      // Update spinner text for scanning (only for non-JSON/SARIF output)
+      spinner.text = '🔍 Scanning ...';
+      
+      // Stop spinner for JSON/SARIF output to avoid contaminating output
+      if (scanOptions.output === 'json' || scanOptions.output === 'sarif') {
+        spinner.stop();
+      }
+      
+      // Progress callback to show current file with threat detection (only for non-JSON/SARIF output)
       let isFirstFile = true;
-      const progressCallback: ProgressCallback = (filePath: string) => {
+      const progressCallback: ProgressCallback | undefined = 
+        scanOptions.output === 'json' || scanOptions.output === 'sarif' 
+          ? undefined 
+          : (filePath: string) => {
         // Get relative path from the original scan target directory
         const originalScanTarget = packageName || process.cwd();
         const relativePath = path.relative(originalScanTarget, filePath);
@@ -188,7 +204,26 @@ program
       // Perform the scan
       const result = await scan(validatedPackageName, scanOptions, progressCallback);
       
-      spinner.succeed('✔ ✅ Scan completed');
+      // Only show spinner success for non-JSON/SARIF output
+      if (scanOptions.output !== 'json' && scanOptions.output !== 'sarif') {
+        spinner.succeed('✔ ✅ Scan completed');
+      }
+      
+      // Handle JSON output
+      if (scanOptions.output === 'json') {
+        const jsonOutput = {
+          version: packageJson.version,
+          timestamp: new Date().toISOString(),
+          threats: result.threats,
+          packagesScanned: result.packagesScanned,
+          filesScanned: result.filesScanned,
+          duration: result.performance.scanTime,
+          metadata: result.metadata
+        };
+        
+        console.log(JSON.stringify(jsonOutput, null, 2));
+        return;
+      }
       
       // Handle SARIF output
       if (scanOptions.output === 'sarif') {
@@ -285,7 +320,9 @@ program
       }
       
     } catch (error: any) {
-      spinner.fail('❌ Scan failed');
+      if (spinner && scanOptions && scanOptions.output !== 'json' && scanOptions.output !== 'sarif') {
+        spinner.fail('❌ Scan failed');
+      }
       console.error(colors.red('Error:'), error.message);
       if (options.verbose) {
         console.error(colors.red('Stack trace:'), error.stack);

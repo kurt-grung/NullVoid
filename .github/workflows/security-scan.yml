@@ -9,6 +9,11 @@ on:
     # Run security scan daily at 2 AM UTC
     - cron: '0 2 * * *'
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 jobs:
   security-scan:
     runs-on: ubuntu-latest
@@ -26,8 +31,11 @@ jobs:
     - name: Install dependencies
       run: npm ci
       
+    - name: Build NullVoid
+      run: npm run build
+      
     - name: Run NullVoid security scan
-      run: npx nullvoid scan --output json > security-report.json
+      run: node dist/bin/nullvoid.js scan --output json > security-report.json
       
     - name: Upload security report
       uses: actions/upload-artifact@v4
@@ -72,11 +80,12 @@ jobs:
           comment += '---\n';
           comment += '*This scan was performed by [NullVoid](https://github.com/kurt-grung/NullVoid) - a tool to detect malicious npm packages.*';
           
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
+          github.rest.pulls.createReview({
+            pull_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
-            body: comment
+            body: comment,
+            event: 'COMMENT'
           });
           
     - name: Fail on critical and high severity threats
@@ -113,10 +122,13 @@ jobs:
     - name: Run npm audit
       run: npm audit --audit-level=moderate
       
+    - name: Build NullVoid
+      run: npm run build
+      
     - name: Run NullVoid on dependencies
       run: |
         echo "Scanning project dependencies..."
-        npx nullvoid scan --verbose --output json > dependency-scan.json
+        node dist/bin/nullvoid.js scan --verbose --output json > dependency-scan.json
         
     - name: Upload dependency scan results
       uses: actions/upload-artifact@v4
