@@ -5,15 +5,32 @@ All notable changes to NullVoid will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.17] - 2024-12-19
 
-### Planned
-- Public IoC feeds integration (Snyk, npm advisories)
-- Blockchain integration for immutable signatures
-- **Dependency Confusion Detection**: Timeline analysis comparing git history with npm registry creation dates
-- **Git Integration**: Commit history analysis for package introduction tracking
-- **Scope-Aware Detection**: Handle scoped packages and namespace ownership warnings
-- **Enhanced Timeline Analysis**: Package vulnerability detection based on creation vs usage dates
+### Added
+- **Dependency Confusion Detection**: Advanced timeline analysis comparing git history with npm registry creation dates
+- **Git History Analysis**: Comprehensive git commit analysis for package introduction tracking
+- **Scope-Aware Detection**: Private scope detection and namespace conflict analysis
+- **Timeline-Based Threat Scoring**: Risk assessment based on package creation vs git history timing
+- **Pattern Analysis**: Suspicious package naming pattern detection using regex patterns
+- **Activity Analysis**: Low git activity detection for potential typosquatting
+- **Similarity Scoring**: Levenshtein distance-based name similarity analysis
+- **Registry Integration**: npm registry API integration for package metadata retrieval
+- **Comprehensive Testing**: 21 unit tests covering all dependency confusion detection methods
+- **SARIF Integration**: Dependency confusion threats included in SARIF output format
+
+### Enhanced
+- **Threat Detection**: Added 6 new threat types for dependency confusion attacks
+- **Configuration Management**: Centralized dependency confusion configuration in `DEPENDENCY_CONFUSION_CONFIG`
+- **Documentation**: Complete dependency confusion detection guide with examples and recommendations
+- **Error Handling**: Graceful handling of network errors and git command failures
+
+### Fixed
+- **GPG Signature Verification**: Fixed `timeoutRef.unref is not a function` error during GPG signature checks
+- **Timeout Handling**: Improved timeout management using `setTimeout` instead of `req.setTimeout`
+- **Error Cleanup**: Enhanced timeout cleanup and error handling in signature verification
+
+## [Unreleased]
 
 ## [1.3.16]
 

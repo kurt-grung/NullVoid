@@ -187,6 +187,7 @@ nullvoid scan --verbose --parallel
 - **Obfuscated Malware**: Detection of variable name mangling, hex encoding, and anti-debugging patterns
 - **Wallet Hijacking**: Comprehensive cryptocurrency attack detection and prevention
 - **Supply Chain Attacks**: Enhanced detection of malicious npm packages and dependency injection
+- **Dependency Confusion**: Timeline analysis comparing git history vs npm registry creation dates
 - **Module Loading Threats**: Dynamic require detection and system module access monitoring
 - **Code Structure Analysis**: Entropy analysis and malicious code pattern recognition
 
@@ -413,6 +414,90 @@ nullvoid scan
 - **Automatic Parallel Detection**: Enables parallel processing when multiple dependencies exist
 - **Performance Optimization**: 2-4x faster scanning for projects with multiple packages
 - **Resource Management**: Automatic worker cleanup and timeout handling
+
+## 🔍 **Dependency Confusion Detection**
+
+NullVoid includes advanced **Dependency Confusion Detection** to identify potential supply chain attacks where malicious packages are created to exploit package resolution vulnerabilities.
+
+### **🎯 Detection Methods**
+
+#### **Timeline Analysis**
+- **Git History vs Registry Creation**: Compares package creation dates with git commit history
+- **Suspicious Timing**: Flags packages created suspiciously close to first git commits
+- **Risk Levels**: 
+  - `CRITICAL`: Package created < 1 day before git history
+  - `HIGH`: Package created < 7 days before git history  
+  - `MEDIUM`: Package created < 30 days before git history
+
+#### **Scope Analysis**
+- **Private Scope Detection**: Identifies packages using private scopes (`@company`, `@internal`, etc.)
+- **Namespace Conflicts**: Detects potential namespace confusion attacks
+- **Registry Configuration**: Warns about improper npm registry setup
+
+#### **Pattern Analysis**
+- **Suspicious Naming**: Detects typosquatting and naming confusion patterns
+- **Activity Analysis**: Identifies packages with suspiciously low git activity
+- **Similarity Scoring**: Uses Levenshtein distance for name similarity analysis
+
+### **📋 Example Detection Output**
+```bash
+🔍 Analyzing dependency confusion patterns...
+
+⚠️  3 dependency confusion threat(s) detected:
+
+1. DEPENDENCY_CONFUSION_TIMELINE: Package creation date suspiciously close to git history (2 days)
+   Package: @company/internal-auth
+   Severity: HIGH
+   Details: Package created: 2023-12-01T00:00:00.000Z, First git commit: 2023-11-29T00:00:00.000Z
+
+2. DEPENDENCY_CONFUSION_SCOPE: Private scope package may be vulnerable to dependency confusion
+   Package: @company/internal-auth
+   Severity: HIGH
+   Details: Private scope '@company' detected. Ensure proper npm registry configuration.
+
+3. DEPENDENCY_CONFUSION_PATTERN: Package name follows suspicious naming patterns
+   Package: abc123def
+   Severity: MEDIUM
+   Details: Suspicious patterns: /^[a-z]+\d+[a-z]+$/
+```
+
+### **🛡️ Protection Recommendations**
+
+#### **For Private Packages**
+- Use scoped packages: `@yourcompany/package-name`
+- Configure `.npmrc` files properly
+- Use private npm registries
+- Implement package signing
+
+#### **For Public Packages**
+- Verify package authenticity
+- Check git history and activity
+- Use package-lock.json files
+- Monitor for suspicious updates
+
+### **⚙️ Configuration**
+
+Dependency confusion detection can be configured via environment variables:
+
+```bash
+# Enable/disable dependency confusion analysis
+NULLVOID_DEPENDENCY_CONFUSION_ENABLED=true
+
+# Adjust timeline thresholds (days)
+NULLVOID_TIMELINE_SUSPICIOUS=30
+NULLVOID_TIMELINE_HIGH_RISK=7
+NULLVOID_TIMELINE_CRITICAL=1
+
+# Registry request timeout (ms)
+NULLVOID_REGISTRY_TIMEOUT=10000
+```
+
+### **🔧 Bug Fixes**
+
+#### **GPG Signature Verification**
+- **Fixed**: `timeoutRef.unref is not a function` error during GPG signature checks
+- **Improved**: Proper timeout handling using `setTimeout` instead of `req.setTimeout`
+- **Enhanced**: Cleaner error handling and timeout cleanup
 
 ## 📋 SARIF Output for CI/CD Integration
 

@@ -54,6 +54,7 @@ const {
   detectDynamicRequires: detectDynamicRequiresUtil,
   calculateShannonEntropy: calculateShannonEntropyUtil
 } = require('./lib/detection');
+const { analyzeDependencyConfusion } = require('./lib/dependencyConfusion');
 
 // Create package cache instance
 const packageCache = new PackageCache({
@@ -404,6 +405,57 @@ async function scan(packageName, options = {}, progressCallback = null) {
         threats.push(...treeResult.threats);
         packagesScanned = treeResult.packagesScanned;
         dependencyTree = treeResult.tree;
+      }
+    }
+
+    // Dependency Confusion Detection
+    if (dependencyTree && Object.keys(dependencyTree).length > 0) {
+      try {
+        if (options.verbose) {
+          console.log('🔍 Analyzing dependency confusion patterns...');
+        }
+        
+        // Prepare packages for dependency confusion analysis
+        const packagesToAnalyze = [];
+        
+        // Add root package if scanning a specific package
+        if (packageName && !packageName.startsWith('/') && !packageName.startsWith('./')) {
+          packagesToAnalyze.push({
+            name: packageName,
+            path: process.cwd() // Use current directory as fallback
+          });
+        }
+        
+        // Add packages from dependency tree
+        for (const [pkgName, pkgInfo] of Object.entries(dependencyTree)) {
+          if (pkgInfo.path) {
+            packagesToAnalyze.push({
+              name: pkgName,
+              path: pkgInfo.path
+            });
+          }
+        }
+        
+        // Run dependency confusion analysis
+        const dependencyConfusionThreats = await analyzeDependencyConfusion(packagesToAnalyze);
+        threats.push(...dependencyConfusionThreats);
+        
+        if (options.verbose && dependencyConfusionThreats.length > 0) {
+          console.log(`⚠️  Found ${dependencyConfusionThreats.length} dependency confusion threat(s)`);
+        }
+      } catch (error) {
+        if (options.verbose) {
+          console.warn(`Warning: Dependency confusion analysis failed: ${error.message}`);
+        }
+        // Add error as low-priority threat for debugging
+        threats.push({
+          type: 'DEPENDENCY_CONFUSION_ERROR',
+          message: `Dependency confusion analysis failed: ${error.message}`,
+          severity: 'LOW',
+          package: packageName || 'unknown',
+          details: error.stack,
+          confidence: 10
+        });
       }
     }
 
@@ -3401,11 +3453,21 @@ async function checkGpgSignatures(packageData, packageName, options) {
             resolve(res.statusCode === 200);
           });
           req.on('error', () => resolve(false));
-          const timeoutRef = req.setTimeout(5000, () => {
+          
+          // Use setTimeout instead of req.setTimeout for proper timeout handling
+          const timeoutRef = setTimeout(() => {
             req.destroy();
             resolve(false);
+          }, 5000);
+          
+          // Clear timeout if request completes successfully
+          req.on('response', () => {
+            clearTimeout(timeoutRef);
           });
-          timeoutRef.unref(); // Don't keep process alive
+          
+          req.on('error', () => {
+            clearTimeout(timeoutRef);
+          });
         });
         
         if (!signatureExists) {
