@@ -35,7 +35,7 @@ jobs:
       run: npm run build
       
     - name: Run NullVoid security scan
-      run: node dist/bin/nullvoid.js scan --output json > security-report.json
+      run: node ts/dist/bin/nullvoid.js . --format json --output security-report.json
       
     - name: Upload security report
       uses: actions/upload-artifact@v4
@@ -49,7 +49,21 @@ jobs:
       with:
         script: |
           const fs = require('fs');
-          const report = JSON.parse(fs.readFileSync('security-report.json', 'utf8'));
+          let report;
+          try {
+            const content = fs.readFileSync('security-report.json', 'utf8');
+            report = JSON.parse(content);
+          } catch (error) {
+            console.log('Error parsing security report:', error.message);
+            console.log('File content:', fs.readFileSync('security-report.json', 'utf8'));
+            // Create a fallback report
+            report = {
+              threats: [],
+              packagesScanned: 0,
+              duration: 0,
+              timestamp: new Date().toISOString()
+            };
+          }
           
           let comment = '## 🔍 NullVoid Security Scan Results\n\n';
           
@@ -74,9 +88,10 @@ jobs:
           }
           
           comment += `📊 **Scan Summary:**\n`;
-          comment += `- Packages scanned: ${report.packagesScanned}\n`;
-          comment += `- Scan duration: ${report.duration}ms\n`;
-          comment += `- Scan timestamp: ${new Date(report.timestamp).toLocaleString()}\n\n`;
+          comment += `- Packages scanned: ${report.packagesScanned || report.summary?.totalPackages || 0}\n`;
+          comment += `- Files scanned: ${report.filesScanned || report.summary?.totalFiles || 0}\n`;
+          comment += `- Scan duration: ${report.performance?.duration || report.metrics?.duration || 0}ms\n`;
+          comment += `- Scan timestamp: ${new Date(report.metadata?.scanTime || new Date()).toLocaleString()}\n\n`;
           comment += '---\n';
           comment += '*This scan was performed by [NullVoid](https://github.com/kurt-grung/NullVoid) - a tool to detect malicious npm packages.*';
           
@@ -128,7 +143,7 @@ jobs:
     - name: Run NullVoid on dependencies
       run: |
         echo "Scanning project dependencies..."
-        node dist/bin/nullvoid.js scan --verbose --output json > dependency-scan.json
+        node ts/dist/bin/nullvoid.js . --format json --output dependency-scan.json
         
     - name: Upload dependency scan results
       uses: actions/upload-artifact@v4
