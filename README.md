@@ -10,181 +10,6 @@
 
 Advanced static analysis security scanner that detects supply chain attacks, wallet hijacking, obfuscated malware, and other malicious behavior in JavaScript/Node.js projects, npm packages, and codebases. Features VM-based code analysis, multi-layer security scanning, thread-safe parallel processing, and intelligent false positive reduction for production-ready security scanning.
 
-**🎉 v2.0.0 - Complete TypeScript Migration - 7.5x Faster, Zero False Positives!**
-
-## 🚀 Quick Start
-
-```bash
-# Install globally
-npm install -g nullvoid
-
-# Scan current project directory
-nullvoid .
-
-# Scan specific directory/project
-nullvoid /path/to/project
-
-# Scan specific file
-nullvoid suspicious-file.js
-
-# Scan npm package
-nullvoid express
-
-# Scan with verbose output
-nullvoid . --verbose
-
-# Scan with parallel processing
-nullvoid . --parallel --workers 4
-
-# Output to JSON file
-nullvoid . --format json --output results.json
-```
-
-## 🔧 **TypeScript Support**
-
-NullVoid is built with **TypeScript** for enhanced type safety and developer experience:
-
-### **Development**
-```bash
-# Development mode with TypeScript
-npm run dev -- scan --help
-
-# Build TypeScript to JavaScript
-npm run build
-
-# Type checking
-npm run type-check
-
-# Development with file watching
-npm run build:watch
-```
-
-### **Type Definitions**
-- Full TypeScript type definitions included
-- IntelliSense support in VS Code and other IDEs  
-- Comprehensive type safety for all APIs
-- Strict type checking enabled
-
-## ⚡ **Performance Comparison**
-
-NullVoid's TypeScript migration delivers significant performance improvements over the original JavaScript implementation:
-
-| Metric | JavaScript | TypeScript | Improvement |
-|--------|------------|------------|-------------|
-| **Build Time** | N/A | ~2s | ✅ Fast compilation |
-| **Scan Speed** | 0.589s | 0.079s | ⚡ **7.5x faster** |
-| **Code Size** | 3,519 lines | 388 lines | 📦 **90% smaller** |
-| **Type Safety** | ❌ None | ✅ Full | 🛡️ **Type-safe** |
-
-### **Key Benefits**
-- **🚀 Faster Execution**: 7.5x performance improvement in scan operations
-- **📦 Smaller Bundle**: 90% reduction in code size through modular architecture
-- **🛡️ Type Safety**: Full TypeScript type checking prevents runtime errors
-- **🔧 Better DX**: Enhanced developer experience with IntelliSense and autocomplete
-- **🏗️ Maintainable**: Modular codebase easier to maintain and extend
-
-## 🎯 **What Can NullVoid Scan?**
-
-NullVoid is not just for npm packages - it's a comprehensive security scanner for any JavaScript/Node.js codebase:
-
-### **📁 Project Types**
-- **Web Applications**: React, Vue, Angular projects
-- **Node.js Applications**: Express, Fastify, Koa servers
-- **Desktop Applications**: Electron apps
-- **CLI Tools**: Command-line utilities
-- **Libraries & Packages**: npm packages, private modules
-- **Microservices**: Individual service codebases
-- **Legacy Codebases**: Older JavaScript projects
-
-### **🔍 Scan Targets**
-- **Individual Files**: `nullvoid suspicious-file.js`
-- **Project Directories**: `nullvoid ./my-project`
-- **npm Packages**: `nullvoid express`
-- **Dependencies**: `nullvoid ./node_modules`
-- **Git Repositories**: `nullvoid ./git-repo`
-- **Production Code**: Pre-deployment security checks
-- **CI/CD Pipelines**: Automated security scanning
-
-### **⚡ Use Cases**
-- **Pre-deployment Security**: Catch malicious code before production
-- **Supply Chain Protection**: Scan dependencies for threats
-- **Code Review**: Security analysis during development
-- **Incident Response**: Analyze suspicious files safely
-- **Compliance**: Meet security requirements and standards
-- **Audit Preparation**: Comprehensive security assessment
-
-### **🔍 Complete Scanning Process**
-
-```mermaid
-graph TD
-    A[File Path Input] --> B[Path Validation]
-    B --> C[Safe File Read]
-    C --> D[Static Analysis]
-    D --> E{Suspicious?}
-    E -->|Yes| F[Sandbox Analysis]
-    E -->|No| G[Basic Analysis]
-    F --> H[Threat Detection]
-    G --> H
-    H --> I[Results]
-
-    %% Styling for all nodes
-    style A fill:#ffebee,stroke:#333,color:#e63946
-    style B fill:#e3f2fd,stroke:#333,color:#1d3557
-    style C fill:#f3e5f5,stroke:#333,color:#7b1fa2
-    style D fill:#e8f5e8,stroke:#333,color:#2e7d32
-    style E fill:#fff3e0,stroke:#333,color:#f57c00
-    style F fill:#ffebee,stroke:#333,color:#d32f2f
-    style G fill:#f1f8e9,stroke:#333,color:#558b2f
-    style H fill:#e0f2f1,stroke:#333,color:#2a9d8f
-    style I fill:#e8eaf6,stroke:#333,color:#3f51b5
-```
-
-**Process Flow:**
-1. **Path Validation**: Secure path checking and traversal protection
-2. **Safe File Read**: Direct filesystem access with security measures
-3. **Static Analysis**: AST-based pattern detection without execution
-4. **Suspicious Detection**: Heuristic analysis for malicious indicators
-5. **Sandbox Analysis**: Isolated VM execution for flagged code only
-6. **Threat Detection**: Comprehensive threat identification and classification
-7. **Results**: Detailed security report with actionable insights 
-
-```
-% nullvoid scan
-⠋ 🔍 Scanning ...
-📁 nullvoid.js (detected: security tools)
-📁 colors.js
-📁 parallel.js
-📁 rules.js (detected: security tools)
-📁 scan.js (detected: security tools)
-📁 scan.test.js (detected: test file)
-📁 setup.js
-📁 cache.test.js
-📁 entropy.test.js
-📁 gpg-signature.test.js
-📁 parallel.test.js
-📁 signature-verification.test.js
-✔ ✅ Scan completed
-
-🔍 NullVoid Scan Results
-
-✅ No high-severity threats detected
-ℹ️  43 low/medium severity threats were filtered out
-💡 Use --all flag to see all threats
-
-📁 Directory Structure:
-   1082 directories: bin, lib, node_modules, release-notes, rules...
-   6401 files: CHANGELOG.md, CODE_OF_CONDUCT.md, CONTRIBUTING.md, LICENSE, NullVoid.png...
-
-📊 Dependency Tree Analysis:
-   Total packages scanned: 0
-   Max depth reached: 0
-   Packages with threats: 0
-   Deep dependencies (depth ≥2): 0
-
-📊 Scanned 1 directory(s), 13 file(s) in 207ms
-```
-
-
 ## 📋 Scan Commands
 
 ### Basic Scans
@@ -300,7 +125,7 @@ nullvoid . --verbose --format json --output scan-results.json
 - **Smart Classification**: Intelligent differentiation between legitimate tools and real threats
 - **Color-Coded Output**: Visual distinction between threat severities and types
 
-## 🎯 v2.0.0 - Major Release Features
+## 🎯 v2.0.1 - Major Release Features
 
 ### **🚀 Complete TypeScript Migration**
 - **100% TypeScript**: Full migration from JavaScript with zero compilation errors
@@ -327,33 +152,150 @@ nullvoid . --verbose --format json --output scan-results.json
 - **Enhanced Options**: `--include-dev`, `--skip-cache`, `--debug` flags
 - **Better Performance**: Optimized scanning with configurable depth and workers
 
-### **🤖 GitHub Actions Integration**
-- **Automated Security Scanning**: PR comments with formatted scan results
-- **Dependency Analysis**: Automated npm audit and NullVoid scanning
-- **CI/CD Ready**: Production deployment pipeline with security checks
-- **Real-time Results**: Live scan results posted to pull requests
-
 ### **📊 Production-Ready Features**
 - **Zero False Positives**: Intelligent whitelisting for legitimate security tools
 - **Comprehensive Testing**: 16 tests passing with security-focused validation
 - **Enterprise Grade**: Reliable performance for large-scale production environments
 - **Professional Output**: Clean, formatted results suitable for CI/CD integration
 
-### Smart Classification Examples
+## 🚀 Quick Start
+
 ```bash
-# Security tools correctly classified as LOW severity
-📁 streaming.js (detected: security tools)  # Blue color - LOW severity
+# Install globally
+npm install -g nullvoid
 
-# Test files properly identified
-📁 scan.test.js (detected: test file)      # Blue color - LOW severity
+# Scan current project directory
+nullvoid .
 
-# Real malware still detected as CRITICAL
-📁 auth.js (detected: MALICIOUS_CODE_STRUCTURE)  # Red color - CRITICAL severity
+# Scan specific directory/project
+nullvoid /path/to/project
+
+# Scan specific file
+nullvoid suspicious-file.js
+
+# Scan npm package
+nullvoid express
+
+# Scan with verbose output
+nullvoid . --verbose
+
+# Scan with parallel processing
+nullvoid . --parallel --workers 4
+
+# Output to JSON file
+nullvoid . --format json --output results.json
 ```
+
+## 🔧 **TypeScript Support**
+
+NullVoid is built with **TypeScript** for enhanced type safety and developer experience:
+
+### **Development**
+```bash
+# Development mode with TypeScript
+npm run dev -- scan --help
+
+# Build TypeScript to JavaScript
+npm run build
+
+# Type checking
+npm run type-check
+
+# Development with file watching
+npm run build:watch
+```
+
+### **Type Definitions**
+- Full TypeScript type definitions included
+- IntelliSense support in VS Code and other IDEs  
+- Comprehensive type safety for all APIs
+- Strict type checking enabled
+
+## ⚡ **Performance**
+
+NullVoid's TypeScript migration delivers significant performance improvements:
+
+| Metric | JavaScript | TypeScript | Improvement |
+|--------|------------|------------|-------------|
+| **Scan Speed** | 0.589s | 0.079s | ⚡ **7.5x faster** |
+| **Code Size** | 3,519 lines | 388 lines | 📦 **90% smaller** |
+| **Type Safety** | ❌ None | ✅ Full | 🛡️ **Type-safe** |
+
+### **Key Benefits**
+- **🚀 Faster Execution**: 7.5x performance improvement in scan operations
+- **📦 Smaller Bundle**: 90% reduction in code size through modular architecture
+- **🛡️ Type Safety**: Full TypeScript type checking prevents runtime errors
+- **🔧 Better DX**: Enhanced developer experience with IntelliSense and autocomplete
+- **🏗️ Maintainable**: Modular codebase easier to maintain and extend
+
+## 🎯 **What Can NullVoid Scan?**
+
+NullVoid is not just for npm packages - it's a comprehensive security scanner for any JavaScript/Node.js codebase:
+
+### **📁 Project Types**
+- **Web Applications**: React, Vue, Angular projects
+- **Node.js Applications**: Express, Fastify, Koa servers
+- **Desktop Applications**: Electron apps
+- **CLI Tools**: Command-line utilities
+- **Libraries & Packages**: npm packages, private modules
+- **Microservices**: Individual service codebases
+- **Legacy Codebases**: Older JavaScript projects
+
+### **🔍 Scan Targets**
+- **Individual Files**: `nullvoid suspicious-file.js`
+- **Project Directories**: `nullvoid ./my-project`
+- **npm Packages**: `nullvoid express`
+- **Dependencies**: `nullvoid ./node_modules`
+- **Git Repositories**: `nullvoid ./git-repo`
+- **Production Code**: Pre-deployment security checks
+- **CI/CD Pipelines**: Automated security scanning
+
+### **⚡ Use Cases**
+- **Pre-deployment Security**: Catch malicious code before production
+- **Supply Chain Protection**: Scan dependencies for threats
+- **Code Review**: Security analysis during development
+- **Incident Response**: Analyze suspicious files safely
+- **Compliance**: Meet security requirements and standards
+- **Audit Preparation**: Comprehensive security assessment
+
+### **🔍 Complete Scanning Process**
+
+```mermaid
+graph TD
+    A[File Path Input] --> B[Path Validation]
+    B --> C[Safe File Read]
+    C --> D[Static Analysis]
+    D --> E{Suspicious?}
+    E -->|Yes| F[Sandbox Analysis]
+    E -->|No| G[Basic Analysis]
+    F --> H[Threat Detection]
+    G --> H
+    H --> I[Results]
+
+    %% Styling for all nodes
+    style A fill:#ffebee,stroke:#333,color:#e63946
+    style B fill:#e3f2fd,stroke:#333,color:#1d3557
+    style C fill:#f3e5f5,stroke:#333,color:#7b1fa2
+    style D fill:#e8f5e8,stroke:#333,color:#2e7d32
+    style E fill:#fff3e0,stroke:#333,color:#f57c00
+    style F fill:#ffebee,stroke:#333,color:#d32f2f
+    style G fill:#f1f8e9,stroke:#333,color:#558b2f
+    style H fill:#e0f2f1,stroke:#333,color:#2a9d8f
+    style I fill:#e8eaf6,stroke:#333,color:#3f51b5
+```
+
+**Process Flow:**
+1. **Path Validation**: Secure path checking and traversal protection
+2. **Safe File Read**: Direct filesystem access with security measures
+3. **Static Analysis**: AST-based pattern detection without execution
+4. **Suspicious Detection**: Heuristic analysis for malicious indicators
+5. **Sandbox Analysis**: Isolated VM execution for flagged code only
+6. **Threat Detection**: Comprehensive threat identification and classification
+7. **Results**: Detailed security report with actionable insights 
 
 ## 📊 Example Output
 
-### Real-Time Progress Display (v1.3.9)
+### Real-Time Progress Display
 ```
 ⠋ 🔍 Scanning ...
 📁 nullvoid.js (detected: security tools)
@@ -420,39 +362,12 @@ Scanned 15 package(s) in 234ms
 | `--version` | Show version information | - |
 | `--help` | Show help information | - |
 
-## 📊 Real-Time Progress Display
-
-NullVoid provides **real-time progress feedback** during scanning, showing each file as it's analyzed:
-
-### **🎯 Progress Callback Features**
-- **Live File Display**: Shows each file being scanned with relative paths
-- **Threat Detection**: Real-time threat indicators during scanning
-- **Clean Formatting**: Proper spinner separation and clean output
-- **Relative Paths**: Shows files relative to scan target (e.g., `malware-samples/supply-chain-attack-auth.js`)
-- **Threat Classification**: Immediate feedback on detected threat types
-
-### **📋 Example Output**
-```bash
-⠋ 🔍 Scanning ...
-
-📁 malware-samples/supply-chain-attack-auth.js (detected: OBFUSCATED_CODE, SUSPICIOUS_MODULE, MALICIOUS_CODE_STRUCTURE)
-📁 analysis/supply-chain-attack-auth.md
-📁 detection-tests/test-case.js (detected: test file)
-✔ ✅ Scan completed
-```
-
 ### **🎨 Threat Indicators**
 - **`(detected: OBFUSCATED_CODE)`**: Obfuscated or encoded content detected
 - **`(detected: SUSPICIOUS_MODULE)`**: Suspicious module imports (fs, child_process, etc.)
 - **`(detected: MALICIOUS_CODE_STRUCTURE)`**: Malicious code patterns identified
 - **`(detected: security tools)`**: NullVoid's own security tools (whitelisted)
 - **`(detected: test file)`**: Test files (whitelisted)
-
-### **⚡ Performance Benefits**
-- **Immediate Feedback**: Know exactly what's being scanned
-- **Progress Tracking**: Visual confirmation of scan progress
-- **Early Detection**: See threats as they're found
-- **Clean Output**: No extra blank lines or formatting issues
 
 ## 🌳 Dependency Tree Analysis
 
@@ -513,12 +428,6 @@ nullvoid scan
    Severity: HIGH
 ```
 
-## 🚀 Performance Features
-
-- **Parallel Scanning**: Multi-threaded processing using Node.js worker_threads
-- **Automatic Parallel Detection**: Enables parallel processing when multiple dependencies exist
-- **Performance Optimization**: 2-4x faster scanning for projects with multiple packages
-- **Resource Management**: Automatic worker cleanup and timeout handling
 
 ## 🔍 **Dependency Confusion Detection**
 
@@ -597,12 +506,6 @@ NULLVOID_TIMELINE_CRITICAL=1
 NULLVOID_REGISTRY_TIMEOUT=10000
 ```
 
-### **🔧 Bug Fixes**
-
-#### **GPG Signature Verification**
-- **Fixed**: `timeoutRef.unref is not a function` error during GPG signature checks
-- **Improved**: Proper timeout handling using `setTimeout` instead of `req.setTimeout`
-- **Enhanced**: Cleaner error handling and timeout cleanup
 
 ## 🗺️ **Roadmap**
 
@@ -635,8 +538,6 @@ NullVoid has a comprehensive roadmap for 2025 focusing on advanced threat detect
 - **Behavioral Analysis**: AI-powered anomaly detection
 - **Predictive Analysis**: Predicting potential security issues
 
-### **📋 Complete Roadmap**
-For detailed roadmap information, see [ROADMAP.md](./ROADMAP.md)
 
 ## 📋 SARIF Output for CI/CD Integration
 
@@ -719,7 +620,7 @@ steps:
     "tool": {
       "driver": {
         "name": "NullVoid",
-        "version": "1.3.15",
+        "version": "2.0.1",
         "informationUri": "https://github.com/kurt-grung/NullVoid"
       }
     },
@@ -751,7 +652,6 @@ steps:
 - **Azure DevOps**: Security scanning in pipelines
 - **Jenkins**: Security reporting plugins
 - **SonarQube**: Code quality and security analysis
-- **CodeQL**: GitHub's semantic code analysis
 
 ## 🤝 Contributing
 

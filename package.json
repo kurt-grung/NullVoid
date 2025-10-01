@@ -1,6 +1,6 @@
 {
   "name": "nullvoid",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Detect malicious code",
   "main": "ts/dist/scan.js",
   "types": "ts/dist/types/index.d.ts",
@@ -98,6 +98,7 @@
     "src/",
     "bin/",
     "lib/",
+    "ts/",
     "scan.js",
     "colors.js",
     "README.md",
