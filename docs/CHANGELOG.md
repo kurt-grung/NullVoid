@@ -5,6 +5,29 @@ All notable changes to NullVoid will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.2] - 2025-01-27
+
+### Added
+- **Backward Compatibility**: Added `nullvoid scan` command for backward compatibility with v1.x
+- **Dual Command Support**: Both `nullvoid` and `nullvoid scan` syntaxes now work identically
+- **Flexible CLI Interface**: Users can choose their preferred command format
+
+### Changed
+- **CLI Architecture**: Extracted scan logic into reusable `performScan` function
+- **Command Structure**: Maintained both new and legacy command formats
+- **Documentation**: Updated README to show all command variations
+
+### Fixed
+- **Module Resolution**: Fixed `MODULE_NOT_FOUND` error for `./lib/logger` in global installations
+- **Package Structure**: Corrected `files` array in package.json to include TypeScript build output
+- **Global Installation**: Resolved symlink issues in npm global package installation
+
+### Technical Details
+- **Code Refactoring**: Extracted common scan logic to eliminate duplication
+- **Commander.js**: Added `scan` subcommand with identical options and behavior
+- **Package Publishing**: Fixed publishing from `/ts` directory for optimal package size (175KB vs 83MB)
+- **Version Management**: Updated to v2.0.2 with proper version references
+
 ## [2.0.0] - 2025-09-28
 
 ### 🚀 Major Release - Complete TypeScript Migration

@@ -15,6 +15,7 @@ program
   .description('NullVoid Security Scanner')
   .version(packageJson.version);
 
+// Main scan command (default action)
 program
   .argument('[target]', 'Package name, directory, or file to scan (defaults to current directory)')
   .option('-d, --depth <number>', 'Maximum depth for dependency scanning', '5')
@@ -30,6 +31,31 @@ program
   .option('--sarif <file>', 'SARIF output file')
   .option('--all', 'Show all threats including low severity')
   .action(async (target: string | undefined, options: any) => {
+    await performScan(target, options);
+  });
+
+// Backward compatibility: "nullvoid scan" command
+program
+  .command('scan')
+  .description('Scan for security threats (backward compatibility)')
+  .argument('[target]', 'Package name, directory, or file to scan (defaults to current directory)')
+  .option('-d, --depth <number>', 'Maximum depth for dependency scanning', '5')
+  .option('-p, --parallel', 'Enable parallel processing')
+  .option('-w, --workers <number>', 'Number of workers for parallel processing', 'auto')
+  .option('--include-dev', 'Include development dependencies')
+  .option('--skip-cache', 'Skip cache')
+  .option('-o, --output <file>', 'Output file path')
+  .option('-f, --format <format>', 'Output format', 'json')
+  .option('-v, --verbose', 'Enable verbose logging')
+  .option('--debug', 'Enable debug mode')
+  .option('-r, --rules <file>', 'Custom rules file')
+  .option('--sarif <file>', 'SARIF output file')
+  .option('--all', 'Show all threats including low severity')
+  .action(async (target: string | undefined, options: any) => {
+    await performScan(target, options);
+  });
+
+async function performScan(target: string | undefined, options: any) {
     const spinner = ora('🔍 Scanning ...').start();
     
     try {
@@ -116,7 +142,7 @@ program
       console.error('Error:', (error as Error).message);
       process.exit(1);
     }
-  });
+}
 
 program.parse();
 

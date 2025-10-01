@@ -10,7 +10,212 @@
 
 Advanced static analysis security scanner that detects supply chain attacks, wallet hijacking, obfuscated malware, and other malicious behavior in JavaScript/Node.js projects, npm packages, and codebases. Features VM-based code analysis, multi-layer security scanning, thread-safe parallel processing, and intelligent false positive reduction for production-ready security scanning.
 
-**🎉 v2.0.0 - Complete TypeScript Migration - 7.5x Faster, Zero False Positives!**
+## 📋 Scan Commands
+
+### Scan 
+```bash
+# Scan current directory and subdirectories
+nullvoid
+
+# Scan a specific package
+nullvoid express
+
+# Scan a specific directory
+nullvoid /path/to/project
+```
+
+### **GitHub CI Actions Integration**
+```yaml
+# .github/workflows/security.yml
+name: Security Scan
+on: [push, pull_request]
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install NullVoid
+        run: npm install -g nullvoid
+      
+      - name: Run Security Scan
+        run: nullvoid . --output sarif --sarif-file nullvoid-results.sarif
+      
+      - name: Upload SARIF Results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: nullvoid-results.sarif
+```
+
+
+### Scan Options
+```bash
+# Show all threats (including low/medium severity)
+nullvoid --all
+# or
+nullvoid . --all
+
+# Verbose output with more details
+nullvoid --verbose
+# or
+nullvoid . --verbose
+
+# Limit dependency depth
+nullvoid --depth 2
+# or
+nullvoid . --depth 2
+
+# Enable parallel processing
+nullvoid --parallel
+# or
+nullvoid . --parallel
+
+# Set number of workers for parallel processing
+nullvoid --workers 4
+# or
+nullvoid . --workers 4
+
+# JSON output format
+nullvoid --format json
+# or
+nullvoid . --format json
+
+# Output to file
+nullvoid --output results.json
+# or
+nullvoid . --output results.json
+
+# SARIF output format for CI/CD integration
+nullvoid --format sarif
+# or
+nullvoid . --format sarif
+
+# Write SARIF output to file
+nullvoid --sarif nullvoid-results.sarif
+# or
+nullvoid . --sarif nullvoid-results.sarif
+
+# Include development dependencies
+nullvoid --include-dev
+# or
+nullvoid . --include-dev
+
+# Skip cache
+nullvoid --skip-cache
+# or
+nullvoid . --skip-cache
+
+# Debug mode
+nullvoid --debug
+# or
+nullvoid . --debug
+```
+
+### Combined Options
+```bash
+# Show all threats with verbose output and parallel processing
+nullvoid --all --verbose --parallel
+# or
+nullvoid . --all --verbose --parallel
+
+# Scan with limited depth and parallel workers
+nullvoid --depth 2 --parallel --workers 8
+# or
+nullvoid . --depth 2 --parallel --workers 8
+
+# Verbose output with JSON output to file
+nullvoid --verbose --format json --output scan-results.json
+# or
+nullvoid . --verbose --format json --output scan-results.json
+```
+
+## 🔍 What NullVoid Detects
+
+### 🚨 **Wallet Hijacking**
+- **window.ethereum Interception**: Detects packages that hook into wallet providers
+- **MetaMask Targeting**: Identifies code that intercepts MetaMask transactions
+- **Transaction Redirection**: Flags packages that silently redirect blockchain transactions
+- **Address Replacement**: Detects attempts to replace legitimate wallet addresses
+
+### 🌐 **Network Manipulation**
+- **Fetch/XMLHttpRequest Overrides**: Detects packages that intercept network requests
+- **API Response Scanning**: Identifies code that scans responses for blockchain addresses
+- **Address Substitution**: Detects replacement of legitimate addresses with attacker-controlled ones
+
+### 🔐 **Supply Chain Attacks**
+- **Postinstall Script Analysis**: Detects suspicious postinstall scripts
+- **Code Entropy Analysis**: Identifies obfuscated or packed code
+- **GPG Signature Verification**: Validates package signatures
+- **Suspicious File Patterns**: Scans for malicious naming conventions
+
+### ⚡ **Advanced Detection**
+- **Multi-Chain Targeting**: Detects packages supporting multiple blockchains
+- **Stealth Controls**: Identifies hidden control interfaces
+- **Obfuscation Techniques**: Detects code hiding mechanisms
+- **Deep Dependency Scanning**: Scans transitive dependencies up to 3 levels deep
+
+## 🛡️ Security Features
+
+### **Core Security Engine**
+- **Secure Sandboxing**: VM-based code execution with resource limits and timeout protection
+- **Advanced Threat Detection**: AST analysis, entropy calculation, and pattern matching
+- **Multi-Layer Security**: Comprehensive static analysis with multiple detection methods
+- **Path Security**: Protection against path traversal and command injection attacks
+- **Input Validation**: Comprehensive input sanitization and validation
+
+### **Threat Detection Capabilities**
+- **Obfuscated Malware**: Detection of variable name mangling, hex encoding, and anti-debugging patterns
+- **Wallet Hijacking**: Comprehensive cryptocurrency attack detection and prevention
+- **Supply Chain Attacks**: Enhanced detection of malicious npm packages and dependency injection
+- **Dependency Confusion**: Timeline analysis comparing git history vs npm registry creation dates
+- **Module Loading Threats**: Dynamic require detection and system module access monitoring
+- **Code Structure Analysis**: Entropy analysis and malicious code pattern recognition
+
+### **Production Features**
+- **Thread-Safe Processing**: Mutex-synchronized parallel scanning with proper resource management
+- **Clean Resource Management**: No open handles, proper cleanup, and memory leak prevention
+- **Real-Time Progress**: Live scanning display with consistent threat reporting
+- **CI/CD Ready**: Reliable integration into automated workflows
+- **Smart Classification**: Intelligent differentiation between legitimate tools and real threats
+- **Color-Coded Output**: Visual distinction between threat severities and types
+
+## 🎯 v2.0.2 - Major Release Features
+
+### **🚀 Complete TypeScript Migration**
+- **100% TypeScript**: Full migration from JavaScript with zero compilation errors
+- **Type Safety**: Comprehensive type definitions for all APIs and interfaces
+- **Enhanced DX**: IntelliSense support, autocomplete, and better error messages
+- **Modular Architecture**: Clean separation of concerns with maintainable code structure
+
+### **⚡ Performance Improvements**
+- **7.5x Faster**: Scan speed improved from 0.589s to 0.079s
+- **90% Code Reduction**: From 3,519 lines to 388 lines through modular design
+- **Parallel Processing**: Multi-threaded scanning with optimal worker allocation
+- **Memory Optimization**: Enhanced garbage collection and resource management
+
+### **🛡️ Advanced Security Features**
+- **Dependency Confusion Detection**: Timeline analysis, scope patterns, and similarity detection
+- **Secure Code Sandboxing**: VM-based isolation with resource limits and threat analysis
+- **Enhanced Path Validation**: Path traversal prevention and secure file operations
+- **Advanced Input Validation**: Comprehensive validation rules and sanitization
+- **Improved Error Handling**: Advanced error recovery and threat classification
+
+### **🔧 New CLI Features**
+- **Parallel Processing**: `--parallel` and `--workers` options for multi-threaded scanning
+- **Multiple Output Formats**: JSON, SARIF, table, and YAML output support
+- **Enhanced Options**: `--include-dev`, `--skip-cache`, `--debug` flags
+- **Better Performance**: Optimized scanning with configurable depth and workers
+
+### **📊 Production-Ready Features**
+- **Zero False Positives**: Intelligent whitelisting for legitimate security tools
+- **Comprehensive Testing**: 16 tests passing with security-focused validation
+- **Enterprise Grade**: Reliable performance for large-scale production environments
+- **Professional Output**: Clean, formatted results suitable for CI/CD integration
 
 ## 🚀 Quick Start
 
@@ -19,24 +224,40 @@ Advanced static analysis security scanner that detects supply chain attacks, wal
 npm install -g nullvoid
 
 # Scan current project directory
+nullvoid
+# or
 nullvoid .
+# or (backward compatibility)
+nullvoid scan
 
 # Scan specific directory/project
 nullvoid /path/to/project
+# or
+nullvoid scan /path/to/project
 
 # Scan specific file
 nullvoid suspicious-file.js
+# or
+nullvoid scan suspicious-file.js
 
 # Scan npm package
 nullvoid express
+# or
+nullvoid scan express
 
 # Scan with verbose output
+nullvoid --verbose
+# or
 nullvoid . --verbose
 
 # Scan with parallel processing
+nullvoid --parallel --workers 4
+# or
 nullvoid . --parallel --workers 4
 
 # Output to JSON file
+nullvoid --format json --output results.json
+# or
 nullvoid . --format json --output results.json
 ```
 
@@ -65,13 +286,12 @@ npm run build:watch
 - Comprehensive type safety for all APIs
 - Strict type checking enabled
 
-## ⚡ **Performance Comparison**
+## ⚡ **Performance**
 
-NullVoid's TypeScript migration delivers significant performance improvements over the original JavaScript implementation:
+NullVoid's TypeScript migration delivers significant performance improvements:
 
 | Metric | JavaScript | TypeScript | Improvement |
 |--------|------------|------------|-------------|
-| **Build Time** | N/A | ~2s | ✅ Fast compilation |
 | **Scan Speed** | 0.589s | 0.079s | ⚡ **7.5x faster** |
 | **Code Size** | 3,519 lines | 388 lines | 📦 **90% smaller** |
 | **Type Safety** | ❌ None | ✅ Full | 🛡️ **Type-safe** |
@@ -148,212 +368,9 @@ graph TD
 6. **Threat Detection**: Comprehensive threat identification and classification
 7. **Results**: Detailed security report with actionable insights 
 
-```
-% nullvoid scan
-⠋ 🔍 Scanning ...
-📁 nullvoid.js (detected: security tools)
-📁 colors.js
-📁 parallel.js
-📁 rules.js (detected: security tools)
-📁 scan.js (detected: security tools)
-📁 scan.test.js (detected: test file)
-📁 setup.js
-📁 cache.test.js
-📁 entropy.test.js
-📁 gpg-signature.test.js
-📁 parallel.test.js
-📁 signature-verification.test.js
-✔ ✅ Scan completed
-
-🔍 NullVoid Scan Results
-
-✅ No high-severity threats detected
-ℹ️  43 low/medium severity threats were filtered out
-💡 Use --all flag to see all threats
-
-📁 Directory Structure:
-   1082 directories: bin, lib, node_modules, release-notes, rules...
-   6401 files: CHANGELOG.md, CODE_OF_CONDUCT.md, CONTRIBUTING.md, LICENSE, NullVoid.png...
-
-📊 Dependency Tree Analysis:
-   Total packages scanned: 0
-   Max depth reached: 0
-   Packages with threats: 0
-   Deep dependencies (depth ≥2): 0
-
-📊 Scanned 1 directory(s), 13 file(s) in 207ms
-```
-
-
-## 📋 Scan Commands
-
-### Basic Scans
-```bash
-# Scan current directory and subdirectories
-nullvoid scan
-
-# Scan a specific package
-nullvoid scan express
-
-# Scan a specific directory
-nullvoid scan /path/to/project
-```
-
-### Scan Options
-```bash
-# Show all threats (including low/medium severity)
-nullvoid . --all
-
-# Verbose output with more details
-nullvoid . --verbose
-
-# Limit dependency depth
-nullvoid . --depth 2
-
-# Enable parallel processing
-nullvoid . --parallel
-
-# Set number of workers for parallel processing
-nullvoid . --workers 4
-
-# JSON output format
-nullvoid . --format json
-
-# Output to file
-nullvoid . --output results.json
-
-# SARIF output format for CI/CD integration
-nullvoid . --format sarif
-
-# Write SARIF output to file
-nullvoid . --sarif nullvoid-results.sarif
-
-# Include development dependencies
-nullvoid . --include-dev
-
-# Skip cache
-nullvoid . --skip-cache
-
-# Debug mode
-nullvoid . --debug
-```
-
-### Combined Options
-```bash
-# Show all threats with verbose output and parallel processing
-nullvoid . --all --verbose --parallel
-
-# Scan with limited depth and parallel workers
-nullvoid . --depth 2 --parallel --workers 8
-
-# Verbose output with JSON output to file
-nullvoid . --verbose --format json --output scan-results.json
-```
-
-## 🔍 What NullVoid Detects
-
-### 🚨 **Wallet Hijacking**
-- **window.ethereum Interception**: Detects packages that hook into wallet providers
-- **MetaMask Targeting**: Identifies code that intercepts MetaMask transactions
-- **Transaction Redirection**: Flags packages that silently redirect blockchain transactions
-- **Address Replacement**: Detects attempts to replace legitimate wallet addresses
-
-### 🌐 **Network Manipulation**
-- **Fetch/XMLHttpRequest Overrides**: Detects packages that intercept network requests
-- **API Response Scanning**: Identifies code that scans responses for blockchain addresses
-- **Address Substitution**: Detects replacement of legitimate addresses with attacker-controlled ones
-
-### 🔐 **Supply Chain Attacks**
-- **Postinstall Script Analysis**: Detects suspicious postinstall scripts
-- **Code Entropy Analysis**: Identifies obfuscated or packed code
-- **GPG Signature Verification**: Validates package signatures
-- **Suspicious File Patterns**: Scans for malicious naming conventions
-
-### ⚡ **Advanced Detection**
-- **Multi-Chain Targeting**: Detects packages supporting multiple blockchains
-- **Stealth Controls**: Identifies hidden control interfaces
-- **Obfuscation Techniques**: Detects code hiding mechanisms
-- **Deep Dependency Scanning**: Scans transitive dependencies up to 3 levels deep
-
-## 🛡️ Security Features
-
-### **Core Security Engine**
-- **Secure Sandboxing**: VM-based code execution with resource limits and timeout protection
-- **Advanced Threat Detection**: AST analysis, entropy calculation, and pattern matching
-- **Multi-Layer Security**: Comprehensive static analysis with multiple detection methods
-- **Path Security**: Protection against path traversal and command injection attacks
-- **Input Validation**: Comprehensive input sanitization and validation
-
-### **Threat Detection Capabilities**
-- **Obfuscated Malware**: Detection of variable name mangling, hex encoding, and anti-debugging patterns
-- **Wallet Hijacking**: Comprehensive cryptocurrency attack detection and prevention
-- **Supply Chain Attacks**: Enhanced detection of malicious npm packages and dependency injection
-- **Dependency Confusion**: Timeline analysis comparing git history vs npm registry creation dates
-- **Module Loading Threats**: Dynamic require detection and system module access monitoring
-- **Code Structure Analysis**: Entropy analysis and malicious code pattern recognition
-
-### **Production Features**
-- **Thread-Safe Processing**: Mutex-synchronized parallel scanning with proper resource management
-- **Clean Resource Management**: No open handles, proper cleanup, and memory leak prevention
-- **Real-Time Progress**: Live scanning display with consistent threat reporting
-- **CI/CD Ready**: Reliable integration into automated workflows
-- **Smart Classification**: Intelligent differentiation between legitimate tools and real threats
-- **Color-Coded Output**: Visual distinction between threat severities and types
-
-## 🎯 v2.0.0 - Major Release Features
-
-### **🚀 Complete TypeScript Migration**
-- **100% TypeScript**: Full migration from JavaScript with zero compilation errors
-- **Type Safety**: Comprehensive type definitions for all APIs and interfaces
-- **Enhanced DX**: IntelliSense support, autocomplete, and better error messages
-- **Modular Architecture**: Clean separation of concerns with maintainable code structure
-
-### **⚡ Performance Improvements**
-- **7.5x Faster**: Scan speed improved from 0.589s to 0.079s
-- **90% Code Reduction**: From 3,519 lines to 388 lines through modular design
-- **Parallel Processing**: Multi-threaded scanning with optimal worker allocation
-- **Memory Optimization**: Enhanced garbage collection and resource management
-
-### **🛡️ Advanced Security Features**
-- **Dependency Confusion Detection**: Timeline analysis, scope patterns, and similarity detection
-- **Secure Code Sandboxing**: VM-based isolation with resource limits and threat analysis
-- **Enhanced Path Validation**: Path traversal prevention and secure file operations
-- **Advanced Input Validation**: Comprehensive validation rules and sanitization
-- **Improved Error Handling**: Advanced error recovery and threat classification
-
-### **🔧 New CLI Features**
-- **Parallel Processing**: `--parallel` and `--workers` options for multi-threaded scanning
-- **Multiple Output Formats**: JSON, SARIF, table, and YAML output support
-- **Enhanced Options**: `--include-dev`, `--skip-cache`, `--debug` flags
-- **Better Performance**: Optimized scanning with configurable depth and workers
-
-### **🤖 GitHub Actions Integration**
-- **Automated Security Scanning**: PR comments with formatted scan results
-- **Dependency Analysis**: Automated npm audit and NullVoid scanning
-- **CI/CD Ready**: Production deployment pipeline with security checks
-- **Real-time Results**: Live scan results posted to pull requests
-
-### **📊 Production-Ready Features**
-- **Zero False Positives**: Intelligent whitelisting for legitimate security tools
-- **Comprehensive Testing**: 16 tests passing with security-focused validation
-- **Enterprise Grade**: Reliable performance for large-scale production environments
-- **Professional Output**: Clean, formatted results suitable for CI/CD integration
-
-### Smart Classification Examples
-```bash
-# Security tools correctly classified as LOW severity
-📁 streaming.js (detected: security tools)  # Blue color - LOW severity
-
-# Test files properly identified
-📁 scan.test.js (detected: test file)      # Blue color - LOW severity
-
-# Real malware still detected as CRITICAL
-📁 auth.js (detected: MALICIOUS_CODE_STRUCTURE)  # Red color - CRITICAL severity
-```
-
 ## 📊 Example Output
 
-### Real-Time Progress Display (v1.3.9)
+### Real-Time Progress Display
 ```
 ⠋ 🔍 Scanning ...
 📁 nullvoid.js (detected: security tools)
@@ -420,27 +437,6 @@ Scanned 15 package(s) in 234ms
 | `--version` | Show version information | - |
 | `--help` | Show help information | - |
 
-## 📊 Real-Time Progress Display
-
-NullVoid provides **real-time progress feedback** during scanning, showing each file as it's analyzed:
-
-### **🎯 Progress Callback Features**
-- **Live File Display**: Shows each file being scanned with relative paths
-- **Threat Detection**: Real-time threat indicators during scanning
-- **Clean Formatting**: Proper spinner separation and clean output
-- **Relative Paths**: Shows files relative to scan target (e.g., `malware-samples/supply-chain-attack-auth.js`)
-- **Threat Classification**: Immediate feedback on detected threat types
-
-### **📋 Example Output**
-```bash
-⠋ 🔍 Scanning ...
-
-📁 malware-samples/supply-chain-attack-auth.js (detected: OBFUSCATED_CODE, SUSPICIOUS_MODULE, MALICIOUS_CODE_STRUCTURE)
-📁 analysis/supply-chain-attack-auth.md
-📁 detection-tests/test-case.js (detected: test file)
-✔ ✅ Scan completed
-```
-
 ### **🎨 Threat Indicators**
 - **`(detected: OBFUSCATED_CODE)`**: Obfuscated or encoded content detected
 - **`(detected: SUSPICIOUS_MODULE)`**: Suspicious module imports (fs, child_process, etc.)
@@ -448,25 +444,19 @@ NullVoid provides **real-time progress feedback** during scanning, showing each 
 - **`(detected: security tools)`**: NullVoid's own security tools (whitelisted)
 - **`(detected: test file)`**: Test files (whitelisted)
 
-### **⚡ Performance Benefits**
-- **Immediate Feedback**: Know exactly what's being scanned
-- **Progress Tracking**: Visual confirmation of scan progress
-- **Early Detection**: See threats as they're found
-- **Clean Output**: No extra blank lines or formatting issues
-
 ## 🌳 Dependency Tree Analysis
 
 NullVoid scans transitive dependencies for hidden threats:
 
 ```bash
 # Scan with dependency tree analysis (default depth: 3)
-nullvoid scan
+nullvoid .
 
 # Scan deeper dependency chains
-nullvoid scan --depth 5
+nullvoid . --depth 5
 
 # Show dependency tree structure
-nullvoid scan --tree
+nullvoid . --tree
 ```
 
 ### Example Tree Output
@@ -496,7 +486,7 @@ NullVoid detects sophisticated supply chain attacks like the recent npm compromi
 
 ### **How NullVoid Detects This:**
 ```bash
-nullvoid scan
+nullvoid .
 # Results show:
 ⚠️  4 threat(s) detected:
 
@@ -513,12 +503,6 @@ nullvoid scan
    Severity: HIGH
 ```
 
-## 🚀 Performance Features
-
-- **Parallel Scanning**: Multi-threaded processing using Node.js worker_threads
-- **Automatic Parallel Detection**: Enables parallel processing when multiple dependencies exist
-- **Performance Optimization**: 2-4x faster scanning for projects with multiple packages
-- **Resource Management**: Automatic worker cleanup and timeout handling
 
 ## 🔍 **Dependency Confusion Detection**
 
@@ -597,12 +581,6 @@ NULLVOID_TIMELINE_CRITICAL=1
 NULLVOID_REGISTRY_TIMEOUT=10000
 ```
 
-### **🔧 Bug Fixes**
-
-#### **GPG Signature Verification**
-- **Fixed**: `timeoutRef.unref is not a function` error during GPG signature checks
-- **Improved**: Proper timeout handling using `setTimeout` instead of `req.setTimeout`
-- **Enhanced**: Cleaner error handling and timeout cleanup
 
 ## 🗺️ **Roadmap**
 
@@ -635,14 +613,14 @@ NullVoid has a comprehensive roadmap for 2025 focusing on advanced threat detect
 - **Behavioral Analysis**: AI-powered anomaly detection
 - **Predictive Analysis**: Predicting potential security issues
 
-### **📋 Complete Roadmap**
-For detailed roadmap information, see [ROADMAP.md](./ROADMAP.md)
 
 ## 📋 SARIF Output for CI/CD Integration
 
 NullVoid supports SARIF (Static Analysis Results Interchange Format) output for seamless integration with CI/CD pipelines and security tools.
 
-### **GitHub Actions Integration**
+### CI Integrations 
+
+### **GitHub CI Actions Integration**
 ```yaml
 # .github/workflows/security.yml
 name: Security Scan
@@ -662,7 +640,7 @@ jobs:
         run: npm install -g nullvoid
       
       - name: Run Security Scan
-        run: nullvoid scan --output sarif --sarif-file nullvoid-results.sarif
+        run: nullvoid . --output sarif --sarif-file nullvoid-results.sarif
       
       - name: Upload SARIF Results
         uses: github/codeql-action/upload-sarif@v2
@@ -678,7 +656,7 @@ security_scan:
   image: node:18
   script:
     - npm install -g nullvoid
-    - nullvoid scan --output sarif --sarif-file nullvoid-results.sarif
+    - nullvoid . --output sarif --sarif-file nullvoid-results.sarif
   artifacts:
     reports:
       sarif: nullvoid-results.sarif
@@ -701,7 +679,7 @@ steps:
 
 - script: |
     npm install -g nullvoid
-    nullvoid scan --output sarif --sarif-file nullvoid-results.sarif
+    nullvoid . --output sarif --sarif-file nullvoid-results.sarif
   displayName: 'Run NullVoid Security Scan'
 
 - task: PublishBuildArtifacts@1
@@ -719,7 +697,7 @@ steps:
     "tool": {
       "driver": {
         "name": "NullVoid",
-        "version": "1.3.15",
+        "version": "2.0.2",
         "informationUri": "https://github.com/kurt-grung/NullVoid"
       }
     },
@@ -751,7 +729,6 @@ steps:
 - **Azure DevOps**: Security scanning in pipelines
 - **Jenkins**: Security reporting plugins
 - **SonarQube**: Code quality and security analysis
-- **CodeQL**: GitHub's semantic code analysis
 
 ## 🤝 Contributing
 
