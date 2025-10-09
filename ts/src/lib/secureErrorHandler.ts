@@ -8,10 +8,10 @@ import { VALIDATION_CONFIG } from './config';
  */
 export class NullVoidError extends Error {
   public code: string;
-  public details: any;
+  public details: unknown;
   public timestamp: string;
   
-  constructor(message: string, code: string, details: any = {}) {
+  constructor(message: string, code: string, details: unknown = {}) {
     super(message);
     this.name = 'NullVoidError';
     this.code = code;
@@ -23,7 +23,7 @@ export class NullVoidError extends Error {
 export class SecurityError extends NullVoidError {
   public severity: string;
   
-  constructor(message: string, code: string, details: any = {}) {
+  constructor(message: string, code: string, details: unknown = {}) {
     super(message, code, details);
     this.name = 'SecurityError';
     this.severity = 'HIGH';
@@ -33,7 +33,7 @@ export class SecurityError extends NullVoidError {
 export class ValidationError extends NullVoidError {
   public severity: string;
   
-  constructor(message: string, code: string, details: any = {}) {
+  constructor(message: string, code: string, details: unknown = {}) {
     super(message, code, details);
     this.name = 'ValidationError';
     this.severity = 'MEDIUM';
@@ -41,7 +41,7 @@ export class ValidationError extends NullVoidError {
 }
 
 export class PathTraversalError extends SecurityError {
-  constructor(message: string, details: any = {}) {
+  constructor(message: string, details: unknown = {}) {
     super(message, 'PATH_TRAVERSAL', details);
     this.name = 'PathTraversalError';
     this.severity = 'CRITICAL';
@@ -49,7 +49,7 @@ export class PathTraversalError extends SecurityError {
 }
 
 export class CommandInjectionError extends SecurityError {
-  constructor(message: string, details: any = {}) {
+  constructor(message: string, details: unknown = {}) {
     super(message, 'COMMAND_INJECTION', details);
     this.name = 'CommandInjectionError';
     this.severity = 'CRITICAL';
@@ -57,7 +57,7 @@ export class CommandInjectionError extends SecurityError {
 }
 
 export class MaliciousCodeError extends SecurityError {
-  constructor(message: string, details: any = {}) {
+  constructor(message: string, details: unknown = {}) {
     super(message, 'MALICIOUS_CODE_DETECTED', details);
     this.name = 'MaliciousCodeError';
     this.severity = 'CRITICAL';
@@ -69,14 +69,14 @@ export interface ErrorDetails {
   message: string;
   code?: string;
   stack?: string;
-  details?: any;
+  details?: unknown;
 }
 
 export interface ErrorEntry {
   timestamp: string;
   type: string;
   error: ErrorDetails;
-  context: any;
+  context: unknown;
 }
 
 export interface ErrorStats {
@@ -178,12 +178,12 @@ export class InputValidator {
   /**
    * Validate scan options
    */
-  static validateScanOptions(options: any): any {
+  static validateScanOptions(options: unknown): Record<string, unknown> {
     if (!options || typeof options !== 'object') {
       throw new ValidationError('Scan options must be an object', 'INVALID_INPUT');
     }
     
-    const validatedOptions = { ...options };
+    const validatedOptions = { ...options } as Record<string, unknown>;
     
     // Check for command injection in string values
     // Validate all string values for command injection
@@ -201,40 +201,40 @@ export class InputValidator {
     }
     
     // Validate depth
-    if (validatedOptions.depth !== undefined) {
-      const depth = parseInt(validatedOptions.depth);
+    if (validatedOptions['depth'] !== undefined) {
+      const depth = parseInt(String(validatedOptions['depth']));
       if (isNaN(depth) || depth < 0 || depth > 10) {
         throw new ValidationError(
           'Scan depth must be a number between 0 and 10',
           'INVALID_DEPTH',
-          { depth: validatedOptions.depth }
+          { depth: validatedOptions['depth'] }
         );
       }
-      validatedOptions.depth = depth;
+      validatedOptions['depth'] = depth;
     }
     
     // Validate workers
-    if (validatedOptions.workers !== undefined) {
-      if (validatedOptions.workers !== 'auto') {
-        const workers = parseInt(validatedOptions.workers);
+    if (validatedOptions['workers'] !== undefined) {
+      if (validatedOptions['workers'] !== 'auto') {
+        const workers = parseInt(String(validatedOptions['workers']));
         if (isNaN(workers) || workers < 1 || workers > 16) {
           throw new ValidationError(
             'Number of workers must be between 1 and 16',
             'INVALID_WORKERS',
-            { workers: validatedOptions.workers }
+            { workers: validatedOptions['workers'] }
           );
         }
-        validatedOptions.workers = workers;
+        validatedOptions['workers'] = workers;
       }
     }
     
     // Validate output format
-    if (validatedOptions.output !== undefined) {
-      if (!VALIDATION_CONFIG.VALID_OUTPUT_FORMATS.includes(validatedOptions.output)) {
+    if (validatedOptions['output'] !== undefined) {
+      if (!VALIDATION_CONFIG.VALID_OUTPUT_FORMATS.includes(validatedOptions['output'] as 'json' | 'sarif' | 'table' | 'yaml')) {
         throw new ValidationError(
           `Output format must be one of: ${VALIDATION_CONFIG.VALID_OUTPUT_FORMATS.join(', ')}`,
           'INVALID_OUTPUT_FORMAT',
-          { output: validatedOptions.output }
+          { output: validatedOptions['output'] }
         );
       }
     }
@@ -310,22 +310,27 @@ export class ErrorHandler {
   /**
    * Handle errors with appropriate logging and response
    */
-  handleError(error: Error, type: string = 'UNKNOWN', context: any = {}): void {
+  handleError(error: Error, type: string = 'UNKNOWN', context: unknown = {}): void {
     const errorEntry: ErrorEntry = {
       timestamp: new Date().toISOString(),
       type,
       error: {
-        name: error.name,
+        name: error instanceof Error ? error.name : 'Unknown',
         message: error.message,
-        code: (error as any).code,
-        stack: error.stack || '',
-        details: (error as any).details
+        code: (error as Error & { code?: string }).code || '',
+        stack: error instanceof Error ? (error.stack || '') : '',
+        details: (error as Error & { details?: unknown }).details
       },
       context
     };
     
-    // Add to error log
+    // Add to error log with size limit to prevent memory leaks
     this.errorLog.push(errorEntry);
+    
+    // Keep only the last 1000 errors to prevent memory leaks
+    if (this.errorLog.length > 1000) {
+      this.errorLog = this.errorLog.slice(-1000);
+    }
     
     // Log based on error severity
     if (error instanceof SecurityError) {
@@ -343,7 +348,7 @@ export class ErrorHandler {
     this.logErrorToFile(errorEntry);
     
     // Exit on critical errors
-    if (error instanceof SecurityError && (error as any).severity === 'CRITICAL') {
+    if (error instanceof SecurityError && (error as SecurityError & { severity?: string }).severity === 'CRITICAL') {
       console.error('🚨 Critical security error detected. Exiting...');
       process.exit(1);
     }
@@ -357,8 +362,8 @@ export class ErrorHandler {
       const logFile = 'nullvoid-errors.log';
       const logEntry = JSON.stringify(errorEntry) + '\n';
       fs.appendFileSync(logFile, logEntry);
-    } catch (error: any) {
-      console.error('Failed to log error to file:', error.message);
+    } catch (error: unknown) {
+      console.error('Failed to log error to file:', error instanceof Error ? error.message : String(error));
     }
   }
   
@@ -378,7 +383,7 @@ export class ErrorHandler {
       stats.byType[entry.type] = (stats.byType[entry.type] || 0) + 1;
       
       // Count by severity
-      const severity = entry.error.details?.severity || 'UNKNOWN';
+      const severity = (entry.error.details as Record<string, unknown>)?.['severity'] as string || 'UNKNOWN';
       stats.bySeverity[severity] = (stats.bySeverity[severity] || 0) + 1;
     }
     
@@ -400,44 +405,44 @@ export class ErrorHandler {
     
     // Convert error to threat based on type
     if (error instanceof SecurityError) {
-      const severity = (error as any).severity === 'CRITICAL' ? 'CRITICAL' : 'HIGH';
+      const severity = (error as Error & { severity?: string }).severity === 'CRITICAL' ? 'CRITICAL' : 'HIGH';
       threats.push(createThreat(
         'SECURITY_ERROR',
-        error.message,
+        error instanceof Error ? error.message : String(error),
         'unknown',
         'unknown',
         severity,
-        error.stack || 'No stack trace available',
+        error instanceof Error ? (error.stack || 'No stack trace available') : 'No stack trace available',
         { 
-          errorType: error.name,
-          timestamp: (error as any).timestamp,
-          details: (error as any).details
+          errorType: error instanceof Error ? error.name : 'Unknown',
+          timestamp: (error as Error & { timestamp?: string }).timestamp,
+          details: (error as Error & { details?: unknown }).details
         }
       ));
     } else if (error instanceof ValidationError) {
       threats.push(createThreat(
         'VALIDATION_ERROR',
-        error.message,
+        error instanceof Error ? error.message : String(error),
         'unknown',
         'unknown',
         'MEDIUM',
-        error.stack || 'No stack trace available',
+        error instanceof Error ? (error.stack || 'No stack trace available') : 'No stack trace available',
         { 
-          errorType: error.name,
-          timestamp: (error as any).timestamp,
-          details: (error as any).details
+          errorType: error instanceof Error ? error.name : 'Unknown',
+          timestamp: (error as Error & { timestamp?: string }).timestamp,
+          details: (error as Error & { details?: unknown }).details
         }
       ));
     } else {
       threats.push(createThreat(
         'UNKNOWN_ERROR',
-        error.message,
+        error instanceof Error ? error.message : String(error),
         'unknown',
         'unknown',
         'LOW',
-        error.stack || 'No stack trace available',
+        error instanceof Error ? (error.stack || 'No stack trace available') : 'No stack trace available',
         { 
-          errorType: error.name,
+          errorType: error instanceof Error ? error.name : 'Unknown',
           timestamp: new Date().toISOString()
         }
       ));
@@ -456,8 +461,8 @@ export const globalErrorHandler = new ErrorHandler();
 export async function safeExecute<T>(fn: () => Promise<T>, context: string = 'unknown', options: ExecutionOptions = {}): Promise<T | null> {
   try {
     return await fn();
-  } catch (error: any) {
-    globalErrorHandler.handleError(error, 'SAFE_EXECUTION', { context, options });
+  } catch (error: unknown) {
+    globalErrorHandler.handleError(error instanceof Error ? error : new Error(String(error)), 'SAFE_EXECUTION', { context, options });
     
     if (options.throwOnError !== false) {
       throw error;
@@ -495,7 +500,7 @@ export class RateLimitedLogger {
     }
     
     // Check rate limit
-    const errorKey = `${context}:${error.name}`;
+    const errorKey = `${context}:${error instanceof Error ? error.name : 'Unknown'}`;
     const count = this.errorCounts.get(errorKey) || 0;
     
     if (count >= this.maxErrorsPerMinute) {

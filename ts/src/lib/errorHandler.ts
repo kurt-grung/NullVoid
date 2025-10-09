@@ -253,7 +253,7 @@ export class ErrorHandler {
   private logError(error: Error, context: ErrorContext = {}): void {
     const logData: LogMetadata = {
       error: error.message,
-      code: (error as any).code || 'UNKNOWN',
+      code: (error as Error & { code?: string }).code || 'UNKNOWN',
       stack: this.includeStack ? error.stack : undefined,
       ...context
     };
@@ -283,7 +283,7 @@ export class ErrorHandler {
     return {
       name: error.name,
       message: error.message,
-      code: (error as any).code || 'UNKNOWN',
+      code: (error as Error & { code?: string }).code || 'UNKNOWN',
       timestamp: new Date().toISOString(),
       ...context
     };
@@ -356,7 +356,7 @@ export class ErrorHandler {
    * @param options - Error handling options
    * @returns Wrapped function
    */
-  wrap<T extends any[], R>(
+  wrap<T extends unknown[], R>(
     fn: (...args: T) => Promise<R>
   ): (...args: T) => Promise<R | Record<string, unknown>> {
     return async (...args: T) => {
@@ -376,7 +376,7 @@ export class ErrorHandler {
    * @param fn - Function to wrap
    * @returns Wrapped function
    */
-  wrapSync<T extends any[], R>(
+  wrapSync<T extends unknown[], R>(
     fn: (...args: T) => R
   ): (...args: T) => R | Record<string, unknown> {
     return (...args: T) => {

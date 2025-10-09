@@ -206,7 +206,7 @@ export interface Threat {
   /** Additional metadata */
   metadata?: Record<string, unknown> | undefined;
   /** Allow additional properties for extended threat information */
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // ============================================================================
@@ -236,7 +236,7 @@ export function createThreat(
     confidence?: number | undefined;
     metadata?: Record<string, unknown> | undefined;
     package?: string | undefined;
-    [key: string]: any; // Allow additional properties
+    [key: string]: unknown; // Allow additional properties
   } = {}
 ): Threat {
   return {

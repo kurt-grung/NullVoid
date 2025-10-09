@@ -7,9 +7,9 @@ import { VALIDATION_CONFIG } from './config';
  */
 export class ValidationError extends Error {
   public field: string;
-  public value: any;
+  public value: unknown;
   
-  constructor(message: string, field: string, value: any) {
+  constructor(message: string, field: string, value: unknown) {
     super(message);
     this.name = 'ValidationError';
     this.field = field;
@@ -25,14 +25,14 @@ export interface ValidationRule {
   maxLength?: number;
   pattern?: RegExp;
   allowedValues?: string[];
-  customValidator?: (value: any) => boolean;
+  customValidator?: (value: unknown) => boolean;
 }
 
 export interface ValidationResult {
   isValid: boolean;
   errors: string[];
   warnings: string[];
-  sanitizedValue?: any;
+  sanitizedValue?: unknown;
 }
 
 export interface ScanOptions {
@@ -76,7 +76,7 @@ export class InputValidator {
   /**
    * Validate input against rules
    */
-  validate(input: any): ValidationResult {
+  validate(input: unknown): ValidationResult {
     const result: ValidationResult = {
       isValid: true,
       errors: [],
@@ -86,17 +86,18 @@ export class InputValidator {
     for (const rule of this.rules) {
       try {
         this.validateField(input, rule);
-      } catch (error: any) {
+      } catch (error: unknown) {
         result.isValid = false;
-        result.errors.push(error.message);
+        result.errors.push(error instanceof Error ? error.message : 'Validation error');
       }
     }
     
     return result;
   }
   
-  private validateField(input: any, rule: ValidationRule): void {
-    const value = input[rule.field];
+  private validateField(input: unknown, rule: ValidationRule): void {
+    const inputObj = input as Record<string, unknown>;
+    const value = inputObj[rule.field];
     
     // Check required
     if (rule.required && (value === undefined || value === null || value === '')) {
@@ -124,13 +125,13 @@ export class InputValidator {
       }
       
       // Check pattern
-      if (rule.pattern && !rule.pattern.test(value)) {
+      if (rule.pattern && typeof value === 'string' && !rule.pattern.test(value)) {
         throw new ValidationError(`Field '${rule.field}' does not match required pattern`, rule.field, value);
       }
     }
     
     // Check allowed values
-    if (rule.allowedValues && !rule.allowedValues.includes(value)) {
+    if (rule.allowedValues && typeof value === 'string' && !rule.allowedValues.includes(value)) {
       throw new ValidationError(`Field '${rule.field}' must be one of: ${rule.allowedValues.join(', ')}`, rule.field, value);
     }
     
@@ -210,11 +211,11 @@ export function validateDirectoryPath(dirPath: string): boolean {
     if (!stats.isDirectory()) {
       throw new ValidationError('Path exists but is not a directory', 'directoryPath', dirPath);
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof ValidationError) {
       throw error;
     }
-    throw new ValidationError(`Directory path does not exist or is not accessible: ${error.message}`, 'directoryPath', dirPath);
+    throw new ValidationError(`Directory path does not exist or is not accessible: ${error instanceof Error ? error.message : 'Unknown error'}`, 'directoryPath', dirPath);
   }
 
   return true;
@@ -244,7 +245,7 @@ export function validateScanOptions(options: ScanOptions): boolean {
 
   // Validate output format
   if (options.output !== undefined) {
-    if (!VALIDATION_CONFIG.VALID_OUTPUT_FORMATS.includes(options.output as any)) {
+    if (!VALIDATION_CONFIG.VALID_OUTPUT_FORMATS.includes(options.output as 'json' | 'table' | 'yaml' | 'sarif')) {
       throw new ValidationError(`output must be one of: ${VALIDATION_CONFIG.VALID_OUTPUT_FORMATS.join(', ')}`, 'output', options.output);
     }
   }
@@ -268,7 +269,7 @@ export function validateFilePath(filePath: string): boolean {
   // Check file extension
   const ext = path.extname(filePath).toLowerCase();
   
-  if (ext && !VALIDATION_CONFIG.ALLOWED_EXTENSIONS.includes(ext as any)) {
+  if (ext && !VALIDATION_CONFIG.ALLOWED_EXTENSIONS.includes(ext as '.js' | '.mjs' | '.ts' | '.jsx' | '.tsx' | '.json')) {
     throw new ValidationError(`File extension '${ext}' is not allowed. Allowed extensions: ${VALIDATION_CONFIG.ALLOWED_EXTENSIONS.join(', ')}`, 'filePath', filePath);
   }
 
@@ -284,9 +285,13 @@ export function sanitizeInput(input: string, maxLength: number = 1000): string {
   }
 
   // Remove control characters and limit length
-  // eslint-disable-next-line no-control-regex
   return input
-    .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
+    .split('')
+    .filter(char => {
+      const code = char.charCodeAt(0);
+      return code >= 32 && code !== 127 && (code < 128 || code > 159);
+    })
+    .join('')
     .substring(0, maxLength)
     .trim();
 }

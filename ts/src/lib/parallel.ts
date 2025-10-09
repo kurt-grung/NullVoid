@@ -3,6 +3,7 @@ import { Worker } from 'worker_threads';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
+import { DETECTION_PATTERNS } from './config';
 
 export interface PackageInfo {
   name: string;
@@ -371,7 +372,7 @@ export async function scanPackagesInParallel(packages: string[], options: { maxW
         }
         
         return chunkThreats;
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Handle chunk processing error
         for (const packageName of chunk) {
           results.addResult({
@@ -379,18 +380,18 @@ export async function scanPackagesInParallel(packages: string[], options: { maxW
             threats: [],
             executionTime: Date.now() - startTime,
             success: false,
-            error: error.message
+            error: error instanceof Error ? error.message : String(error)
           });
         }
         
         return [createThreat(
           'PARALLEL_PROCESSING_ERROR',
-          `Error processing package chunk ${index}: ${error.message}`,
+          `Error processing package chunk ${index}: ${error instanceof Error ? error.message : String(error)}`,
           'parallel',
           'parallel',
           'MEDIUM',
           'Failed to process packages in parallel',
-          { chunkIndex: index, error: error.message, confidence: 0.9 }
+          { chunkIndex: index, error: error instanceof Error ? error.message : String(error), confidence: 0.9 }
         )];
       }
     });
@@ -402,15 +403,15 @@ export async function scanPackagesInParallel(packages: string[], options: { maxW
       threats.push(...chunkThreats);
     }
     
-  } catch (error: any) {
+  } catch (error: unknown) {
     threats.push(createThreat(
       'PARALLEL_PROCESSING_ERROR',
-      `Parallel processing failed: ${error.message}`,
+      `Parallel processing failed: ${error instanceof Error ? error.message : String(error)}`,
       'parallel',
       'parallel',
       'HIGH',
       'Critical failure in parallel processing system',
-      { error: error.message, confidence: 0.9 }
+      { error: error instanceof Error ? error.message : String(error), confidence: 0.9 }
     ));
   }
   
@@ -469,7 +470,7 @@ export async function analyzeFilesInParallel(filePaths: string[], options: { max
           
           // Check file extension
           const ext = path.extname(filePath).toLowerCase();
-          const suspiciousExtensions = ['.exe', '.scr', '.bat', '.cmd', '.com', '.pif', '.vbs', '.js'];
+          const suspiciousExtensions = DETECTION_PATTERNS.SUSPICIOUS_EXTENSIONS;
           
           if (suspiciousExtensions.includes(ext)) {
             chunkThreats.push(createThreat(
@@ -483,15 +484,15 @@ export async function analyzeFilesInParallel(filePaths: string[], options: { max
             ));
           }
           
-        } catch (error: any) {
+        } catch (error: unknown) {
           chunkThreats.push(createThreat(
             'FILE_ANALYSIS_ERROR',
-            `Error analyzing file ${filePath}: ${error.message}`,
+            `Error analyzing file ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
             filePath,
             path.basename(filePath),
             'LOW',
             'Failed to analyze file',
-            { filePath, error: error.message, confidence: 0.8 }
+            { filePath, error: error instanceof Error ? error.message : String(error), confidence: 0.8 }
           ));
         }
       }
@@ -506,15 +507,15 @@ export async function analyzeFilesInParallel(filePaths: string[], options: { max
       threats.push(...chunkThreats);
     }
     
-  } catch (error: any) {
+  } catch (error: unknown) {
     threats.push(createThreat(
       'PARALLEL_FILE_ANALYSIS_ERROR',
-      `Parallel file analysis failed: ${error.message}`,
+      `Parallel file analysis failed: ${error instanceof Error ? error.message : String(error)}`,
       'parallel',
       'parallel',
       'HIGH',
       'Critical failure in parallel file analysis system',
-      { error: error.message, confidence: 0.9 }
+      { error: error instanceof Error ? error.message : String(error), confidence: 0.9 }
     ));
   }
   
@@ -524,7 +525,7 @@ export async function analyzeFilesInParallel(filePaths: string[], options: { max
 /**
  * Get parallel processing configuration
  */
-export function getParallelConfig(): { maxWorkers: number; optimalChunkSize: number; systemInfo: any } {
+export function getParallelConfig(): { maxWorkers: number; optimalChunkSize: number; systemInfo: Record<string, unknown> } {
   const maxWorkers = getOptimalWorkerCount();
   
   return {

@@ -7,8 +7,25 @@ import ora from 'ora';
 import { scan } from '../scan';
 import { ScanOptions, ScanResult } from '../types/core';
 import { generateSarifOutput } from '../lib/sarif';
-import { detectMalware } from '../lib/detection';
+import { detectMalware, filterThreatsBySeverity } from '../lib/detection';
+import { DISPLAY_PATTERNS } from '../lib/config';
+import colors from '../colors';
 import * as packageJson from '../../package.json';
+
+interface CliOptions {
+  depth?: number;
+  parallel?: boolean;
+  workers?: string;
+  'include-dev'?: boolean;
+  'skip-cache'?: boolean;
+  output?: string;
+  format?: 'json' | 'sarif' | 'text';
+  verbose?: boolean;
+  debug?: boolean;
+  rules?: string;
+  sarif?: string;
+  all?: boolean;
+}
 
 program
   .name('nullvoid')
@@ -30,7 +47,7 @@ program
   .option('-r, --rules <file>', 'Custom rules file')
   .option('--sarif <file>', 'SARIF output file')
   .option('--all', 'Show all threats including low severity')
-  .action(async (target: string | undefined, options: any) => {
+  .action(async (target: string | undefined, options: CliOptions) => {
     await performScan(target, options);
   });
 
@@ -51,31 +68,40 @@ program
   .option('-r, --rules <file>', 'Custom rules file')
   .option('--sarif <file>', 'SARIF output file')
   .option('--all', 'Show all threats including low severity')
-  .action(async (target: string | undefined, options: any) => {
+  .action(async (target: string | undefined, options: CliOptions) => {
     await performScan(target, options);
   });
 
-async function performScan(target: string | undefined, options: any) {
+async function performScan(target: string | undefined, options: CliOptions) {
     const spinner = ora('🔍 Scanning ...').start();
     
     try {
       const scanOptions: ScanOptions = {
-        depth: parseInt(options.depth),
-        parallel: options.parallel,
+        depth: options.depth ? parseInt(options.depth.toString()) : 5,
+        parallel: options.parallel || false,
         workers: options.workers === 'auto' ? undefined : (options.workers ? parseInt(options.workers) : undefined),
-        includeDevDependencies: options.includeDev,
-        skipCache: options.skipCache,
-        outputFile: options.output,
-        format: options.format,
-        verbose: options.verbose,
-        debug: options.debug,
-        rulesFile: options.rules,
-        sarifFile: options.sarif,
-        all: options.all
+        includeDevDependencies: options['include-dev'] || false,
+        skipCache: options['skip-cache'] || false,
+        verbose: options.verbose || false,
+        debug: options.debug || false,
+        all: options.all || false
       };
 
+      // Add optional properties only if they exist
+      if (options.output) {
+        scanOptions.outputFile = options.output;
+      }
+      if (options.format) {
+        scanOptions.format = options.format;
+      }
+      if (options.rules) {
+        scanOptions.rulesFile = options.rules;
+      }
+      if (options.sarif) {
+        scanOptions.sarifFile = options.sarif;
+      }
+
       // Progress callback to show current file with threat detection
-      let isFirstFile = true;
       const progressCallback = (progress: { current: number; total: number; message: string; packageName?: string }) => {
         const filePath = progress.packageName || progress.message;
         const originalScanTarget = target || process.cwd();
@@ -90,13 +116,11 @@ async function performScan(target: string | undefined, options: any) {
           
           // Use the same detection logic as the main scanner
           const fileThreats = detectMalware(content, filePath);
-          const highSeverityThreats = fileThreats.filter((threat: any) => 
-            threat.severity === 'HIGH' || threat.severity === 'CRITICAL'
-          );
+          const highSeverityThreats = filterThreatsBySeverity(fileThreats, false);
           
           if (highSeverityThreats.length > 0) {
             hasHighSeverityThreats = true;
-            highSeverityThreats.forEach((threat: any) => {
+            highSeverityThreats.forEach((threat) => {
               if (!threats.includes(threat.type)) {
                 threats.push(threat.type);
               }
@@ -105,19 +129,13 @@ async function performScan(target: string | undefined, options: any) {
           
           if (hasHighSeverityThreats) {
             const threatText = threats.join(', ');
-            const prefix = isFirstFile ? '\n' : '';
-            console.log(`${prefix}📁 ${displayPath} (detected: ${threatText})`);
-            isFirstFile = false;
+            console.log(`📁 ${displayPath} (detected: ${threatText})`);
           } else {
-            const prefix = isFirstFile ? '\n' : '';
-            console.log(`${prefix}📁 ${displayPath}`);
-            isFirstFile = false;
+            console.log(`📁 ${displayPath}`);
           }
         } catch {
           // If we can't read the file, just show the relative path
-          const prefix = isFirstFile ? '\n' : '';
-          console.log(`${prefix}📁 ${displayPath}`);
-          isFirstFile = false;
+          console.log(`📁 ${displayPath}`);
         }
       };
 
@@ -146,18 +164,17 @@ async function performScan(target: string | undefined, options: any) {
 
 program.parse();
 
-function displayResults(results: ScanResult, options: any) {
+function displayResults(results: ScanResult, options: CliOptions) {
   console.log('\n🔍 NullVoid Scan Results\n');
   
   if (results.threats.length === 0) {
     console.log('✅ No threats detected');
   } else {
-    // Sort threats by severity (HIGH first, then MEDIUM, then LOW)
-    const severityOrder: Record<string, number> = { 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3, 'CRITICAL': 0 };
+    // Sort threats by confidence level (low to high)
     const sortedThreats = results.threats.sort((a, b) => {
-      const aOrder = severityOrder[a.severity] || 4;
-      const bOrder = severityOrder[b.severity] || 4;
-      return aOrder - bOrder;
+      const aConfidence = a.confidence || 0;
+      const bConfidence = b.confidence || 0;
+      return aConfidence - bConfidence;
     });
     
     // Filter to only show HIGH and above severity (unless --all flag is used)
@@ -194,17 +211,73 @@ function displayResults(results: ScanResult, options: any) {
         console.log(`${severityColor}${index + 1}. ${threat.type} (${threat.severity})${resetColor}`);
         console.log(`   ${threat.message}`);
         if (threat.details) {
-          console.log(`   Details: ${threat.details}`);
+          // Color code specific parts of the details using centralized patterns
+          let coloredDetails = threat.details
+            .replace(DISPLAY_PATTERNS.SEVERITY_PATTERNS.CRITICAL, colors.red('CRITICAL'))
+            .replace(DISPLAY_PATTERNS.SEVERITY_PATTERNS.HIGH, colors.yellow('HIGH'))
+            .replace(DISPLAY_PATTERNS.SEVERITY_PATTERNS.MEDIUM, colors.blue('MEDIUM'))
+            .replace(DISPLAY_PATTERNS.SEVERITY_PATTERNS.LOW, colors.green('LOW'));
+          
+          // Extract confidence and threat count for separate line using centralized patterns
+          const confidenceMatch = threat.details.match(DISPLAY_PATTERNS.EXTRACTION_PATTERNS.CONFIDENCE);
+          const threatsMatch = threat.details.match(DISPLAY_PATTERNS.EXTRACTION_PATTERNS.THREAT_COUNT);
+          
+          // Remove confidence, threats, and MALICIOUS CODE DETECTED prefix from main details using centralized patterns
+          let mainDetails = coloredDetails
+            .replace(DISPLAY_PATTERNS.DETAILS_CLEANING_PATTERNS.MALICIOUS_PREFIX, '')
+            .replace(DISPLAY_PATTERNS.DETAILS_CLEANING_PATTERNS.CONFIDENCE, '')
+            .replace(DISPLAY_PATTERNS.DETAILS_CLEANING_PATTERNS.THREAT_COUNT, '')
+            .replace(DISPLAY_PATTERNS.DETAILS_CLEANING_PATTERNS.WHITESPACE, ' ')
+            .trim();
+          
+          console.log(`   ${colors.whiteOnBlack('Details:')} ${mainDetails}`);
+          
+          // Add confidence and threats on new line
+          if (confidenceMatch || threatsMatch) {
+            let statsLine = '';
+            if (confidenceMatch) {
+              statsLine += colors.magenta(confidenceMatch[0]);
+            }
+            if (threatsMatch) {
+              if (statsLine) statsLine += ' ';
+              statsLine += colors.red(threatsMatch[0]);
+            }
+            console.log(`   ${statsLine}`);
+          }
         }
         if (threat.filePath) {
-          console.log(`   File: ${threat.filePath}`);
+          console.log(`   ${colors.blue('File:')} ${colors.blue(threat.filePath)}`);
         }
         if (threat.lineNumber) {
-          console.log(`   Line: ${threat.lineNumber}`);
+          console.log(`   ${colors.green('Line:')} ${colors.green(threat.lineNumber.toString())}`);
+        }
+        if (threat.sampleCode) {
+          console.log(`   ${colors.cyan('Sample:')} ${colors.cyan(threat.sampleCode)}`);
         }
         console.log('');
       });
     }
+  }
+  
+  // Display scan analysis (merged summary and dependency tree)
+  console.log(`\n📊 Scan Analysis:`);
+  const totalFiles = results.filesScanned || 0;
+  const totalPackages = results.packagesScanned || 0;
+  const threatCount = results.threats.length;
+  const filesWithThreats = new Set(results.threats.map(t => t.filePath)).size;
+  const scanDuration = results.performance?.duration || 0;
+  
+  console.log(`   Total files scanned: ${totalFiles} files`);
+  console.log(`   Total packages scanned: ${totalPackages} packages`);
+  console.log(`   Threats detected: ${threatCount} ${threatCount === 1 ? 'threat' : 'threats'}`);
+  console.log(`   Scan duration: ${scanDuration}ms`);
+  console.log(`   Files with threats: ${filesWithThreats} out of ${totalFiles} files`);
+  
+  // Add dependency tree information if available
+  if (results.dependencyTree || (results.packagesScanned && results.packagesScanned > 0)) {
+    console.log(`   Max depth reached: ${results.dependencyTree?.maxDepth || options.depth || 5}`);
+    console.log(`   Packages with threats: ${results.dependencyTree?.packagesWithThreats || results.threats.filter(t => t.package).length}`);
+    console.log(`   Deep dependencies (depth ≥2): ${results.dependencyTree?.deepDependencies || 0}`);
   }
   
   // Display directory structure for directory scans
@@ -212,15 +285,6 @@ function displayResults(results: ScanResult, options: any) {
     console.log(`\n📁 Directory Structure:`);
     console.log(`   ${results.directoryStructure.totalDirectories || results.directoryStructure.directories.length} directories: ${results.directoryStructure.directories.slice(0, 5).join(', ')}${results.directoryStructure.directories.length > 5 ? '...' : ''}`);
     console.log(`   ${results.directoryStructure.totalFiles || results.directoryStructure.files.length} files: ${results.directoryStructure.files.slice(0, 5).join(', ')}${results.directoryStructure.files.length > 5 ? '...' : ''}`);
-  }
-  
-  // Show dependency tree summary
-  if (results.dependencyTree || (results.packagesScanned && results.packagesScanned > 0)) {
-    console.log(`\n📊 Dependency Tree Analysis:`);
-    console.log(`   Total packages scanned: ${results.dependencyTree?.totalPackages || results.packagesScanned}`);
-    console.log(`   Max depth reached: ${results.dependencyTree?.maxDepth || options.depth || 5}`);
-    console.log(`   Packages with threats: ${results.dependencyTree?.packagesWithThreats || results.threats.filter(t => t.package).length}`);
-    console.log(`   Deep dependencies (depth ≥2): ${results.dependencyTree?.deepDependencies || 0}`);
   }
   
   // Show performance metrics

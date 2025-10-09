@@ -1,6 +1,6 @@
 import { Threat, createThreat } from '../types/core';
 import * as crypto from 'crypto';
-import { DEPENDENCY_CONFUSION_CONFIG } from './config';
+import { DEPENDENCY_CONFUSION_CONFIG, DETECTION_PATTERNS } from './config';
 
 export interface PackageInfo {
   name: string;
@@ -95,8 +95,8 @@ export async function getPackageCreationDate(packageName: string): Promise<strin
     if (!response.ok) {
       return null;
     }
-    const data = await response.json() as any;
-    return data.time?.created || null;
+    const data = await response.json() as Record<string, unknown>;
+    return ((data['time'] as Record<string, unknown>)?.['created'] as string) || null;
   } catch {
     return null;
   }
@@ -123,12 +123,12 @@ export async function getGitHistory(): Promise<GitHistory> {
       recentCommitCount: mockCommits.length,
       hasGitHistory: true
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       commits: [],
       totalCommits: 0,
       hasGitHistory: false,
-      error: error.message
+      error: error instanceof Error ? error.message : String(error)
     };
   }
 }
@@ -151,7 +151,7 @@ export function analyzePackageName(packageName: string): PackageNameAnalysis {
   });
   
   // Calculate similarity to popular packages (simplified)
-  const popularPackages = ['react', 'lodash', 'express', 'axios', 'moment'];
+  const popularPackages = DETECTION_PATTERNS.POPULAR_PACKAGES;
   let maxSimilarity = 0;
   
   popularPackages.forEach(popular => {
@@ -328,16 +328,16 @@ export async function detectDependencyConfusion(packageName: string): Promise<Th
 export async function analyzeDependencyConfusion(packageName: string): Promise<Threat[]> {
   try {
     return await detectDependencyConfusion(packageName);
-  } catch (error: any) {
+  } catch (error: unknown) {
     return [createThreat(
       'DEPENDENCY_CONFUSION_ERROR',
-      `Error analyzing dependency confusion: ${error.message}`,
+      `Error analyzing dependency confusion: ${error instanceof Error ? error.message : String(error)}`,
       packageName,
       packageName,
       'LOW',
       'Failed to analyze package for dependency confusion',
       {
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
         confidence: 0.1,
         package: packageName
       }

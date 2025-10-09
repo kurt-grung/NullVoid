@@ -280,24 +280,24 @@ export function loadRules(rulesPath: string, options: RulesLoadingOptions = {}):
     const fileContent = fs.readFileSync(rulesPath, 'utf8');
     const ext = path.extname(rulesPath).toLowerCase();
     
-    let parsedRules: any;
+    let parsedRules: Record<string, unknown>;
     
     if (ext === '.yaml' || ext === '.yml' || options.format === 'yaml') {
-      parsedRules = yaml.load(fileContent);
+      parsedRules = (yaml.load(fileContent) as Record<string, unknown>) || {};
     } else if (ext === '.json' || options.format === 'json') {
-      parsedRules = JSON.parse(fileContent);
+      parsedRules = JSON.parse(fileContent) as Record<string, unknown>;
     } else {
       throw new Error(`Unsupported file format: ${ext}`);
     }
     
     // Extract rules from nested structure if present
-    if (parsedRules.detection_rules) {
-      parsedRules = parsedRules.detection_rules;
+    if (parsedRules['detection_rules']) {
+      parsedRules = parsedRules['detection_rules'] as Record<string, unknown>;
     }
     
     // Merge with defaults if requested
     if (options.mergeWithDefaults !== false) {
-      return mergeRules(parsedRules);
+      return mergeRules(parsedRules as EnhancedRules);
     }
     
     return parsedRules as EnhancedRules;

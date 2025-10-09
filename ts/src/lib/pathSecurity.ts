@@ -188,9 +188,9 @@ export function validatePath(inputPath: string): PathValidationResult {
   if (result.isValid) {
     try {
       result.sanitizedPath = path.normalize(inputPath);
-    } catch (error: any) {
+    } catch (error: unknown) {
       result.isValid = false;
-      result.errors.push(`Path normalization failed: ${error.message}`);
+      result.errors.push(`Path normalization failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -222,11 +222,11 @@ export async function safeReadFile(filePath: string): Promise<string> {
     }
     
     return await fs.promises.readFile(resolvedPath, 'utf8');
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof PathValidationError) {
       throw error;
     }
-    throw new PathValidationError(`Failed to read file: ${error.message}`, filePath, 'FILE_ACCESS');
+    throw new PathValidationError(`Failed to read file: ${error instanceof Error ? error.message : String(error)}`, filePath, 'FILE_ACCESS');
   }
 }
 
@@ -255,11 +255,11 @@ export async function safeReadDir(dirPath: string): Promise<string[]> {
     }
     
     return await fs.promises.readdir(resolvedPath);
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof PathValidationError) {
       throw error;
     }
-    throw new PathValidationError(`Failed to read directory: ${error.message}`, dirPath, 'DIR_ACCESS');
+    throw new PathValidationError(`Failed to read directory: ${error instanceof Error ? error.message : String(error)}`, dirPath, 'DIR_ACCESS');
   }
 }
 
@@ -342,8 +342,8 @@ export async function getSafeFilePaths(dirPath: string, recursive: boolean = fal
         continue;
       }
     }
-  } catch (error: any) {
-    throw new PathValidationError(`Failed to scan directory: ${error.message}`, dirPath, 'DIR_SCAN');
+  } catch (error: unknown) {
+    throw new PathValidationError(`Failed to scan directory: ${error instanceof Error ? error.message : String(error)}`, dirPath, 'DIR_SCAN');
   }
 
   return safePaths;

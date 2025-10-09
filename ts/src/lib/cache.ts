@@ -9,7 +9,7 @@ import { CACHE_CONFIG } from './config';
 /**
  * Cache node for doubly linked list implementation
  */
-export class CacheNode<T = any> {
+export class CacheNode<T = unknown> {
   public key: string;
   public value: T;
   public ttl: number;
@@ -70,7 +70,7 @@ export interface CacheStats {
 /**
  * LRU Cache implementation with TypeScript generics
  */
-export class LRUCache<T = any> {
+export class LRUCache<T = unknown> {
   private maxSize: number;
   private defaultTTL: number;
   private cleanupInterval: number;
@@ -348,7 +348,7 @@ export class LRUCache<T = any> {
 /**
  * Package-specific cache implementation
  */
-export class PackageCache<T = any> extends LRUCache<T> {
+export class PackageCache<T = unknown> extends LRUCache<T> {
   constructor(options: CacheOptions = {}) {
     super({
       maxSize: options.maxSize || CACHE_CONFIG.MAX_SIZE,

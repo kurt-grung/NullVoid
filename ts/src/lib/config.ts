@@ -60,10 +60,557 @@ export const ENTROPY_THRESHOLDS = {
 } as const;
 
 /**
- * Security patterns and configurations
+ * Detection patterns and configurations
  */
-export const SECURITY_PATTERNS = {
-  SUSPICIOUS_PATTERNS: [
+export const DETECTION_PATTERNS = {
+  // Config file patterns
+  CONFIG_FILE_PATTERNS: [
+    '.eslintrc.js',
+    '.eslintrc.json',
+    '.eslintrc.yaml',
+    '.eslintrc.yml',
+    'jest.config.js',
+    'jest.config.json',
+    'webpack.config.js',
+    'rollup.config.js',
+    'vite.config.js',
+    'babel.config.js',
+    '.babelrc.js',
+    'tsconfig.json',
+    'package.json',
+    'package-lock.json',
+    'yarn.lock',
+    'pnpm-lock.yaml',
+    '.gitignore',
+    '.gitattributes',
+    'Dockerfile',
+    'docker-compose.yml',
+    'docker-compose.yaml',
+    '.dockerignore',
+    'Makefile',
+    'README.md',
+    'CHANGELOG.md',
+    'LICENSE',
+    'CONTRIBUTING.md',
+    'SECURITY.md',
+    'CODE_OF_CONDUCT.md'
+  ] as string[],
+
+  // Additional config file patterns (dot files, config extensions, etc.)
+  DOT_FILE_PATTERNS: [
+    '.env',
+    '.env.local',
+    '.env.development',
+    '.env.production',
+    '.env.test',
+    '.gitignore',
+    '.gitattributes',
+    '.editorconfig',
+    '.prettierrc',
+    '.prettierrc.js',
+    '.prettierrc.json',
+    '.prettierrc.yaml',
+    '.prettierrc.yml',
+    '.eslintignore',
+    '.npmignore',
+    '.dockerignore',
+    '.gitkeep',
+    '.keep'
+  ] as string[],
+
+  // Config file extensions
+  CONFIG_EXTENSIONS: [
+    '.config.js',
+    '.config.json',
+    '.config.yaml',
+    '.config.yml'
+  ] as string[],
+
+  // Graphics/WebGL related file patterns
+  GRAPHICS_FILE_PATTERNS: [
+    'three',
+    'webgl',
+    'shader',
+    'graphics',
+    'render',
+    'canvas'
+  ] as string[],
+
+  // Directory patterns to exclude
+  EXCLUDED_DIRECTORIES: [
+    'node_modules/',
+    '.git/'
+  ] as string[],
+
+  // Legitimate code patterns
+  LEGITIMATE_PATTERNS: [
+    /module\.exports\s*=\s*[^;]+;\s*/, // module.exports = ...;
+    /exports\s*=\s*[^;]+;\s*/,         // exports = ...;
+    /return\s+[^;]+;\s*/,              // return ...;
+    /const\s+\w+\s*=\s*[^;]+;\s*/,     // const ... = ...;
+    /let\s+\w+\s*=\s*[^;]+;\s*/,       // let ... = ...;
+    /var\s+\w+\s*=\s*[^;]+;\s*/,       // var ... = ...;
+    /module\.exports\s*=\s*\w+;?\s*/,   // module.exports = router; (with optional semicolon)
+    /exports\s*=\s*\w+;?\s*/           // exports = router; (with optional semicolon)
+  ],
+
+  // Malware detection patterns
+  MALWARE_PATTERNS: {
+    // Variable mangling patterns
+    VARIABLE_MANGLING: /const\s+[a-z]+\d*\s*=\s*[A-Za-z0-9]+\s*,\s*[a-z]+\d*\s*=\s*[A-Za-z0-9]+/,
+    VARIABLE_MANGLING_SIMPLE: /const\s+[a-z]\d+\s*=\s*[A-Z]/,  // const b3=I
+    VAR_MANGLING: /var\s+[a-z]\d+\s*=\s*[A-Z]/,    // var b3=I
+    LET_MANGLING: /let\s+[a-z]\d+\s*=\s*[A-Z]/,     // let b3=I
+    
+    // Obfuscation patterns
+    HEX_ARRAYS: /\[(0x[0-9a-fA-F]+,\s*){3,}/g,
+    BASE64_ARRAYS: /\[('[A-Za-z0-9+/=]{8,}',\s*){5,}/,
+    STRING_FROM_CHARCODE: /String\.fromCharCode\s*\(/,
+    BASE64_DECODE: /atob\s*\(/,
+    BASE64_ENCODE: /btoa\s*\(/,
+    
+    // Module export patterns
+    MODULE_EXPORT_MALICIOUS: /module\.exports\s*=\s*[^;]+;\s*const\s+[a-z]\d+\s*=\s*[A-Z]/g,
+    MASSIVE_BLOB: /.{5000,}/,
+    MODULE_APPEND: /module\.exports\s*=\s*[^;]+;\s*[^;]{1000,}/
+  },
+
+  // Suspicious function patterns
+  SUSPICIOUS_FUNCTIONS: [
+    /function\s+\w+\s*\(\s*\w+\s*,\s*\w+\s*\)\s*\{\s*const\s+\w+\s*=\s*\w+/, // Suspicious functions
+    /eval\s*\(/,                    // eval calls
+    /new\s+Function\s*\(/,           // Function constructor
+    /setTimeout\s*\(\s*['"`]/,       // setTimeout with string
+    /setInterval\s*\(\s*['"`]/       // setInterval with string
+  ],
+
+  // Dynamic module loading patterns
+  DYNAMIC_REQUIRES: [
+    /require\s*\(\s*['"`][^'"`]*['"`]\s*\)/, // Dynamic requires
+    /import\s*\(\s*['"`][^'"`]*['"`]\s*\)/,  // Dynamic imports
+    /__webpack_require__\s*\(/,       // Webpack requires
+    /System\.import\s*\(/             // System.import
+  ],
+
+  // Wallet hijacking patterns
+  WALLET_HIJACKING: [
+    /window\.ethereum\s*=\s*new\s+Proxy/,     // Ethereum proxy
+    /Object\.defineProperty\s*\(\s*window\s*,\s*['"`]ethereum/, // Ethereum property override
+    /window\.__defineGetter__\s*\(\s*['"`]ethereum/, // Ethereum getter override
+    /eth_sendTransaction.*?params.*?to\s*[:=]/, // Transaction manipulation
+    /eth_requestAccounts.*?params.*?from\s*[:=]/, // Account request manipulation
+    /web3\.eth\.sendTransaction/,              // Web3 transaction sending
+    /ethereum\.request.*?method.*?['"`]eth_sendTransaction['"`]/, // Ethereum RPC calls
+    /wallet.*?address.*?replace/,             // Address replacement
+    /private.*?key.*?extract/,                // Private key extraction
+    /mnemonic.*?phrase.*?steal/,               // Mnemonic phrase theft
+    /seed.*?phrase.*?extract/                 // Seed phrase extraction
+  ],
+
+  // IOC (Indicators of Compromise) patterns
+  IOC_PATTERNS: {
+    URLS: /https?:\/\/[^\s'"]+/g,
+    IPS: /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g,
+    DOMAINS: /\b[a-zA-Z0-9-]+\.[a-zA-Z]{2,}\b/g
+  },
+
+  // Shader patterns for GLSL detection
+  SHADER_PATTERNS: [
+    // Vertex shader patterns
+    /attribute\s+\w+\s+\w+;/g,
+    /uniform\s+\w+\s+\w+;/g,
+    /varying\s+\w+\s+\w+;/g,
+    /gl_Position\s*=/g,
+    /gl_PointSize\s*=/g,
+    
+    // Fragment shader patterns
+    /precision\s+\w+\s+\w+;/g,
+    /gl_FragColor\s*=/g,
+    /gl_FragCoord/g,
+    /gl_FragDepth\s*=/g,
+    
+    // Common GLSL functions
+    /texture2D\s*\(/g,
+    /textureCube\s*\(/g,
+    /mix\s*\(/g,
+    /smoothstep\s*\(/g,
+    /clamp\s*\(/g,
+    /normalize\s*\(/g,
+    /dot\s*\(/g,
+    /cross\s*\(/g,
+    /reflect\s*\(/g,
+    /refract\s*\(/g,
+    
+    // GLSL types
+    /vec[234]\s/g,
+    /mat[234]\s/g,
+    /sampler2D/g,
+    /samplerCube/g,
+    /sampler2DShadow/g
+  ],
+
+  // Three.js patterns for WebGL framework detection
+  THREE_JS_PATTERNS: [
+    // Three.js imports
+    /import\s+.*\s+from\s+['"]three['"]/g,
+    /import\s+\*\s+as\s+THREE\s+from\s+['"]three['"]/g,
+    /require\s*\(\s*['"]three['"]\s*\)/g,
+    
+    // Three.js class usage patterns
+    /new\s+THREE\.\w+\(/g,
+    /THREE\.\w+\.prototype/g,
+    /extends\s+THREE\.\w+/g,
+    
+    // Three.js specific methods and properties
+    /\.add\s*\(/g,  // scene.add, group.add
+    /\.position\s*=/g,
+    /\.rotation\s*=/g,
+    /\.scale\s*=/g,
+    /\.material\s*=/g,
+    /\.geometry\s*=/g,
+    /\.render\s*\(/g,
+    /\.setSize\s*\(/g,
+    /\.setClearColor\s*\(/g
+  ],
+
+  // Other graphics framework patterns
+  OTHER_FRAMEWORK_PATTERNS: [
+    /import.*from\s+['"]babylonjs['"]/g,
+    /import.*from\s+['"]@babylonjs['"]/g,
+    /import.*from\s+['"]pixi\.js['"]/g,
+    /import.*from\s+['"]@pixi['"]/g,
+    /import.*from\s+['"]aframe['"]/g,
+    /import.*from\s+['"]react-three-fiber['"]/g
+  ],
+
+  // React patterns for framework detection
+  REACT_PATTERNS: [
+    // React imports
+    /import\s+.*\s+from\s+['"]react['"]/g,
+    /import\s+.*\s+from\s+['"]react-router-dom['"]/g,
+    /import\s+.*\s+from\s+['"]react-dom['"]/g,
+    /import\s+.*\s+from\s+['"]@reduxjs\/toolkit['"]/g,
+    /import\s+.*\s+from\s+['"]react-redux['"]/g,
+    
+    // React hooks
+    /useState\s*\(/g,
+    /useEffect\s*\(/g,
+    /useNavigate\s*\(/g,
+    /useLocation\s*\(/g,
+    /useParams\s*\(/g,
+    /useCallback\s*\(/g,
+    /useMemo\s*\(/g,
+    /useRef\s*\(/g,
+    /useContext\s*\(/g,
+    
+    // React component patterns
+    /className\s*=/g,
+    /onClick\s*=/g,
+    /onChange\s*=/g,
+    /onSubmit\s*=/g,
+    /onKeyDown\s*=/g,
+    /onKeyUp\s*=/g,
+    /style\s*=\s*{/g,
+    
+    // JSX patterns
+    /<[A-Z]\w+/g,  // JSX components
+    /<\/[A-Z]\w+>/g,  // JSX closing tags
+    /<div\s/g,
+    /<span\s/g,
+    /<p\s/g,
+    /<button\s/g,
+    /<input\s/g,
+    
+    // React patterns
+    /\.map\s*\(/g,
+    /return\s*\(/g,
+    /export\s+default/g,
+    /React\.createElement/g,
+    /React\.Component/g,
+    
+    // Simple React component patterns
+    /export\s+const\s+\w+\s*=\s*\(\)\s*=>/g,  // export const Component = () =>
+    /export\s+default\s+\w+/g,  // export default Component
+    /<[A-Z]\w+\s*\/>/g,  // <Component />
+    /<[A-Z]\w+>/g,  // <Component>
+    /<\/[A-Z]\w+>/g  // </Component>
+  ],
+
+  // Shader string pattern for detecting GLSL in strings
+  SHADER_STRING_PATTERN: /['"`]([^'"`]*\b(?:attribute|uniform|varying|precision|gl_Position|gl_FragColor|texture2D|vec[234]|mat[234])\b[^'"`]*)['"`]/g,
+
+  // Utility/Math function patterns for legitimate code detection
+  UTILITY_FUNCTION_PATTERNS: [
+    // Math utility functions
+    /Math\.(random|ceil|floor|round|abs|sin|cos|tan|sqrt|pow|PI|E)/g,
+    // Random number generation patterns
+    /Math\.random\s*\(\s*\)\s*\*\s*\d+/g,
+    /Math\.ceil\s*\(\s*Math\.random/g,
+    /Math\.floor\s*\(\s*Math\.random/g,
+    // Common utility patterns
+    /export\s+const\s+\w+\s*=\s*\([^)]*\)\s*=>/g,
+    /const\s+\w+\s*=\s*\([^)]*\)\s*=>/g,
+    // Angle/radian conversions
+    /rad\s*\*\s*180\s*\/\s*Math\.PI/g,
+    /ang\s*\*\s*Math\.PI\s*\/\s*180/g,
+    // Matrix/index calculations
+    /indexOf\s*\(/g,
+    /rowIndex|colIndex/g,
+    // Point/mesh calculations
+    /point[12]\.(x|y|z)/g,
+    /meshPosition|tileSize/g
+  ],
+
+  // React/Testing patterns for legitimate code detection
+  REACT_TESTING_PATTERNS: [
+    // React performance monitoring
+    /web-vitals/g,
+    /getCLS|getFID|getFCP|getLCP|getTTFB/g,
+    /reportWebVitals/g,
+    /onPerfEntry/g,
+    // Jest testing patterns
+    /@testing-library/g,
+    /jest-dom/g,
+    /setupTests/g,
+    /expect\s*\(/g,
+    /toHaveTextContent/g,
+    // React testing patterns
+    /testing-library\/jest-dom/g,
+    /github\.com\/testing-library/g
+  ],
+
+  // Blockchain/Contract patterns for legitimate code detection
+  BLOCKCHAIN_PATTERNS: [
+    // Contract addresses
+    /0x[a-fA-F0-9]{40}/g,
+    /contractAddress/g,
+    /chainId/g,
+    /export const \w+ContractAddress/g,
+    /export const \w+RewardContractAddress/g,
+    // Blockchain patterns
+    /ethereum|ethers|web3/g,
+    /blockchain|crypto/g,
+    /wallet|metamask/g
+  ],
+
+  // Node.js/Socket.IO server patterns for legitimate code detection
+  SERVER_PATTERNS: [
+    // Socket.IO patterns
+    /socket\.on\s*\(\s*['"`]\w+['"`]/g,
+    /socket\.emit\s*\(\s*['"`]\w+['"`]/g,
+    /socket\.broadcast/g,
+    /socket\.join\s*\(/g,
+    /socket\.leave\s*\(/g,
+    /io\.sockets/g,
+    /io\.sockets\.on\s*\(\s*['"`]connection['"`]/g,
+    /io\.sockets\.to\s*\(/g,
+    /io\.sockets\.emit/g,
+    // Express.js patterns
+    /app\.use\s*\(/g,
+    /app\.set\s*\(/g,
+    /app\.get\s*\(/g,
+    /express\.static/g,
+    /require\s*\(\s*['"`]express['"`]/g,
+    /require\s*\(\s*['"`]socket\.io['"`]/g,
+    // HTTP server patterns
+    /http\.createServer/g,
+    /\.listen\s*\(/g,
+    // Database patterns
+    /mongoose\.connect/g,
+    /mongoose\.connection/g,
+    /\.connection\.on\s*\(/g,
+    /config\.get\s*\(/g,
+    /require\s*\(\s*['"`]config['"`]/g,
+    /require\s*\(\s*['"`]mongoose['"`]/g,
+    /MongoDB|mongodb/g,
+    /database|db\./g,
+    // Mongoose schema patterns
+    /mongoose\.Schema/g,
+    /mongoose\.model/g,
+    /Schema\s*\(/g,
+    /\.methods\s*=/g,
+    /\.authenticate\s*\(/g,
+    /encrypt\s*\(/g,
+    /plainText|password/g,
+    // Common server event names
+    /['"`](join|move|disconnect|resign|set-piece|remove-piece|ai-move|moves)['"`]/g,
+    // Object manipulation patterns
+    /Object\.keys\s*\(/g,
+    /Object\.values\s*\(/g,
+    /Object\.entries\s*\(/g,
+    // Game/room management
+    /games\[/g,
+    /room\s*in\s*games/g,
+    /players\[/g,
+    /\.status\s*=/g,
+    /\.socket\s*=/g
+  ],
+
+  // Socket/Network event mapping patterns
+  SOCKET_EVENT_PATTERNS: [
+    // Socket event mappings with hex values
+    /['"`]\w+['"`]\s*:\s*0x[0-9a-fA-F]+/g,
+    // Common socket event prefixes
+    /['"`](CS_|SC_|WS_|WS_|EVENT_|MSG_)\w+['"`]\s*:\s*0x[0-9a-fA-F]+/g,
+    // Network protocol constants
+    /['"`]\w*[Ss]ocket\w*['"`]\s*:\s*0x[0-9a-fA-F]+/g,
+    /['"`]\w*[Ee]vent\w*['"`]\s*:\s*0x[0-9a-fA-F]+/g,
+    /['"`]\w*[Mm]essage\w*['"`]\s*:\s*0x[0-9a-fA-F]+/g,
+    /['"`]\w*[Pp]acket\w*['"`]\s*:\s*0x[0-9a-fA-F]+/g,
+    // Game-specific patterns
+    /['"`]\w*[Gg]ame\w*['"`]\s*:\s*0x[0-9a-fA-F]+/g,
+    /['"`]\w*[Rr]oom\w*['"`]\s*:\s*0x[0-9a-fA-F]+/g,
+    /['"`]\w*[Mm]ove\w*['"`]\s*:\s*0x[0-9a-fA-F]+/g,
+    /['"`]\w*[Pp]iece\w*['"`]\s*:\s*0x[0-9a-fA-F]+/g
+  ],
+
+  // React library imports for framework detection
+  REACT_IMPORTS: [
+    'react',
+    'react-dom',
+    'react-router-dom',
+    '@reduxjs/toolkit',
+    'react-redux',
+    'react-router',
+    'react-hook-form',
+    'styled-components',
+    '@emotion/react',
+    '@emotion/styled'
+  ],
+
+  // Graphics library imports for legitimate code detection
+  GRAPHICS_IMPORTS: [
+    'three',
+    'babylonjs',
+    '@babylonjs',
+    'pixi.js',
+    '@pixi',
+    'aframe',
+    'react-three-fiber',
+    'webgl-utils',
+    'gl-matrix',
+    'regl',
+    'twgl'
+  ],
+
+  // Suspicious modules that might indicate malicious code
+  SUSPICIOUS_MODULES: [
+    'fs',
+    'child_process',
+    'eval',
+    'vm'
+  ] as string[],
+
+  // Wallet-related keywords for crypto threat detection
+  WALLET_KEYWORDS: [
+    'ethereum',
+    'bitcoin',
+    'wallet',
+    'crypto',
+    'blockchain',
+    'metamask',
+    'web3',
+    'transaction',
+    'address',
+    'private',
+    'key',
+    'seed',
+    'mnemonic',
+    'hdwallet',
+    'trezor',
+    'ledger'
+  ] as string[],
+
+  // Suspicious file extensions
+  SUSPICIOUS_EXTENSIONS: [
+    '.exe',
+    '.scr',
+    '.bat',
+    '.cmd',
+    '.com',
+    '.pif',
+    '.vbs',
+    '.js'
+  ] as string[],
+
+  // Popular packages for dependency confusion detection
+  POPULAR_PACKAGES: [
+    'react',
+    'lodash',
+    'express',
+    'axios',
+    'moment'
+  ] as string[],
+
+  // NullVoid project files to exclude from detection
+  NULLVOID_FILES: [
+    'scan.js',
+    'scan.ts',
+    'rules.js',
+    'rules.ts',
+    'benchmarks.js',
+    'benchmarks.ts',
+    'cache.js',
+    'cache.ts',
+    'detection.js',
+    'detection.ts',
+    'validation.js',
+    'validation.ts',
+    'logger.js',
+    'logger.ts',
+    'config.js',
+    'config.ts',
+    'nullvoid.js',
+    'nullvoid.ts',
+    'errorHandler.js',
+    'errorHandler.ts',
+    'parallel.js',
+    'parallel.ts',
+    'rateLimiter.js',
+    'rateLimiter.ts',
+    'sandbox.js',
+    'sandbox.ts',
+    'pathSecurity.js',
+    'pathSecurity.ts',
+    'dependencyConfusion.js',
+    'dependencyConfusion.ts',
+    'nullvoidDetection.js',
+    'nullvoidDetection.ts',
+    'sarif.js',
+    'sarif.ts',
+    'secureErrorHandler.js',
+    'secureErrorHandler.ts',
+    'streaming.js',
+    'streaming.ts',
+    'colors.js',
+    'colors.ts',
+    'generate-badge.js',
+    'generate-badge.ts',
+    'package.json',
+    'README.md',
+    'CHANGELOG.md',
+    'LICENSE',
+    'CONTRIBUTING.md',
+    'SECURITY.md',
+    'CODE_OF_CONDUCT.md',
+    'TYPESCRIPT_MIGRATION_TODO.md',
+    'TYPESCRIPT_MIGRATION_GUIDE.md',
+    'dependencyTree.ts',
+    'package.ts',
+    'analysis-types.ts',
+    'config-types.ts',
+    'core.ts',
+    'error-types.ts',
+    'index.ts',
+    'package-types.ts',
+    'threat-types.ts',
+    'jest.config.js'
+  ] as string[],
+
+  // Security patterns
+  SECURITY_PATTERNS: {
+    // Suspicious code patterns
+    SUSPICIOUS_CODE: [
     /eval\s*\(/gi,
     /Function\s*\(/gi,
     /setTimeout\s*\(\s*['"`]/gi,
@@ -74,6 +621,7 @@ export const SECURITY_PATTERNS = {
     /insertAdjacentHTML\s*\(/gi
   ],
   
+    // Dangerous function names
   DANGEROUS_FUNCTIONS: [
     'eval',
     'Function',
@@ -88,6 +636,7 @@ export const SECURITY_PATTERNS = {
     'execFile'
   ],
   
+    // Network-related patterns
   NETWORK_PATTERNS: [
     /fetch\s*\(/gi,
     /XMLHttpRequest/gi,
@@ -99,6 +648,7 @@ export const SECURITY_PATTERNS = {
     /tls\./gi
   ],
   
+    // File system patterns
   FILE_SYSTEM_PATTERNS: [
     /fs\./gi,
     /readFile/gi,
@@ -108,22 +658,10 @@ export const SECURITY_PATTERNS = {
     /rmdir/gi,
     /chmod/gi,
     /chown/gi
-  ]
-} as const;
+    ],
 
-/**
- * Validation configuration
- */
-export const VALIDATION_CONFIG = {
-  PACKAGE_NAME_PATTERN: /^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$/,
-  PACKAGE_NAME_MAX_LENGTH: 214,
-  PACKAGE_NAME_MIN_LENGTH: 1,
-  VALID_FORMATS: ['json', 'table', 'yaml', 'sarif'],
-  VALID_OUTPUT_FORMATS: ['json', 'table', 'yaml', 'sarif'],
-  SEMVER_PATTERN: /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/,
-  ALLOWED_EXTENSIONS: ['.js', '.mjs', '.ts', '.jsx', '.tsx', '.json'],
-  
-  SUSPICIOUS_PATTERNS: [
+    // Malicious patterns (consolidated from VALIDATION_CONFIG)
+    MALICIOUS_PATTERNS: [
     /malware/gi,
     /virus/gi,
     /trojan/gi,
@@ -131,21 +669,18 @@ export const VALIDATION_CONFIG = {
     /keylogger/gi,
     /spyware/gi,
     /rootkit/gi,
-    /botnet/gi
-  ],
-  
-  VALID_PACKAGE_NAME: /^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$/,
-  VALID_LOCAL_PATH: /^[a-zA-Z0-9._/-]+$/,
-  
-  TRAVERSAL_PATTERNS: [
-    /\.\.\//g,
-    /\.\.\\/g,
-    /\.\.%2f/gi,
-    /\.\.%5c/gi,
-    /\.\.%252f/gi,
-    /\.\.%255c/gi
-  ],
-  
+      /botnet/gi,
+      /eval\s*\(/gi,
+      /Function\s*\(/gi,
+      /document\.write/gi,
+      /innerHTML\s*=/gi,
+      /outerHTML\s*=/gi,
+      /insertAdjacentHTML/gi,
+      /setTimeout\s*\(\s*['"`]/gi,
+      /setInterval\s*\(\s*['"`]/gi
+    ],
+
+    // Dangerous patterns (consolidated from VALIDATION_CONFIG)
   DANGEROUS_PATTERNS: [
     /<script/gi,
     /javascript:/gi,
@@ -156,17 +691,7 @@ export const VALIDATION_CONFIG = {
     /onclick\s*=/gi
   ],
   
-  MALICIOUS_PATTERNS: [
-    /eval\s*\(/gi,
-    /Function\s*\(/gi,
-    /document\.write/gi,
-    /innerHTML\s*=/gi,
-    /outerHTML\s*=/gi,
-    /insertAdjacentHTML/gi,
-    /setTimeout\s*\(\s*['"`]/gi,
-    /setInterval\s*\(\s*['"`]/gi
-  ],
-  
+    // Dangerous file names
   DANGEROUS_FILES: [
     'malware.js',
     'virus.js',
@@ -178,6 +703,7 @@ export const VALIDATION_CONFIG = {
     'botnet.js'
   ],
   
+    // Suspicious scripts
   SUSPICIOUS_SCRIPTS: [
     'curl http',
     'wget http',
@@ -190,6 +716,33 @@ export const VALIDATION_CONFIG = {
     'useradd',
     'userdel'
   ]
+  },
+
+  // Validation patterns
+  VALIDATION_PATTERNS: {
+    PACKAGE_NAME: /^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$/,
+    LOCAL_PATH: /^[a-zA-Z0-9._/-]+$/,
+    SEMVER: /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/,
+    
+    // Path traversal patterns
+    TRAVERSAL_PATTERNS: [
+      /\.\.\//g,
+      /\.\.\\/g,
+      /\.\.%2f/gi,
+      /\.\.%5c/gi,
+      /\.\.%252f/gi,
+      /\.\.%255c/gi
+    ]
+  },
+
+  // Validation configuration
+  VALIDATION_CONFIG: {
+    PACKAGE_NAME_MAX_LENGTH: 214,
+    PACKAGE_NAME_MIN_LENGTH: 1,
+    VALID_FORMATS: ['json', 'table', 'yaml', 'sarif'],
+    VALID_OUTPUT_FORMATS: ['json', 'table', 'yaml', 'sarif'],
+    ALLOWED_EXTENSIONS: ['.js', '.mjs', '.ts', '.jsx', '.tsx', '.json']
+  }
 } as const;
 
 /**
@@ -304,12 +857,12 @@ export const SCAN_CONFIG: ScanConfig = {
 };
 
 export const SECURITY_CONFIG: SecurityConfig = {
-  allowedExtensions: [...VALIDATION_CONFIG.ALLOWED_EXTENSIONS],
-  blockedPatterns: VALIDATION_CONFIG.SUSPICIOUS_PATTERNS.map(p => p.source),
-  suspiciousPatterns: VALIDATION_CONFIG.SUSPICIOUS_PATTERNS.map(p => p.source),
-  dangerousFunctions: [...SECURITY_PATTERNS.DANGEROUS_FUNCTIONS],
-  networkPatterns: SECURITY_PATTERNS.NETWORK_PATTERNS.map(p => p.source),
-  fileSystemPatterns: SECURITY_PATTERNS.FILE_SYSTEM_PATTERNS.map(p => p.source)
+  allowedExtensions: [...DETECTION_PATTERNS.VALIDATION_CONFIG.ALLOWED_EXTENSIONS],
+  blockedPatterns: DETECTION_PATTERNS.SECURITY_PATTERNS.MALICIOUS_PATTERNS.map(p => p.source),
+  suspiciousPatterns: DETECTION_PATTERNS.SECURITY_PATTERNS.MALICIOUS_PATTERNS.map(p => p.source),
+  dangerousFunctions: [...DETECTION_PATTERNS.SECURITY_PATTERNS.DANGEROUS_FUNCTIONS],
+  networkPatterns: DETECTION_PATTERNS.SECURITY_PATTERNS.NETWORK_PATTERNS.map(p => p.source),
+  fileSystemPatterns: DETECTION_PATTERNS.SECURITY_PATTERNS.FILE_SYSTEM_PATTERNS.map(p => p.source)
 };
 
 export const PERFORMANCE_CONFIG: PerformanceConfig = {
@@ -334,7 +887,7 @@ export function updateConfigFromEnv(): void {
   if (process.env['NULLVOID_CACHE_TTL']) {
     const ttl = parseInt(process.env['NULLVOID_CACHE_TTL'], 10);
     if (!isNaN(ttl) && ttl > 0) {
-      (CACHE_CONFIG as any).TTL = ttl;
+      (CACHE_CONFIG as Record<string, unknown>)['TTL'] = ttl;
     }
   }
   
@@ -342,7 +895,7 @@ export function updateConfigFromEnv(): void {
   if (process.env['NULLVOID_NETWORK_TIMEOUT']) {
     const timeout = parseInt(process.env['NULLVOID_NETWORK_TIMEOUT'], 10);
     if (!isNaN(timeout) && timeout > 0) {
-      (NETWORK_CONFIG as any).TIMEOUT = timeout;
+      (NETWORK_CONFIG as Record<string, unknown>)['TIMEOUT'] = timeout;
     }
   }
   
@@ -350,92 +903,65 @@ export function updateConfigFromEnv(): void {
   if (process.env['NULLVOID_MAX_WORKERS']) {
     const workers = parseInt(process.env['NULLVOID_MAX_WORKERS'], 10);
     if (!isNaN(workers) && workers > 0 && workers <= 32) {
-      (PARALLEL_CONFIG as any).MAX_WORKERS = workers;
+      (PARALLEL_CONFIG as Record<string, unknown>)['MAX_WORKERS'] = workers;
     }
   }
   
   // Update dependency confusion settings
   if (process.env['NULLVOID_DEP_CONFUSION_ENABLED']) {
     const enabled = process.env['NULLVOID_DEP_CONFUSION_ENABLED'].toLowerCase() === 'true';
-    (DEPENDENCY_CONFUSION_CONFIG as any).ENABLED = enabled;
+    (DEPENDENCY_CONFUSION_CONFIG as Record<string, unknown>)['ENABLED'] = enabled;
   }
 }
 
-// Detection configuration
-export const DETECTION_CONFIG = {
-  LEGITIMATE_PATTERNS: [
-    /module\.exports\s*=\s*[^;]+;\s*/, // module.exports = ...;
-    /exports\s*=\s*[^;]+;\s*/,         // exports = ...;
-    /return\s+[^;]+;\s*/,              // return ...;
-    /const\s+\w+\s*=\s*[^;]+;\s*/,     // const ... = ...;
-    /let\s+\w+\s*=\s*[^;]+;\s*/,       // let ... = ...;
-    /var\s+\w+\s*=\s*[^;]+;\s*/,       // var ... = ...;
-    /module\.exports\s*=\s*\w+;?\s*/,   // module.exports = router; (with optional semicolon)
-    /exports\s*=\s*\w+;?\s*/           // exports = router; (with optional semicolon)
-  ],
-  MALWARE_PATTERNS: {
-    // Variable mangling patterns
-    variableMangling: [
-      /const\s+[a-z]\d+\s*=\s*[A-Z]/,  // const b3=I
-      /var\s+[a-z]\d+\s*=\s*[A-Z]/,    // var b3=I
-      /let\s+[a-z]\d+\s*=\s*[A-Z]/     // let b3=I
-    ],
-    
-    // Obfuscation patterns
-    obfuscation: [
-      /\[(0x[0-9a-fA-F]+,\s*){3,}/,   // Hex arrays: [0x30,0xd0,0x59
-      /\[('[A-Za-z0-9+/=]{8,}',\s*){5,}/, // Base64 arrays: ['dXNlcm5hbW'
-      /String\.fromCharCode\s*\(/,     // String.fromCharCode obfuscation
-      /atob\s*\(/,                     // Base64 decoding
-      /btoa\s*\(/                      // Base64 encoding
-    ],
-    
-    // Suspicious function patterns
-    suspiciousFunctions: [
-      /function\s+\w+\s*\(\s*\w+\s*,\s*\w+\s*\)\s*\{\s*const\s+\w+\s*=\s*\w+/, // Suspicious functions
-      /eval\s*\(/,                    // eval calls
-      /new\s+Function\s*\(/,           // Function constructor
-      /setTimeout\s*\(\s*['"`]/,       // setTimeout with string
-      /setInterval\s*\(\s*['"`]/       // setInterval with string
-    ],
-    
-    // Dynamic module loading
-    dynamicRequires: [
-      /require\s*\(\s*['"`][^'"`]*['"`]\s*\)/, // Dynamic requires
-      /import\s*\(\s*['"`][^'"`]*['"`]\s*\)/,  // Dynamic imports
-      /__webpack_require__\s*\(/,       // Webpack requires
-      /System\.import\s*\(/             // System.import
-    ],
-    
-    // Wallet hijacking patterns
-    walletHijacking: [
-      /window\.ethereum\s*=\s*new\s+Proxy/,     // Ethereum proxy
-      /Object\.defineProperty\s*\(\s*window\s*,\s*['"`]ethereum/, // Ethereum property override
-      /window\.__defineGetter__\s*\(\s*['"`]ethereum/, // Ethereum getter override
-      /eth_sendTransaction.*?params.*?to\s*[:=]/, // Transaction manipulation
-      /eth_requestAccounts.*?params.*?from\s*[:=]/, // Account request manipulation
-      /web3\.eth\.sendTransaction/,              // Web3 transaction sending
-      /ethereum\.request.*?method.*?['"`]eth_sendTransaction['"`]/, // Ethereum RPC calls
-      /wallet.*?address.*?replace/,             // Address replacement
-      /private.*?key.*?extract/,                // Private key extraction
-      /mnemonic.*?phrase.*?steal/,               // Mnemonic phrase theft
-      /seed.*?phrase.*?extract/                 // Seed phrase extraction
-    ]
+// Export VALIDATION_CONFIG for backward compatibility
+export const VALIDATION_CONFIG = {
+  PACKAGE_NAME_PATTERN: DETECTION_PATTERNS.VALIDATION_PATTERNS.PACKAGE_NAME,
+  PACKAGE_NAME_MAX_LENGTH: DETECTION_PATTERNS.VALIDATION_CONFIG.PACKAGE_NAME_MAX_LENGTH,
+  PACKAGE_NAME_MIN_LENGTH: DETECTION_PATTERNS.VALIDATION_CONFIG.PACKAGE_NAME_MIN_LENGTH,
+  VALID_FORMATS: DETECTION_PATTERNS.VALIDATION_CONFIG.VALID_FORMATS,
+  VALID_OUTPUT_FORMATS: DETECTION_PATTERNS.VALIDATION_CONFIG.VALID_OUTPUT_FORMATS,
+  SEMVER_PATTERN: DETECTION_PATTERNS.VALIDATION_PATTERNS.SEMVER,
+  ALLOWED_EXTENSIONS: DETECTION_PATTERNS.VALIDATION_CONFIG.ALLOWED_EXTENSIONS,
+  
+  SUSPICIOUS_PATTERNS: DETECTION_PATTERNS.SECURITY_PATTERNS.MALICIOUS_PATTERNS,
+  VALID_PACKAGE_NAME: DETECTION_PATTERNS.VALIDATION_PATTERNS.PACKAGE_NAME,
+  VALID_LOCAL_PATH: DETECTION_PATTERNS.VALIDATION_PATTERNS.LOCAL_PATH,
+  
+  TRAVERSAL_PATTERNS: DETECTION_PATTERNS.VALIDATION_PATTERNS.TRAVERSAL_PATTERNS,
+  
+  DANGEROUS_PATTERNS: DETECTION_PATTERNS.SECURITY_PATTERNS.DANGEROUS_PATTERNS,
+  
+  MALICIOUS_PATTERNS: DETECTION_PATTERNS.SECURITY_PATTERNS.MALICIOUS_PATTERNS,
+  
+  DANGEROUS_FILES: DETECTION_PATTERNS.SECURITY_PATTERNS.DANGEROUS_FILES,
+  
+  SUSPICIOUS_SCRIPTS: DETECTION_PATTERNS.SECURITY_PATTERNS.SUSPICIOUS_SCRIPTS,
+
+};
+
+// Display/UI patterns for threat output formatting
+export const DISPLAY_PATTERNS = {
+  // Severity level patterns for coloring
+  SEVERITY_PATTERNS: {
+    CRITICAL: /CRITICAL/g,
+    HIGH: /HIGH/g,
+    MEDIUM: /MEDIUM/g,
+    LOW: /LOW/g
   },
-  OBFUSCATION_PATTERNS: {
-    VARIABLE_MANGLING: /const\s+[a-z]\d+\s*=\s*[A-Z]/,
-    MASSIVE_BLOB: /.{5000,}/,
-    HEX_ARRAYS: /\[(0x[0-9a-fA-F]+,\s*){3,}/g,
-    MODULE_APPEND: /module\.exports\s*=\s*[^;]+;\s*[^;]{1000,}/
+  
+  // Text cleaning patterns for threat details
+  DETAILS_CLEANING_PATTERNS: {
+    MALICIOUS_PREFIX: /MALICIOUS CODE DETECTED:\s*/g,
+    CONFIDENCE: /Confidence: \d+%/g,
+    THREAT_COUNT: /\(\d+ threats?\)/g,
+    WHITESPACE: /\s+/g
   },
-  IOC_PATTERNS: {
-    URLS: /https?:\/\/[^\s'"]+/g,
-    IPS: /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g,
-    DOMAINS: /\b[a-zA-Z0-9-]+\.[a-zA-Z]{2,}\b/g
-  },
-  DYNAMIC_REQUIRE_PATTERNS: {
-    REQUIRE: /require\s*\(\s*['"`][^'"`]*['"`]\s*\)/g,
-    IMPORT: /import\s*\(\s*['"`][^'"`]*['"`]\s*\)/g
+  
+  // Regex patterns for extracting specific information
+  EXTRACTION_PATTERNS: {
+    CONFIDENCE: /Confidence: \d+%/,
+    THREAT_COUNT: /\(\d+ threats?\)/
   }
 };
 

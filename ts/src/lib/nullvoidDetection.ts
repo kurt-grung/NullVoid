@@ -4,6 +4,8 @@
  * Migrated from JavaScript to TypeScript with enhanced type safety
  */
 
+import { DETECTION_PATTERNS } from './config';
+
 /**
  * Detection options interface
  */
@@ -38,69 +40,7 @@ export function isNullVoidCode(packageName: string): boolean {
   const fileName = packageName.split('/').pop() || packageName.split('\\').pop() || packageName;
   
   // Check for specific NullVoid project files
-  const nullVoidFiles = [
-    'scan.js',
-    'scan.ts',
-    'rules.js', 
-    'rules.ts',
-    'benchmarks.js',
-    'benchmarks.ts',
-    'cache.js',
-    'cache.ts',
-    'config.js',
-    'config.ts',
-    'errorHandler.js',
-    'errorHandler.ts',
-    'logger.js',
-    'logger.ts',
-    'parallel.js',
-    'parallel.ts',
-    'rateLimiter.js',
-    'rateLimiter.ts',
-    'sandbox.js',
-    'sandbox.ts',
-    'pathSecurity.js',
-    'pathSecurity.ts',
-    'detection.js',
-    'detection.ts',
-    'dependencyConfusion.js',
-    'dependencyConfusion.ts',
-    'nullvoidDetection.js',
-    'nullvoidDetection.ts',
-    'sarif.js',
-    'sarif.ts',
-    'secureErrorHandler.js',
-    'secureErrorHandler.ts',
-    'streaming.js',
-    'streaming.ts',
-    'validation.js',
-    'validation.ts',
-    'nullvoid.js',
-    'nullvoid.ts',
-    'colors.js',
-    'colors.ts',
-    'generate-badge.js',
-    'generate-badge.ts',
-    'package.json',
-    'README.md',
-    'CHANGELOG.md',
-    'LICENSE',
-    'CONTRIBUTING.md',
-    'SECURITY.md',
-    'CODE_OF_CONDUCT.md',
-    'TYPESCRIPT_MIGRATION_TODO.md',
-    'TYPESCRIPT_MIGRATION_GUIDE.md',
-    'dependencyTree.ts',
-    'package.ts',
-    'analysis-types.ts',
-    'config-types.ts',
-    'core.ts',
-    'error-types.ts',
-    'index.ts',
-    'package-types.ts',
-    'threat-types.ts',
-    'jest.config.js'
-  ];
+  const nullVoidFiles = DETECTION_PATTERNS.NULLVOID_FILES;
 
   // Check if filename matches NullVoid files
   if (nullVoidFiles.includes(fileName)) {
@@ -147,6 +87,11 @@ export function isNullVoidCode(packageName: string): boolean {
  */
 export function isTestFile(packageName: string): boolean {
   if (!packageName || typeof packageName !== 'string') {
+    return false;
+  }
+
+  // Allow malicious test fixtures to be scanned for testing purposes
+  if (packageName.includes('fixtures/')) {
     return false;
   }
 

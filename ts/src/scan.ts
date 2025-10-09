@@ -6,6 +6,7 @@ import { createLogger } from './lib/logger';
 import { validateScanOptions } from './lib/validation';
 import { isNullVoidCode } from './lib/nullvoidDetection';
 import { detectMalware } from './lib/detection';
+import { filterThreatsBySeverity } from './lib/detection';
 
 const logger = createLogger('scan');
 
@@ -284,17 +285,12 @@ export async function scan(target: string, options: ScanOptions = {}, progressCa
     duration,
     memoryUsage,
     cpuUsage,
-    filesPerSecond: filesScanned > 0 ? Math.round(filesScanned / (duration / 1000)) : 0,
-    packagesPerSecond: packagesScanned > 0 ? Math.round(packagesScanned / (duration / 1000)) : 0,
+    filesPerSecond: filesScanned > 0 && duration > 0 ? Math.round(filesScanned / (duration / 1000)) : 0,
+    packagesPerSecond: packagesScanned > 0 && duration > 0 ? Math.round(packagesScanned / (duration / 1000)) : 0,
   };
 
   // Filter threats based on options
-  let filteredThreats = threats;
-  if (!options.all) {
-    filteredThreats = threats.filter(threat => 
-      threat.severity === 'CRITICAL' || threat.severity === 'HIGH'
-    );
-  }
+  const filteredThreats = filterThreatsBySeverity(threats, options.all || false);
 
   // Calculate directory structure totals
   const totalDirectories = directoryStructure ? 

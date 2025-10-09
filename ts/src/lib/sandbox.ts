@@ -3,6 +3,7 @@ import * as vm from 'vm';
 import * as path from 'path';
 import * as fs from 'fs';
 import { isNullVoidCode } from './nullvoidDetection';
+import { DETECTION_PATTERNS } from './config';
 
 /**
  * Security configuration for sandbox
@@ -17,7 +18,7 @@ export const SANDBOX_CONFIG = {
 
 export interface SandboxResult {
   threats: Threat[];
-  executionResult: any;
+  executionResult: unknown;
   executionError: Error | null;
   executionTime: number;
   safe: boolean;
@@ -163,7 +164,7 @@ export function analyzeCodeInSandbox(code: string, filename: string = 'analysis.
   
   const context = createSecureSandbox();
   const threats: Threat[] = [];
-  let executionResult: any = null;
+  let executionResult: unknown = null;
   let executionError: Error | null = null;
   let executionTime = 0;
   
@@ -197,11 +198,13 @@ export function analyzeCodeInSandbox(code: string, filename: string = 'analysis.
       ));
     }
     
-  } catch (error: any) {
-    executionError = error;
+  } catch (error: unknown) {
+    executionError = error instanceof Error ? error : new Error(String(error));
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorCode = error instanceof Error && 'code' in error ? (error as Error & { code: string }).code : '';
     
     // Analyze error types for threat detection
-    if (error.message.includes('require')) {
+    if (errorMessage.includes('require')) {
       threats.push(createThreat(
         'SANDBOX_SECURITY_VIOLATION',
         'Code attempted to load modules',
@@ -209,11 +212,11 @@ export function analyzeCodeInSandbox(code: string, filename: string = 'analysis.
         filename,
         'HIGH',
         'Malicious code tried to use require() or import()',
-        { error: error.message }
+        { error: errorMessage }
       ));
     }
     
-    if (error.message.includes('eval') || error.message.includes('Function')) {
+    if (errorMessage.includes('eval') || errorMessage.includes('Function')) {
       threats.push(createThreat(
         'SANDBOX_SECURITY_VIOLATION',
         'Code attempted dynamic code generation',
@@ -221,11 +224,11 @@ export function analyzeCodeInSandbox(code: string, filename: string = 'analysis.
         filename,
         'CRITICAL',
         'Malicious code tried to use eval() or Function() constructor',
-        { error: error.message }
+        { error: errorMessage }
       ));
     }
     
-    if (error.message.includes('timeout') || error.code === 'ERR_SCRIPT_EXECUTION_TIMEOUT') {
+    if (errorMessage.includes('timeout') || errorCode === 'ERR_SCRIPT_EXECUTION_TIMEOUT') {
       threats.push(createThreat(
         'SANDBOX_TIMEOUT',
         'Code execution timed out',
@@ -233,11 +236,11 @@ export function analyzeCodeInSandbox(code: string, filename: string = 'analysis.
         filename,
         'HIGH',
         'Code may contain infinite loops or blocking operations',
-        { error: error.message }
+        { error: errorMessage }
       ));
     }
     
-    if (error.message.includes('memory')) {
+    if (errorMessage.includes('memory')) {
       threats.push(createThreat(
         'SANDBOX_MEMORY_LIMIT',
         'Code attempted memory exhaustion',
@@ -245,7 +248,7 @@ export function analyzeCodeInSandbox(code: string, filename: string = 'analysis.
         filename,
         'HIGH',
         'Code may contain memory-intensive operations',
-        { error: error.message }
+        { error: errorMessage }
       ));
     }
   }
@@ -416,11 +419,7 @@ export function hasHighEntropy(code: string): boolean {
  * Check if code contains wallet-related keywords
  */
 export function hasWalletKeywords(code: string): boolean {
-  const walletKeywords = [
-    'ethereum', 'bitcoin', 'wallet', 'crypto', 'blockchain',
-    'metamask', 'web3', 'transaction', 'address', 'private',
-    'key', 'seed', 'mnemonic', 'hdwallet', 'trezor', 'ledger'
-  ];
+  const walletKeywords = DETECTION_PATTERNS.WALLET_KEYWORDS;
   
   const lowerCode = code.toLowerCase();
   return walletKeywords.some(keyword => lowerCode.includes(keyword));
@@ -473,7 +472,7 @@ export function analyzeFileSafely(filePath: string): FileAnalysisResult {
       error: sandboxResult.executionError
     };
     
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       filePath: filePath,
       threats: [createThreat(
@@ -482,12 +481,12 @@ export function analyzeFileSafely(filePath: string): FileAnalysisResult {
         filePath,
         filePath,
         'MEDIUM',
-        error.message,
-        { error: error.message }
+        error instanceof Error ? error.message : String(error),
+        { error: error instanceof Error ? error.message : String(error) }
       )],
       safe: false,
       executionTime: 0,
-      error: error
+      error: error instanceof Error ? error : new Error(String(error))
     };
   }
 }
