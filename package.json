@@ -58,7 +58,7 @@
     "commander": "^11.1.0",
     "fs-extra": "^11.1.0",
     "glob": "^10.3.0",
-    "js-yaml": "^4.1.0",
+    "js-yaml": "^4.1.1",
     "node-fetch": "^2.7.0",
     "ora": "^5.4.1",
     "tar": "^6.2.0"
@@ -81,6 +81,9 @@
     "ts-jest": "^29.4.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.2"
+  },
+  "overrides": {
+    "js-yaml": "^4.1.1"
   },
   "repository": {
     "type": "git",
