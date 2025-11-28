@@ -880,6 +880,146 @@ export const PERFORMANCE_CONFIG: PerformanceConfig = {
 };
 
 /**
+ * IoC Integration Configuration
+ */
+export const IOC_CONFIG = {
+  // Provider enable/disable flags
+  PROVIDERS: {
+    snyk: {
+      enabled: false, // Requires API key
+      apiKey: process.env['SNYK_API_KEY'],
+      rateLimit: 60,
+      cacheTTL: 60 * 60 * 1000, // 1 hour
+      timeout: 10000,
+      maxRetries: 3,
+      retryDelay: 1000
+    },
+    npm: {
+      enabled: true, // Public API
+      rateLimit: 100,
+      cacheTTL: 60 * 60 * 1000, // 1 hour
+      timeout: 10000,
+      maxRetries: 3,
+      retryDelay: 1000
+    },
+    ghsa: {
+      enabled: true, // Public API (better rate limits with token)
+      apiKey: process.env['GITHUB_TOKEN'],
+      rateLimit: 60, // 60/hour without auth, 5000/hour with auth
+      cacheTTL: 60 * 60 * 1000, // 1 hour
+      timeout: 15000,
+      maxRetries: 3,
+      retryDelay: 1000
+    },
+    cve: {
+      enabled: true, // Public API
+      apiKey: process.env['NVD_API_KEY'], // Optional, increases rate limits
+      rateLimit: 50, // 50 per 30 seconds
+      cacheTTL: 24 * 60 * 60 * 1000, // 24 hours
+      timeout: 15000,
+      maxRetries: 3,
+      retryDelay: 2000
+    }
+  },
+  // Default query options
+  DEFAULT_QUERY_OPTIONS: {
+    includeHistory: false,
+    maxResults: 50
+  },
+  // Aggregation settings
+  AGGREGATION: {
+    // Deduplicate results from multiple providers
+    deduplicate: true,
+    // Prefer provider order (first provider's result takes precedence)
+    providerPriority: ['snyk', 'npm', 'ghsa', 'cve'] as const
+  }
+} as const;
+
+/**
+ * Multi-Layer Cache Configuration
+ */
+export const CACHE_LAYER_CONFIG = {
+  // L1 (Memory) cache
+  L1: {
+    enabled: true,
+    maxSize: 1000, // Maximum number of items
+    defaultTTL: 5 * 60 * 1000, // 5 minutes
+    cleanupInterval: 60 * 1000 // 1 minute
+  },
+  // L2 (File) cache
+  L2: {
+    enabled: true,
+    cacheDir: process.env['NULLVOID_CACHE_DIR'] || '.nullvoid-cache',
+    maxSize: 100 * 1024 * 1024, // 100MB
+    defaultTTL: 60 * 60 * 1000, // 1 hour
+    cleanupInterval: 5 * 60 * 1000, // 5 minutes
+    compression: true
+  },
+  // L3 (Redis) cache
+  L3: {
+    enabled: false, // Disabled by default
+    redisUrl: process.env['REDIS_URL'],
+    host: process.env['REDIS_HOST'] || 'localhost',
+    port: parseInt(process.env['REDIS_PORT'] || '6379', 10),
+    password: process.env['REDIS_PASSWORD'],
+    db: parseInt(process.env['REDIS_DB'] || '0', 10),
+    poolSize: 10,
+    connectTimeout: 5000,
+    defaultTTL: 24 * 60 * 60 * 1000, // 24 hours
+    cleanupInterval: 60 * 60 * 1000 // 1 hour
+  },
+  // Promotion/demotion strategy
+  PROMOTION_STRATEGY: {
+    promoteAfterAccesses: 3,
+    demoteAfterMisses: 5,
+    timeBasedPromotion: true
+  },
+  // Cache warming
+  WARMING: {
+    enabled: false,
+    warmOnStartup: false,
+    preloadPatterns: [] as string[],
+    strategy: 'on-demand' as 'aggressive' | 'conservative' | 'on-demand'
+  }
+} as const;
+
+/**
+ * Network Optimization Configuration
+ */
+export const NETWORK_OPTIMIZATION_CONFIG = {
+  // Connection pooling
+  CONNECTION_POOL: {
+    enabled: true,
+    maxConnectionsPerDomain: 10,
+    keepAliveTimeout: 60000, // 60 seconds
+    connectTimeout: 5000, // 5 seconds
+    idleTimeout: 30000 // 30 seconds
+  },
+  // Request batching
+  REQUEST_BATCHING: {
+    enabled: true,
+    maxBatchSize: 20,
+    maxWaitTime: 100, // 100ms
+    batchTimeout: 5000, // 5 seconds
+    priorityLevels: 3
+  },
+  // Compression
+  COMPRESSION: {
+    enabled: true,
+    algorithms: ['gzip', 'brotli'] as const,
+    minSize: 1024, // 1KB
+    level: 6 // Compression level 1-9
+  },
+  // CDN integration
+  CDN: {
+    enabled: false,
+    baseUrl: undefined,
+    fallbackToOrigin: true,
+    respectCacheHeaders: true
+  }
+} as const;
+
+/**
  * Update configuration from environment variables
  */
 export function updateConfigFromEnv(): void {
@@ -911,6 +1051,66 @@ export function updateConfigFromEnv(): void {
   if (process.env['NULLVOID_DEP_CONFUSION_ENABLED']) {
     const enabled = process.env['NULLVOID_DEP_CONFUSION_ENABLED'].toLowerCase() === 'true';
     (DEPENDENCY_CONFUSION_CONFIG as Record<string, unknown>)['ENABLED'] = enabled;
+  }
+  
+  // Update IoC provider settings
+  if (process.env['NULLVOID_IOC_SNYK_ENABLED']) {
+    const enabled = process.env['NULLVOID_IOC_SNYK_ENABLED'].toLowerCase() === 'true';
+    (IOC_CONFIG.PROVIDERS as Record<string, unknown>)['snyk'] = {
+      ...IOC_CONFIG.PROVIDERS['snyk'],
+      enabled
+    };
+  }
+  
+  if (process.env['NULLVOID_IOC_NPM_ENABLED']) {
+    const enabled = process.env['NULLVOID_IOC_NPM_ENABLED'].toLowerCase() === 'true';
+    (IOC_CONFIG.PROVIDERS as Record<string, unknown>)['npm'] = {
+      ...IOC_CONFIG.PROVIDERS['npm'],
+      enabled
+    };
+  }
+  
+  if (process.env['NULLVOID_IOC_GHSA_ENABLED']) {
+    const enabled = process.env['NULLVOID_IOC_GHSA_ENABLED'].toLowerCase() === 'true';
+    (IOC_CONFIG.PROVIDERS as Record<string, unknown>)['ghsa'] = {
+      ...IOC_CONFIG.PROVIDERS['ghsa'],
+      enabled
+    };
+  }
+  
+  if (process.env['NULLVOID_IOC_CVE_ENABLED']) {
+    const enabled = process.env['NULLVOID_IOC_CVE_ENABLED'].toLowerCase() === 'true';
+    (IOC_CONFIG.PROVIDERS as Record<string, unknown>)['cve'] = {
+      ...IOC_CONFIG.PROVIDERS['cve'],
+      enabled
+    };
+  }
+  
+  // Update cache layer settings
+  if (process.env['NULLVOID_CACHE_L2_ENABLED']) {
+    const enabled = process.env['NULLVOID_CACHE_L2_ENABLED'].toLowerCase() === 'true';
+    (CACHE_LAYER_CONFIG.L2 as Record<string, unknown>)['enabled'] = enabled;
+  }
+  
+  if (process.env['NULLVOID_CACHE_L3_ENABLED']) {
+    const enabled = process.env['NULLVOID_CACHE_L3_ENABLED'].toLowerCase() === 'true';
+    (CACHE_LAYER_CONFIG.L3 as Record<string, unknown>)['enabled'] = enabled;
+  }
+  
+  // Update network optimization settings
+  if (process.env['NULLVOID_CONNECTION_POOL_ENABLED']) {
+    const enabled = process.env['NULLVOID_CONNECTION_POOL_ENABLED'].toLowerCase() === 'true';
+    (NETWORK_OPTIMIZATION_CONFIG.CONNECTION_POOL as Record<string, unknown>)['enabled'] = enabled;
+  }
+  
+  if (process.env['NULLVOID_REQUEST_BATCHING_ENABLED']) {
+    const enabled = process.env['NULLVOID_REQUEST_BATCHING_ENABLED'].toLowerCase() === 'true';
+    (NETWORK_OPTIMIZATION_CONFIG.REQUEST_BATCHING as Record<string, unknown>)['enabled'] = enabled;
+  }
+  
+  if (process.env['NULLVOID_COMPRESSION_ENABLED']) {
+    const enabled = process.env['NULLVOID_COMPRESSION_ENABLED'].toLowerCase() === 'true';
+    (NETWORK_OPTIMIZATION_CONFIG.COMPRESSION as Record<string, unknown>)['enabled'] = enabled;
   }
 }
 

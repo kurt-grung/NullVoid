@@ -37,6 +37,10 @@ export interface ScanOptions {
   timeout?: number;
   /** Show all results */
   all?: boolean;
+  /** Enable IoC (Indicators of Compromise) provider queries */
+  iocEnabled?: boolean;
+  /** Comma-separated list of IoC providers to use (snyk,npm,ghsa,cve) */
+  iocProviders?: string;
 }
 
 export interface ScanResult {

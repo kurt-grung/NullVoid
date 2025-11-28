@@ -9,6 +9,9 @@ import { ScanOptions, ScanResult } from '../types/core';
 import { generateSarifOutput } from '../lib/sarif';
 import { detectMalware, filterThreatsBySeverity } from '../lib/detection';
 import { DISPLAY_PATTERNS } from '../lib/config';
+import { getIoCManager } from '../lib/iocIntegration';
+import { getCacheAnalytics } from '../lib/cache/cacheAnalytics';
+import { getConnectionPool } from '../lib/network/connectionPool';
 import colors from '../colors';
 import * as packageJson from '../../package.json';
 
@@ -25,6 +28,11 @@ interface CliOptions {
   rules?: string;
   sarif?: string;
   all?: boolean;
+  'ioc-providers'?: string;
+  'cache-stats'?: boolean;
+  'enable-redis'?: boolean;
+  'network-stats'?: boolean;
+  'no-ioc'?: boolean;
 }
 
 program
@@ -47,6 +55,11 @@ program
   .option('-r, --rules <file>', 'Custom rules file')
   .option('--sarif <file>', 'SARIF output file')
   .option('--all', 'Show all threats including low severity')
+  .option('--ioc-providers <providers>', 'Comma-separated list of IoC providers to use (snyk,npm,ghsa,cve)', 'npm,ghsa,cve')
+  .option('--cache-stats', 'Show cache statistics')
+  .option('--enable-redis', 'Enable Redis distributed cache (L3)')
+  .option('--network-stats', 'Show network performance metrics')
+  .option('--no-ioc', 'Disable IoC provider queries')
   .action(async (target: string | undefined, options: CliOptions) => {
     await performScan(target, options);
   });
@@ -68,6 +81,11 @@ program
   .option('-r, --rules <file>', 'Custom rules file')
   .option('--sarif <file>', 'SARIF output file')
   .option('--all', 'Show all threats including low severity')
+  .option('--ioc-providers <providers>', 'Comma-separated list of IoC providers to use (snyk,npm,ghsa,cve)', 'npm,ghsa,cve')
+  .option('--cache-stats', 'Show cache statistics')
+  .option('--enable-redis', 'Enable Redis distributed cache (L3)')
+  .option('--network-stats', 'Show network performance metrics')
+  .option('--no-ioc', 'Disable IoC provider queries')
   .action(async (target: string | undefined, options: CliOptions) => {
     await performScan(target, options);
   });
@@ -84,8 +102,14 @@ async function performScan(target: string | undefined, options: CliOptions) {
         skipCache: options['skip-cache'] || false,
         verbose: options.verbose || false,
         debug: options.debug || false,
-        all: options.all || false
+        all: options.all || false,
+        iocEnabled: !options['no-ioc'] // Enable IoC by default unless --no-ioc is specified
       };
+
+      // Add optional properties only if they exist
+      if (options['ioc-providers']) {
+        scanOptions.iocProviders = options['ioc-providers'];
+      }
 
       // Add optional properties only if they exist
       if (options.output) {
@@ -145,6 +169,62 @@ async function performScan(target: string | undefined, options: CliOptions) {
       // Display results
       displayResults(result, options);
       
+      // Display cache statistics if requested
+      if (options['cache-stats']) {
+        try {
+          const ioCManager = getIoCManager();
+          const cacheStats = ioCManager.getCacheStats();
+          const cacheAnalytics = getCacheAnalytics();
+          const multiLayerStats = cacheAnalytics.getSummary({
+            layers: {
+              L1: { layer: 'L1', size: cacheStats.size, maxSize: cacheStats.maxSize, hits: cacheStats.hits, misses: cacheStats.misses, evictions: 0, hitRate: cacheStats.hitRate, missRate: cacheStats.missRate, utilization: cacheStats.size / cacheStats.maxSize },
+              L2: { layer: 'L2', size: 0, maxSize: 0, hits: 0, misses: 0, evictions: 0, hitRate: 0, missRate: 0, utilization: 0 },
+              L3: { layer: 'L3', size: 0, maxSize: 0, hits: 0, misses: 0, evictions: 0, hitRate: 0, missRate: 0, utilization: 0 }
+            },
+            totalHits: cacheStats.hits,
+            totalMisses: cacheStats.misses,
+            overallHitRate: cacheStats.hitRate,
+            warming: false
+          });
+          
+          console.log('\n📊 Cache Statistics:');
+          console.log(`   L1 (Memory) Cache:`);
+          const l1Stats = multiLayerStats.layers['L1'];
+          if (l1Stats) {
+            console.log(`     Hit Rate: ${(l1Stats.hitRate * 100).toFixed(2)}%`);
+            console.log(`     Utilization: ${(l1Stats.utilization * 100).toFixed(2)}%`);
+            console.log(`     Size: ${l1Stats.size} items`);
+          }
+          if (multiLayerStats.recommendations.length > 0) {
+            console.log(`   Recommendations:`);
+            multiLayerStats.recommendations.forEach(rec => console.log(`     - ${rec}`));
+          }
+        } catch (error) {
+          if (options.verbose) {
+            console.log(`   Cache stats unavailable: ${(error as Error).message}`);
+          }
+        }
+      }
+      
+      // Display network statistics if requested
+      if (options['network-stats']) {
+        try {
+          const connectionPool = getConnectionPool();
+          const poolStats = connectionPool.getStats();
+          
+          console.log('\n🌐 Network Statistics:');
+          console.log(`   Active Connections: ${poolStats.activeConnections}`);
+          console.log(`   Idle Connections: ${poolStats.idleConnections}`);
+          console.log(`   Total Connections: ${poolStats.totalConnections}`);
+          console.log(`   Connection Errors: ${poolStats.errors}`);
+          console.log(`   Connection Timeouts: ${poolStats.timeouts}`);
+        } catch (error) {
+          if (options.verbose) {
+            console.log(`   Network stats unavailable: ${(error as Error).message}`);
+          }
+        }
+      }
+      
       if (options.output) {
         fs.writeFileSync(options.output, JSON.stringify(result, null, 2));
         console.log(`Results written to ${options.output}`);
@@ -170,18 +250,50 @@ function displayResults(results: ScanResult, options: CliOptions) {
   if (results.threats.length === 0) {
     console.log('✅ No threats detected');
   } else {
-    // Sort threats by confidence level (low to high)
+    // Sort threats by severity (descending: CRITICAL > HIGH > MEDIUM > LOW)
+    // Most critical threats will appear at the bottom
+    const severityOrder: Record<string, number> = {
+      'CRITICAL': 4,
+      'HIGH': 3,
+      'MEDIUM': 2,
+      'LOW': 1,
+      'INFO': 0
+    };
+    
     const sortedThreats = results.threats.sort((a, b) => {
+      const aSeverity = severityOrder[a.severity] || 0;
+      const bSeverity = severityOrder[b.severity] || 0;
+      
+      // Primary sort: by severity (ascending, so CRITICAL appears last)
+      if (aSeverity !== bSeverity) {
+        return aSeverity - bSeverity;
+      }
+      
+      // Secondary sort: by confidence (higher confidence first within same severity)
       const aConfidence = a.confidence || 0;
       const bConfidence = b.confidence || 0;
-      return aConfidence - bConfidence;
+      return bConfidence - aConfidence;
     });
     
     // Filter to only show HIGH and above severity (unless --all flag is used)
     const showAllThreats = options.all;
-    const highSeverityThreats = showAllThreats ? sortedThreats : sortedThreats.filter(threat => 
+    let highSeverityThreats = showAllThreats ? sortedThreats : sortedThreats.filter(threat => 
       threat.severity === 'HIGH' || threat.severity === 'CRITICAL'
     );
+    
+    // Ensure HIGH threats appear before CRITICAL threats (HIGH=3, CRITICAL=4)
+    // Re-sort the filtered list to guarantee correct order
+    highSeverityThreats = highSeverityThreats.sort((a, b) => {
+      const aSeverity = severityOrder[a.severity] || 0;
+      const bSeverity = severityOrder[b.severity] || 0;
+      if (aSeverity !== bSeverity) {
+        return aSeverity - bSeverity; // HIGH (3) before CRITICAL (4)
+      }
+      // Secondary sort by confidence
+      const aConfidence = a.confidence || 0;
+      const bConfidence = b.confidence || 0;
+      return bConfidence - aConfidence;
+    });
     
     if (highSeverityThreats.length === 0) {
         console.log('✅ No high-severity threats detected');

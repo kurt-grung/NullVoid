@@ -51,6 +51,10 @@ Main scanning function that performs security analysis on npm packages.
 | `parallel` | `boolean` | `true` | Enable parallel processing |
 | `workers` | `number` | `'auto'` | Number of parallel workers |
 | `all` | `boolean` | `false` | Show all threats including low severity |
+| `iocEnabled` | `boolean` | `true` | Enable IoC (Indicators of Compromise) provider queries |
+| `iocProviders` | `string` | `'npm,ghsa,cve'` | Comma-separated list of IoC providers to use (`snyk,npm,ghsa,cve`) |
+| `skipCache` | `boolean` | `false` | Skip cache and fetch fresh data |
+| `includeDevDependencies` | `boolean` | `false` | Include development dependencies in scan |
 
 #### Returns
 
@@ -84,7 +88,46 @@ Main scanning function that performs security analysis on npm packages.
     cacheHitRate: 0.85,
     networkRequests: 8,
     errors: 0
+  },
+  iocResults: {
+    totalVulnerabilities: 5,
+    byProvider: {
+      npm: { count: 2, responseTime: 150 },
+      ghsa: { count: 2, responseTime: 200 },
+      cve: { count: 1, responseTime: 300 }
+    }
+  },
+  cacheStats: {
+    hitRate: 0.85,
+    layers: {
+      L1: { hits: 100, misses: 20 },
+      L2: { hits: 50, misses: 10 },
+      L3: { hits: 0, misses: 0 }
+    }
+  },
+  networkStats: {
+    activeConnections: 3,
+    totalConnections: 5,
+    connectionErrors: 0
   }
+}
+```
+
+#### IoC Integration Example
+
+```javascript
+const { scan } = require('nullvoid');
+
+async function scanWithIoC() {
+  const results = await scan('./my-project', {
+    iocEnabled: true,
+    iocProviders: 'npm,ghsa,cve', // Use specific providers
+    verbose: true
+  });
+  
+  // IoC vulnerabilities are included in threats
+  const iocThreats = results.threats.filter(t => t.type === 'VULNERABLE_PACKAGE');
+  console.log(`Found ${iocThreats.length} IoC vulnerabilities`);
 }
 ```
 
@@ -98,6 +141,7 @@ async function scanPackage() {
     const results = await scan('express', {
       maxDepth: 2,
       verbose: true,
+      iocEnabled: true
       all: true
     });
     
@@ -446,6 +490,95 @@ process.env.NULLVOID_TIMESTAMP = 'true';
 
 const { scan } = require('nullvoid');
 // Now all operations will include detailed logging
+```
+
+## IoC Integration API
+
+### `queryIoCProviders(packageName, version?, providerNames?)`
+
+Query IoC providers for package vulnerabilities.
+
+```javascript
+const { queryIoCProviders } = require('nullvoid/lib/iocScanIntegration');
+
+const threats = await queryIoCProviders('express', '4.18.0', ['npm', 'ghsa']);
+// Returns array of Threat objects with VULNERABLE_PACKAGE type
+```
+
+### `getIoCManager()`
+
+Get the IoC manager instance for advanced usage.
+
+```javascript
+const { getIoCManager } = require('nullvoid/lib/iocIntegration');
+
+const manager = getIoCManager();
+const response = await manager.queryProvider('npm', {
+  packageName: 'lodash',
+  version: '4.17.21'
+});
+```
+
+## Cache API
+
+### `getCacheAnalytics()`
+
+Get cache performance analytics.
+
+```javascript
+const { getCacheAnalytics } = require('nullvoid/lib/cache/cacheAnalytics');
+
+const analytics = getCacheAnalytics();
+const summary = analytics.getSummary('ioc-cache');
+console.log(`Hit rate: ${summary.hitRate * 100}%`);
+```
+
+### `MultiLayerCache`
+
+Use multi-layer cache directly.
+
+```javascript
+const { MultiLayerCache } = require('nullvoid/lib/cache/multiLayerCache');
+
+const cache = new MultiLayerCache('my-cache', {
+  defaultTTL: 60000,
+  maxSize: 1000
+});
+
+await cache.set('key', 'value');
+const value = await cache.get('key');
+```
+
+## Network Optimization API
+
+### `getConnectionPool()`
+
+Get connection pool for HTTP connection reuse.
+
+```javascript
+const { getConnectionPool } = require('nullvoid/lib/network/connectionPool');
+
+const pool = getConnectionPool();
+const agent = pool.getAgent('https://api.example.com');
+// Use agent for HTTP requests
+```
+
+### `RequestBatcher`
+
+Batch multiple requests for efficiency.
+
+```javascript
+const { RequestBatcher } = require('nullvoid/lib/network/requestBatcher');
+
+const batcher = new RequestBatcher({
+  batchSize: 10,
+  batchTimeout: 100
+});
+
+const result = await batcher.batch(async () => {
+  // Your request logic
+  return fetch('https://api.example.com/data');
+});
 ```
 
 ## Support

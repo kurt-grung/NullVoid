@@ -44,7 +44,7 @@ export class RateLimiter {
   private maxRequests: number;
   private windowSize: number;
   private requests: number[];
-  private blockedUntil: number;
+  public blockedUntil: number; // Made public so IoC manager can set it
 
   constructor(options: RateLimitOptions = {}) {
     this.maxRequests = options.maxRequests || NETWORK_CONFIG.RATE_LIMIT.MAX_REQUESTS;

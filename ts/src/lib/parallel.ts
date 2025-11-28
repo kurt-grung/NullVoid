@@ -65,6 +65,7 @@ export interface ParallelScanMetrics {
 
 /**
  * Get optimal number of workers based on system resources
+ * Enhanced with dynamic resource monitoring
  */
 export function getOptimalWorkerCount(): number {
   const cpuCount = os.cpus().length;
@@ -85,6 +86,31 @@ export function getOptimalWorkerCount(): number {
   
   // Cap at reasonable maximum
   return Math.min(workerCount, 8);
+}
+
+/**
+ * Get dynamic optimal worker count based on current system state
+ * Uses resource monitoring for real-time adjustments
+ */
+export function getDynamicOptimalWorkerCount(
+  currentWorkers: number,
+  queueDepth: number
+): number {
+  try {
+    // Import resource monitor
+    const { getResourceMonitor } = require('./parallel/resourceMonitor');
+    const monitor = getResourceMonitor();
+    const recommendations = monitor.getRecommendations(
+      currentWorkers,
+      queueDepth,
+      10 // Default chunk size
+    );
+    
+    return recommendations.recommendedWorkers;
+  } catch {
+    // Fallback to static calculation if resource monitor not available
+    return getOptimalWorkerCount();
+  }
 }
 
 /**

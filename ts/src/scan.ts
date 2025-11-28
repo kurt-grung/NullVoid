@@ -7,6 +7,8 @@ import { validateScanOptions } from './lib/validation';
 import { isNullVoidCode } from './lib/nullvoidDetection';
 import { detectMalware } from './lib/detection';
 import { filterThreatsBySeverity } from './lib/detection';
+import { queryIoCProviders, mergeIoCThreats } from './lib/iocScanIntegration';
+import type { IoCProviderName } from './types/ioc-types';
 
 const logger = createLogger('scan');
 
@@ -196,14 +198,17 @@ export async function scan(target: string, options: ScanOptions = {}, progressCa
           if (Object.keys(dependencies).length > 0) {
             packagesScanned += Object.keys(dependencies).length;
             
-            // Check for suspicious dependencies
+            // Check for suspicious dependencies and query IoC providers
+            const dependencyThreats: Threat[] = [];
+            const iocQueries: Promise<Threat[]>[] = [];
+            
             for (const [depName, depVersion] of Object.entries(dependencies)) {
               if (typeof depVersion === 'string') {
                 // Check for suspicious patterns in dependency names
                 if (SUSPICIOUS_PATTERNS.keywords.some(keyword => 
                   depName.toLowerCase().includes(keyword.toLowerCase())
                 )) {
-                  threats.push({
+                  dependencyThreats.push({
                     type: 'SUSPICIOUS_DEPENDENCY',
                     message: `Suspicious dependency name: ${depName}`,
                     filePath: packageJsonPath,
@@ -218,7 +223,7 @@ export async function scan(target: string, options: ScanOptions = {}, progressCa
                 if (SUSPICIOUS_PATTERNS.dependencies.some(pattern => 
                   depVersion.match(new RegExp(pattern))
                 )) {
-                  threats.push({
+                  dependencyThreats.push({
                     type: 'SUSPICIOUS_DEPENDENCY',
                     message: `Suspicious dependency version: ${depName}@${depVersion}`,
                     filePath: packageJsonPath,
@@ -228,7 +233,44 @@ export async function scan(target: string, options: ScanOptions = {}, progressCa
                     confidence: 0.8
                   });
                 }
+                
+                // Query IoC providers for vulnerabilities (if enabled)
+                if (options.iocEnabled !== false) {
+                  // Extract version from semver range (e.g., "^1.0.0" -> "1.0.0")
+                  const cleanVersion = depVersion.replace(/^[\^~>=<]+\s*/, '');
+                  
+                  // Parse provider names from options
+                  let providerNames: IoCProviderName[] | undefined;
+                  if (options.iocProviders) {
+                    const providerList = options.iocProviders.split(',').map(p => p.trim().toLowerCase());
+                    providerNames = providerList.filter(p => 
+                      p === 'snyk' || p === 'npm' || p === 'ghsa' || p === 'cve'
+                    ) as IoCProviderName[];
+                  }
+                  
+                  iocQueries.push(queryIoCProviders(depName, cleanVersion, providerNames, packageJsonPath));
+                }
               }
+            }
+            
+            // Wait for IoC queries and merge results BEFORE adding to threats
+            if (iocQueries.length > 0) {
+              try {
+                const iocResults = await Promise.all(iocQueries);
+                const allIocThreats = iocResults.flat();
+                // Merge IoC threats with dependency threats, then add to main threats list
+                const mergedThreats = mergeIoCThreats(dependencyThreats, allIocThreats);
+                threats.push(...mergedThreats);
+              } catch (error) {
+                if (options.verbose) {
+                  logger.warn(`IoC query failed: ${(error as Error).message}`);
+                }
+                // Still add dependency threats even if IoC fails
+                threats.push(...dependencyThreats);
+              }
+            } else {
+              // No IoC queries, just add dependency threats
+              threats.push(...dependencyThreats);
             }
           }
         } catch (error) {
