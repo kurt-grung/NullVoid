@@ -86,14 +86,14 @@ NullVoid aims to be the most comprehensive and accurate static analysis security
 ### **🧠 Enhanced Timeline Analysis** ✅ **In progress**
 
 #### **Advanced Algorithms**
-- **Machine Learning Models**: ML-based timeline analysis for better accuracy — *scaffold + configurable weights* (`lib/mlDetection.js`): rule-based + anomaly scoring, `PHASE2_DETECTION.ML_WEIGHTS` for linear model; ready for full model integration
+- **Machine Learning Models**: ML-based timeline analysis for better accuracy — *scaffold + configurable weights + pluggable model* (`lib/mlDetection.js`): rule-based + anomaly + commit-pattern scoring; `PHASE2_DETECTION.ML_WEIGHTS`; optional `ML_MODEL_URL` (POST features → score) or `ML_MODEL_PATH` (Node module exporting `score(features)`) to replace rule-based scoring
 - **Pattern Recognition**: Advanced pattern recognition in git history
 - **Anomaly Detection**: Statistical anomaly detection in package timelines — *implemented* (`lib/timelineAnalysis.js`: `timelineAnomalyScore`, `analyzeTimeline`)
 - **Predictive Analysis**: Predicting potential security issues based on patterns
 
-#### **Commit Pattern Analysis**
-- **Author Behavior Analysis**: Analysis of commit author patterns and behavior
-- **Repository Structure Analysis**: Deep analysis of repository structure and organization
+#### **Commit Pattern Analysis** ✅ **Implemented**
+- **Author Behavior Analysis**: Analysis of commit author patterns and behavior — *implemented* (`lib/commitPatternAnalysis.js`: `analyzeCommitPatterns()`, author count, dominant author share)
+- **Repository Structure Analysis**: Deep analysis of repository structure and organization — *implemented* (branch count, date range, total/recent commit counts; feeds into ML features)
 - **Code Quality Metrics**: Integration with code quality analysis tools
 - **Collaboration Patterns**: Analysis of contributor collaboration patterns
 

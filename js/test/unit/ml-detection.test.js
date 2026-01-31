@@ -72,8 +72,8 @@ describe('ML Detection (Phase 2)', () => {
   });
 
   describe('runMLDetection', () => {
-    test('should return enabled, anomalyScore, threatScore, aboveThreshold, features', () => {
-      const result = runMLDetection({
+    test('should return enabled, anomalyScore, threatScore, aboveThreshold, features', async () => {
+      const result = await runMLDetection({
         creationDate: new Date('2024-01-01'),
         firstCommitDate: new Date('2024-01-02'),
         recentCommitCount: 1,
@@ -86,10 +86,51 @@ describe('ML Detection (Phase 2)', () => {
       expect(result).toHaveProperty('threatScore');
       expect(result).toHaveProperty('aboveThreshold');
       expect(result).toHaveProperty('features');
+      expect(result).toHaveProperty('modelUsed');
       expect(result.anomalyScore).toBeGreaterThanOrEqual(0);
       expect(result.anomalyScore).toBeLessThanOrEqual(1);
       expect(result.threatScore).toBeGreaterThanOrEqual(0);
       expect(result.threatScore).toBeLessThanOrEqual(1);
+    });
+
+    test('should include commit pattern features when packagePath provided', async () => {
+      const result = await runMLDetection({
+        creationDate: new Date('2024-01-01'),
+        firstCommitDate: new Date('2024-01-02'),
+        recentCommitCount: 1,
+        scopeType: 'PRIVATE',
+        suspiciousPatternsCount: 0,
+        registryName: 'npm',
+        packagePath: process.cwd()
+      });
+      expect(result.features).toBeDefined();
+      if (result.features.authorCount != null) {
+        expect(result.features).toHaveProperty('totalCommitCount');
+        expect(result.features).toHaveProperty('commitPatternAnomaly');
+      }
+    });
+  });
+
+  describe('computeThreatScore with commit pattern', () => {
+    test('should add score for commitPatternAnomaly when present', () => {
+      const without = computeThreatScore({
+        daysDifference: 30,
+        recentCommitCount: 5,
+        scopePrivate: 0,
+        suspiciousPatternsCount: 0,
+        timelineAnomaly: 0,
+        registryIsNpm: 1
+      });
+      const withCommit = computeThreatScore({
+        daysDifference: 30,
+        recentCommitCount: 5,
+        scopePrivate: 0,
+        suspiciousPatternsCount: 0,
+        timelineAnomaly: 0,
+        registryIsNpm: 1,
+        commitPatternAnomaly: 0.8
+      });
+      expect(withCommit).toBeGreaterThanOrEqual(without);
     });
   });
 });

@@ -500,8 +500,16 @@ const DEPENDENCY_CONFUSION_CONFIG = {
       timelineAnomaly: 0.5,
       scopePrivate: 0.2,
       suspiciousPatterns: 0.2,
-      lowActivityRecent: 0.1
-    }
+      lowActivityRecent: 0.1,
+      commitPatternAnomaly: 0.1
+    },
+    // Full ML model: replace rule-based scoring (optional)
+    // ML_MODEL_URL: POST features JSON, expect { score: 0-1 }; e.g. 'https://api.example.com/score'
+    ML_MODEL_URL: null,
+    // ML_MODEL_PATH: absolute path to Node module exporting score(features) => 0-1
+    ML_MODEL_PATH: null,
+    // Commit pattern analysis (author behavior, repo structure)
+    COMMIT_PATTERN_ANALYSIS: true
   },
   
   // Analysis settings

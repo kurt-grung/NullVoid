@@ -240,14 +240,15 @@ async function detectDependencyConfusion(packageName, packagePath) {
     const daysDifference = timelineResult.daysDifference ?? 0;
     const timelineRisk = timelineResult.riskLevel;
 
-    // Phase 2: ML detection (anomaly + threat score)
-    const mlResult = runMLDetection({
+    // Phase 2: ML detection (anomaly + threat score; commit pattern + optional model)
+    const mlResult = await runMLDetection({
       creationDate,
       firstCommitDate: gitHistory.firstCommitDate,
       recentCommitCount: gitHistory.recentCommitCount ?? 0,
       scopeType: nameAnalysis.scopeType,
       suspiciousPatternsCount: nameAnalysis.suspiciousPatterns?.length ?? 0,
-      registryName
+      registryName,
+      packagePath
     });
 
     // Generate threats based on analysis
@@ -269,7 +270,9 @@ async function detectDependencyConfusion(packageName, packagePath) {
           daysDifference: Math.round(daysDifference),
           timelineRisk,
           registryName,
-          ...(mlResult.enabled && { mlAnomalyScore: mlResult.anomalyScore, mlThreatScore: mlResult.threatScore })
+          ...(mlResult.enabled && { mlAnomalyScore: mlResult.anomalyScore, mlThreatScore: mlResult.threatScore }),
+          ...(mlResult.modelUsed && { mlModelUsed: true }),
+          ...(mlResult.features?.commitPatternAnomaly != null && { commitPatternAnomaly: mlResult.features.commitPatternAnomaly })
         }
       });
     }
@@ -286,7 +289,9 @@ async function detectDependencyConfusion(packageName, packagePath) {
         properties: {
           mlAnomalyScore: mlResult.anomalyScore,
           mlThreatScore: mlResult.threatScore,
-          registryName
+          registryName,
+          ...(mlResult.modelUsed && { mlModelUsed: true }),
+          ...(mlResult.features?.commitPatternAnomaly != null && { commitPatternAnomaly: mlResult.features.commitPatternAnomaly })
         }
       });
     }
