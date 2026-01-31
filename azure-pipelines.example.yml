@@ -1,0 +1,30 @@
+# Azure DevOps example: NullVoid security scan
+# Copy to azure-pipelines.yml or add as a template.
+# See https://docs.microsoft.com/en-us/azure/devops/pipelines/
+
+trigger:
+  - main
+  - develop
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '18.x'
+    displayName: 'Install Node.js 18'
+
+  - script: npm ci
+    displayName: 'npm ci'
+
+  - script: npx nullvoid . --output json --sarif-file nullvoid-results.sarif
+    displayName: 'NullVoid security scan'
+
+  - task: PublishBuildArtifacts@1
+    inputs:
+      PathtoPublish: '$(System.DefaultWorkingDirectory)'
+      ArtifactName: 'nullvoid-results'
+      publishLocation: 'Container'
+    displayName: 'Publish SARIF artifact'
+    condition: always()

@@ -8,7 +8,9 @@ jest.mock('child_process');
 const {
   getRepoRoot,
   analyzeCommitPatterns,
-  commitPatternAnomalyScore
+  commitPatternAnomalyScore,
+  analyzeCommitMessagePatterns,
+  analyzeDiffPatterns
 } = require('../../lib/commitPatternAnalysis');
 
 describe('Commit Pattern Analysis (Phase 2)', () => {
@@ -96,6 +98,34 @@ describe('Commit Pattern Analysis (Phase 2)', () => {
       });
       expect(high).toBeGreaterThan(low);
       expect(high).toBeLessThanOrEqual(1);
+    });
+  });
+
+  describe('analyzeCommitMessagePatterns', () => {
+    test('should return structure with messages and anomalyScore', () => {
+      execSync.mockImplementation((cmd) => {
+        if (cmd.includes('log') && cmd.includes('%s')) return 'fix\nupdate\nreal feature here';
+        return '';
+      });
+      const result = analyzeCommitMessagePatterns('/repo');
+      expect(result).toHaveProperty('messages');
+      expect(result).toHaveProperty('suspiciousCount');
+      expect(result).toHaveProperty('anomalyScore');
+      expect(Array.isArray(result.messages)).toBe(true);
+    });
+  });
+
+  describe('analyzeDiffPatterns', () => {
+    test('should return structure with diff stats and anomalyScore', () => {
+      execSync.mockImplementation((cmd) => {
+        if (cmd.includes('numstat')) return '10\t5\tfile.js\n';
+        return '';
+      });
+      const result = analyzeDiffPatterns('/repo');
+      expect(result).toHaveProperty('recentCommitsWithLargeDiffs');
+      expect(result).toHaveProperty('avgAdditions');
+      expect(result).toHaveProperty('avgDeletions');
+      expect(result).toHaveProperty('anomalyScore');
     });
   });
 });

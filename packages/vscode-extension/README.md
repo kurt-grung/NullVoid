@@ -2,6 +2,12 @@
 
 Run [NullVoid](https://github.com/kurt-grung/NullVoid) security scans from the editor with **Problems** panel integration and status bar summary.
 
+## Quick start
+
+1. **Install:** From repo root, `cd packages/vscode-extension && npm install && npm run compile`.
+2. **Run:** Open the NullVoid repo in VS Code → **F5** (Extension Development Host) → in the new window run **NullVoid: Run Security Scan** from the Command Palette (Ctrl+Shift+P / Cmd+Shift+P).
+3. **Or use globally:** `npm install -g nullvoid` and open any workspace; the extension will use `npx nullvoid` when the local build is not present.
+
 ## Features
 
 - **NullVoid: Run Security Scan** — Runs a full scan in the workspace root, writes results to a temp file, then:
@@ -66,6 +72,7 @@ To publish the extension to the **VS Code Marketplace** or **Open VSX**:
 
 - **Command Palette** (Ctrl+Shift+P / Cmd+Shift+P): run **NullVoid: Run Security Scan**.
 - Output appears in **View > Output**, then select **NullVoid** in the dropdown.
+- Findings show in the **Problems** panel (file, line, severity, message) and in the status bar (e.g. `NullVoid: 0 issues`).
 
 ### Settings
 
@@ -73,6 +80,16 @@ To publish the extension to the **VS Code Marketplace** or **Open VSX**:
 |--------|---------|-------------|
 | `nullvoid.scanOnFolderOpen` | `false` | Run a security scan when a workspace folder is opened. |
 | `nullvoid.scanOnFolderOpenDelay` | `2` | Delay in seconds before the auto-scan runs (only when scan on folder open is enabled). |
+
+## Testing the extension
+
+Manual testing (no test runner required):
+
+1. Open the NullVoid repo in VS Code.
+2. Press **F5** to launch the Extension Development Host.
+3. In the new window, open a folder that contains a `package.json` (e.g. the repo root or `js/`).
+4. Run **NullVoid: Run Security Scan** from the Command Palette.
+5. Check **View > Output** (NullVoid channel) for scan output and **Problems** for diagnostics; status bar should show the issue count.
 
 ## License
 

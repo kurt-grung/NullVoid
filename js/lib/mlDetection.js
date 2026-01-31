@@ -7,6 +7,7 @@
  */
 
 const path = require('path');
+const http = require('http');
 const https = require('https');
 const { DEPENDENCY_CONFUSION_CONFIG } = require('./config');
 const { analyzeTimeline } = require('./timelineAnalysis');
@@ -62,6 +63,8 @@ function buildFeatureVector(params) {
     features.commitPatternAnomaly = commitPatternAnomalyScore(commitPatterns);
     features.branchCount = commitPatterns.branchCount ?? 0;
     features.recentCommitCount90d = commitPatterns.recentCommitCount90d ?? 0;
+    if (commitPatterns.messageAnomalyScore != null) features.messageAnomalyScore = commitPatterns.messageAnomalyScore;
+    if (commitPatterns.diffAnomalyScore != null) features.diffAnomalyScore = commitPatterns.diffAnomalyScore;
   }
   return features;
 }
@@ -109,7 +112,8 @@ function fetchModelScoreFromUrl(url, features, timeout = MODEL_TIMEOUT) {
       },
       timeout
     };
-    const req = https.request(options, (res) => {
+    const protocol = u.protocol === 'https:' ? https : http;
+    const req = protocol.request(options, (res) => {
       let data = '';
       res.on('data', (chunk) => { data += chunk; });
       res.on('end', () => {

@@ -72,8 +72,9 @@ program
         workers: validatedOptions.workers === 'auto' ? undefined : parseInt(validatedOptions.workers) || undefined
       };
       
-      // Progress callback to show current file with threat detection
+      // Progress callback: use stderr when output is json/sarif so stdout is machine-readable
       let isFirstFile = true;
+      const progressOut = (validatedOptions.output === 'json' || validatedOptions.output === 'sarif') ? process.stderr : process.stdout;
       const progressCallback = (filePath) => {
         // Get relative path from the original scan target directory
         const originalScanTarget = packageName || process.cwd();
@@ -157,22 +158,22 @@ program
             }
             
             const prefix = isFirstFile ? '\n' : '';
-            console.log(`${prefix}📁 ${displayPath} ${colorFunc(`(detected: ${threatText})`)}`);
+            progressOut.write(`${prefix}📁 ${displayPath} ${colorFunc(`(detected: ${threatText})`)}\n`);
             isFirstFile = false;
           } else {
             const prefix = isFirstFile ? '\n' : '';
-            console.log(`${prefix}📁 ${displayPath}`);
+            progressOut.write(`${prefix}📁 ${displayPath}\n`);
             isFirstFile = false;
           }
           
           // Debug: Log progress updates
           if (process.env.NULLVOID_DEBUG) {
-            console.log(`\nDEBUG: Scanning file: ${displayPath}`);
+            progressOut.write(`\nDEBUG: Scanning file: ${displayPath}\n`);
           }
         } catch (error) {
           // If we can't read the file, just show the relative path
           const prefix = isFirstFile ? '\n' : '';
-          console.log(`${prefix}📁 ${displayPath}`);
+          progressOut.write(`${prefix}📁 ${displayPath}\n`);
           isFirstFile = false;
         }
       };

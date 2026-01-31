@@ -137,7 +137,9 @@ async function performScan(target: string | undefined, options: CliOptions) {
       scanOptions.sarifFile = options.sarif;
     }
 
-    // Progress callback to show current file with threat detection
+    // Progress callback: use stderr when format is json/sarif so stdout is machine-readable
+    const progressOut =
+      options.format === 'json' || options.format === 'sarif' ? process.stderr : process.stdout;
     const progressCallback = (progress: {
       current: number;
       total: number;
@@ -170,18 +172,24 @@ async function performScan(target: string | undefined, options: CliOptions) {
 
         if (hasHighSeverityThreats) {
           const threatText = threats.join(', ');
-          console.log(`📁 ${displayPath} (detected: ${threatText})`);
+          progressOut.write(`📁 ${displayPath} (detected: ${threatText})\n`);
         } else {
-          console.log(`📁 ${displayPath}`);
+          progressOut.write(`📁 ${displayPath}\n`);
         }
       } catch {
         // If we can't read the file, just show the relative path
-        console.log(`📁 ${displayPath}`);
+        progressOut.write(`📁 ${displayPath}\n`);
       }
     };
 
     const result = await scan(target || '.', scanOptions, progressCallback);
     spinner.succeed('✅ Scan completed');
+
+    // When format is json and no output file, print JSON only to stdout (machine-readable)
+    if (options.format === 'json' && !options.output) {
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
 
     // Display results
     displayResults(result, options);

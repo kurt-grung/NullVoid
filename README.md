@@ -52,6 +52,53 @@ jobs:
           sarif_file: nullvoid-results.sarif
 ```
 
+### Pre-commit hooks (optional)
+
+Run NullVoid before each commit and block the commit if threats are found. Requires [Husky](https://typicode.github.io/husky/) (or any git hook runner).
+
+1. **Enable NullVoid in pre-commit** by setting the environment variable (e.g. in your shell or `.env`):
+   ```bash
+   export NULLVOID_PRE_COMMIT=1
+   ```
+
+2. **Example `.husky/pre-commit`** (Husky runs this on `git commit`):
+   ```bash
+   npx lint-staged
+
+   # Optional: run NullVoid and block commit if threats found
+   if [ "$NULLVOID_PRE_COMMIT" = "1" ]; then
+     npm run build && node scripts/nullvoid-pre-commit.js
+   fi
+   ```
+
+   The pre-commit script runs a fast scan (`--depth 1`, `--no-ioc`) and exits with code 1 if any threats are detected, so the commit is aborted.    Omit the `if` block or leave `NULLVOID_PRE_COMMIT` unset to skip NullVoid on commit.
+
+### GitLab CI
+
+Add a job to run NullVoid on push/merge. Example `.gitlab-ci.yml` (or copy from [.gitlab-ci.example.yml](.gitlab-ci.example.yml)):
+
+```yaml
+# .gitlab-ci.yml
+stages:
+  - test
+
+nullvoid-scan:
+  stage: test
+  image: node:18
+  before_script:
+    - npm ci
+  script:
+    - npx nullvoid . --output json --sarif-file nullvoid-results.sarif
+  artifacts:
+    when: always
+    paths:
+      - nullvoid-results.sarif
+    reports:
+      sast: nullvoid-results.sarif
+```
+
+Use `npm run build && node ts/dist/bin/nullvoid.js . ...` if building from the NullVoid repo. **CircleCI** is also supported; see [.circleci/config.yml](.circleci/config.yml). **Travis CI** and **Azure DevOps** examples: [.travis.example.yml](.travis.example.yml), [azure-pipelines.example.yml](azure-pipelines.example.yml). For IntelliJ, Sublime, and Vim integration, see [docs/IDE_INTEGRATION.md](docs/IDE_INTEGRATION.md).
+
 
 ### Scan Options
 ```bash

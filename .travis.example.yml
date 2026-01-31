@@ -1,0 +1,17 @@
+# Travis CI example: NullVoid security scan
+# Copy to .travis.yml or merge into your existing config.
+# See https://docs.travis-ci.com/user/languages/javascript-with-nodejs/
+
+language: node_js
+node_js:
+  - '18'
+
+install:
+  - npm ci
+
+script:
+  - npx nullvoid . --output json --sarif-file nullvoid-results.sarif
+
+after_success:
+  # Optional: upload SARIF to GitHub Code Scanning or another consumer
+  - echo "SARIF written to nullvoid-results.sarif"

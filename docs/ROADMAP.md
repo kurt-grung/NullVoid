@@ -87,7 +87,7 @@ NullVoid aims to be the most comprehensive and accurate static analysis security
 
 #### **Advanced Algorithms**
 - **Machine Learning Models**: ML-based timeline analysis for better accuracy — *scaffold + configurable weights + pluggable model* (`lib/mlDetection.js`): rule-based + anomaly + commit-pattern scoring; `PHASE2_DETECTION.ML_WEIGHTS`; optional `ML_MODEL_URL` (POST features → score) or `ML_MODEL_PATH` (Node module exporting `score(features)`) to replace rule-based scoring
-- **Pattern Recognition**: Advanced pattern recognition in git history
+- **Pattern Recognition**: Advanced pattern recognition in git history — *implemented* (`lib/commitPatternAnalysis.js`: `analyzeCommitMessagePatterns()`, `analyzeDiffPatterns()`; commit message and diff patterns feed into ML features)
 - **Anomaly Detection**: Statistical anomaly detection in package timelines — *implemented* (`lib/timelineAnalysis.js`: `timelineAnomalyScore`, `analyzeTimeline`)
 - **Predictive Analysis**: Predicting potential security issues based on patterns
 
@@ -105,30 +105,29 @@ NullVoid aims to be the most comprehensive and accurate static analysis security
 
 ### **🛠️ Developer Experience**
 
-#### **IDE Integration**
-- **VS Code Extension**: Real-time scanning and threat detection in VS Code
-- **IntelliJ Plugin**: JetBrains IDE integration with comprehensive security analysis
-- **Sublime Text Plugin**: Lightweight integration for Sublime Text users
-- **Vim/Neovim Support**: Command-line editor integration
+#### **IDE Integration** ✅ **VS Code + IntelliJ/Sublime/Vim**
+- **VS Code Extension**: Real-time scanning and threat detection in VS Code — *implemented & documented* ([packages/vscode-extension](packages/vscode-extension): Quick start, Usage, Testing; F5 + Command Palette)
+- **IntelliJ / Sublime / Vim**: External tools and build systems — *documented* ([docs/IDE_INTEGRATION.md](docs/IDE_INTEGRATION.md): IntelliJ External Tool & Run Config, Sublime build system, Vim script & keymap)
 
-#### **Pre-commit Hooks**
-- **Git Hooks**: Automatic scanning before commits
+#### **Pre-commit Hooks** ✅ **Documented**
+- **Git Hooks**: Automatic scanning before commits — *documented* (README: `NULLVOID_PRE_COMMIT=1`, example `.husky/pre-commit`, [scripts/nullvoid-pre-commit.js](scripts/nullvoid-pre-commit.js))
 - **Customizable Rules**: Configurable scanning rules and thresholds
 - **Fast Fail Mode**: Quick scanning for rapid feedback
 - **Integration with Git Hooks**: Seamless integration with existing git workflows
 
-#### **CI/CD Platform Expansion**
+#### **CI/CD Platform Expansion** ✅ **CircleCI + GitLab + Travis + Azure**
 - **Jenkins Integration**: Comprehensive Jenkins pipeline integration
-- **CircleCI Support**: Native CircleCI orb for easy integration
-- **Travis CI Integration**: Travis CI configuration templates and examples
-- **Azure DevOps**: Azure DevOps pipeline integration
-- **GitLab CI Enhancement**: Enhanced GitLab CI integration with advanced features
+- **CircleCI Support**: Native CircleCI orb for easy integration — *implemented* ([.circleci/config.yml](.circleci/config.yml))
+- **Travis CI Integration**: Travis CI configuration templates and examples — *example added* ([.travis.example.yml](.travis.example.yml))
+- **Azure DevOps**: Azure DevOps pipeline integration — *example added* ([azure-pipelines.example.yml](azure-pipelines.example.yml))
+- **GitLab CI Enhancement**: Enhanced GitLab CI integration — *example added* (README + [.gitlab-ci.example.yml](.gitlab-ci.example.yml))
 
-#### **Configuration UI**
-- **Web-based Interface**: Browser-based configuration interface
-- **Visual Rule Builder**: Drag-and-drop rule configuration
+#### **Configuration UI** *(deferred to Phase 2 later)*
+- **Web-based Interface**: Browser-based configuration interface — *deferred*
+- **Visual Rule Builder**: Drag-and-drop rule configuration — *deferred*
 - **Template Library**: Pre-built configuration templates for common scenarios
 - **Configuration Validation**: Real-time configuration validation and suggestions
+- *Scope: web UI / rule builder to be prioritized after IDE and CI/CD polish.*
 
 ---
 
