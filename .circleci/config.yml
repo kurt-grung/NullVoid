@@ -35,11 +35,15 @@ jobs:
 
       - run:
           name: Run NullVoid security scan
-          command: node ts/dist/bin/nullvoid.js . --format json --output security-report.json
+          command: node ts/dist/bin/nullvoid.js . --format json --output security-report.json --sarif nullvoid-results.sarif
 
       - store_artifacts:
           path: security-report.json
           destination: security-report.json
+
+      - store_artifacts:
+          path: nullvoid-results.sarif
+          destination: nullvoid-results.sarif
 
 workflows:
   version: 2

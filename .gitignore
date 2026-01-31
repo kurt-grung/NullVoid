@@ -112,9 +112,11 @@ Thumbs.db
 # Security scan results
 security-report.json
 dependency-scan.json
+nullvoid-results.sarif
 todo/
 dev/
 
 # VS Code extension
 packages/vscode-extension/out/
+packages/vscode-extension/tsc
 *.vsix
