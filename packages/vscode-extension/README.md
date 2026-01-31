@@ -1,10 +1,13 @@
 # NullVoid VS Code Extension
 
-Minimal VS Code extension to run [NullVoid](https://github.com/kurt-grung/NullVoid) security scans from the editor.
+Run [NullVoid](https://github.com/kurt-grung/NullVoid) security scans from the editor with **Problems** panel integration and status bar summary.
 
 ## Features
 
-- **NullVoid: Run Security Scan** — Runs `nullvoid . --format text` in the workspace root and shows output in the **Output** panel (channel: NullVoid).
+- **NullVoid: Run Security Scan** — Runs a full scan in the workspace root, writes results to a temp file, then:
+  - Shows scan output in the **Output** panel (channel: NullVoid).
+  - Publishes findings to the **Problems** panel as diagnostics (file, line, severity, message).
+  - Updates the **status bar** with a summary (e.g. `NullVoid: 0 issues` or `NullVoid: 3 issue(s)`).
 
 ## Setup
 

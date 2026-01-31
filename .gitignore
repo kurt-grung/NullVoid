@@ -114,3 +114,7 @@ security-report.json
 dependency-scan.json
 todo/
 dev/
+
+# VS Code extension
+packages/vscode-extension/out/
+*.vsix
