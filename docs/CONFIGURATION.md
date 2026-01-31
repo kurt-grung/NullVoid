@@ -11,6 +11,7 @@ Complete guide to configuring NullVoid for optimal performance and security scan
 5. [Performance Tuning](#performance-tuning)
 6. [CLI Configuration](#cli-configuration)
 7. [Programmatic Configuration](#programmatic-configuration)
+8. [Pre-commit Integration](#pre-commit-integration)
 
 ## Environment Variables
 
@@ -439,6 +440,35 @@ if (errors.length > 0) {
   console.error('Configuration errors:', errors);
 }
 ```
+
+## Pre-commit Integration
+
+You can run a NullVoid security scan automatically before each commit using the optional pre-commit hook.
+
+### Enable
+
+Set the environment variable to turn on the scan in the existing Husky pre-commit hook:
+
+```bash
+export NULLVOID_PRE_COMMIT=1
+```
+
+Or run it once for a single commit:
+
+```bash
+NULLVOID_PRE_COMMIT=1 git commit -m "your message"
+```
+
+### Behavior
+
+- When `NULLVOID_PRE_COMMIT=1`, the hook runs `npm run build` then `npx nullvoid . --format text --depth 2` from the repository root.
+- `--depth 2` keeps the scan shallow so commits stay quick.
+- The commit is blocked if the build fails or if the scanner throws an error; otherwise the commit proceeds (the CLI does not exit non-zero when threats are found, only on exceptions).
+
+### Disable
+
+- Unset the variable: `unset NULLVOID_PRE_COMMIT`, or do not set it (default is off).
+- The pre-commit hook still runs `lint-staged`; only the NullVoid scan is optional.
 
 ## Next Steps
 

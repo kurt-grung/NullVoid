@@ -1,0 +1,48 @@
+# CircleCI configuration for NullVoid security scanning
+# See https://circleci.com/docs/config-intro/
+
+version: 2.1
+
+jobs:
+  security-scan:
+    docker:
+      - image: cimg/node:18
+    steps:
+      - checkout
+
+      - restore_cache:
+          keys:
+            - v1-npm-deps-{{ checksum "package-lock.json" }}
+            - v1-npm-deps-
+
+      - run:
+          name: Install root dependencies
+          command: npm ci
+
+      - run:
+          name: Install TypeScript dependencies
+          command: cd ts && npm ci
+
+      - save_cache:
+          key: v1-npm-deps-{{ checksum "package-lock.json" }}
+          paths:
+            - node_modules
+            - ts/node_modules
+
+      - run:
+          name: Build NullVoid
+          command: npm run build
+
+      - run:
+          name: Run NullVoid security scan
+          command: node ts/dist/bin/nullvoid.js . --format json --output security-report.json
+
+      - store_artifacts:
+          path: security-report.json
+          destination: security-report.json
+
+workflows:
+  version: 2
+  security:
+    jobs:
+      - security-scan

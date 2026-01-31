@@ -5,6 +5,7 @@
 - **Completion**: **100% Complete**
 - **Critical Missing**: None
 - **Estimated Effort**: Completed
+- **Next**: Phase 2 (Enhanced Detection & Developer Experience) — see [ROADMAP.md](ROADMAP.md)
 
 ---
 

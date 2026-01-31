@@ -5,6 +5,19 @@ All notable changes to NullVoid will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2025-01-31
+
+### Added (Phase 1 Complete)
+- **IoC multi-layer cache**: Optional L1+L2 cache for IoC results via `NULLVOID_IOC_MULTI_LAYER_CACHE=true`; cache analytics recorded when using multi-layer
+- **Provider HTTP client**: Central `providerFetch()` with connection pooling and request batching; all IoC providers (Snyk, npm Advisories, GHSA, CVE) use it when enabled in config
+- **Parallel file scan**: Two-phase scan (collect paths then process); parallel chunked processing when `--parallel` and 5+ scanable files (configurable via `SCAN_CONFIG.enableParallel`, `PARALLEL_CONFIG.MIN_CHUNK_SIZE`)
+
+### Fixed
+- **CLI**: `--cache-stats` and `--network-stats` now work (Commander exposes them as `cacheStats` / `networkStats`); display supports both LRU and multi-layer cache stats
+
+### Technical
+- Phase 1 (Q1 2025) roadmap items completed: IoC feeds, multi-layer caching, connection pooling, request batching, parallel scan, cache analytics in hot path
+
 ## [2.0.3] - 2025-01-27
 
 ### Added

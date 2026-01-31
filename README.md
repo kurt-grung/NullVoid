@@ -723,8 +723,8 @@ NullVoid has a comprehensive roadmap for 2025 focusing on advanced threat detect
 
 #### **Q2 2025 - Enhanced Detection & Developer Experience**
 - **Advanced Timeline Analysis**: ML-based timeline analysis and commit pattern analysis
-- **IDE Integration**: VS Code, IntelliJ plugins for real-time scanning
-- **Pre-commit Hooks**: Git hooks for automatic scanning
+- **IDE Integration**: [VS Code extension](packages/vscode-extension) (run scan from Command Palette); IntelliJ plugins planned
+- **Pre-commit Hooks**: Optional scan before commit—set `NULLVOID_PRE_COMMIT=1` to enable; see [Pre-commit Integration](docs/CONFIGURATION.md#pre-commit-integration).
 - **More CI/CD Platforms**: Jenkins, CircleCI, Travis CI integration
 
 #### **Q3 2025 - Enterprise Features & Advanced Analytics**
@@ -772,6 +772,26 @@ jobs:
         uses: github/codeql-action/upload-sarif@v2
         with:
           sarif_file: nullvoid-results.sarif
+```
+
+### **CircleCI Integration**
+
+A ready-to-use CircleCI config is in [.circleci/config.yml](.circleci/config.yml). It installs dependencies, builds NullVoid, runs the scan, and stores the JSON report as an artifact.
+
+```yaml
+# .circleci/config.yml (excerpt)
+jobs:
+  security-scan:
+    docker:
+      - image: cimg/node:18
+    steps:
+      - checkout
+      - run: npm ci
+      - run: cd ts && npm ci
+      - run: npm run build
+      - run: node ts/dist/bin/nullvoid.js . --format json --output security-report.json
+      - store_artifacts:
+          path: security-report.json
 ```
 
 ### **GitLab CI Integration**

@@ -14,7 +14,7 @@ NullVoid aims to be the most comprehensive and accurate static analysis security
 
 ---
 
-## 🚀 **Current Status (v1.3.17)**
+## 🚀 **Current Status (v2.1.0)**
 
 ### ✅ **Completed Features**
 - **TypeScript Migration**: Complete migration to TypeScript for enhanced type safety and developer experience
@@ -22,15 +22,16 @@ NullVoid aims to be the most comprehensive and accurate static analysis security
 - **Threat Detection**: Obfuscated malware, wallet hijacking, supply chain attacks
 - **Dependency Confusion Detection**: Timeline analysis, scope verification, pattern detection
 - **SARIF Integration**: Complete CI/CD pipeline integration
-- **Parallel Processing**: Multi-threaded scanning with resource management
+- **Parallel Processing**: Multi-threaded scanning with resource management; chunked file scan when `--parallel` and 5+ files
 - **Progress Display**: Real-time scanning feedback
-- **Comprehensive Testing**: 157 unit tests with 100% pass rate
+- **Comprehensive Testing**: 113+ unit and integration tests
+- **Phase 1 (Q1 2025) Complete**: Public IoC feeds (Snyk, npm Advisories, GHSA, CVE); multi-layer IoC cache (optional via `NULLVOID_IOC_MULTI_LAYER_CACHE`); cache analytics in IoC path; provider HTTP client with connection pooling and request batching; parallel file scan; CLI `--cache-stats` / `--network-stats` fix
 
 ---
 
-## 🎯 **Phase 1: Public IoC Integration & Performance (Q1 2025)**
+## 🎯 **Phase 1: Public IoC Integration & Performance (Q1 2025)** ✅ **Complete**
 
-### **🔍 Public IoC Feeds Integration** ⭐ **High Priority**
+### **🔍 Public IoC Feeds Integration** ✅ **Done**
 
 #### **Snyk Integration**
 - **Real-time Vulnerability Data**: Direct integration with Snyk's vulnerability database
@@ -56,7 +57,7 @@ NullVoid aims to be the most comprehensive and accurate static analysis security
 - **CVSS Scoring**: Common Vulnerability Scoring System integration
 - **Temporal Analysis**: Historical vulnerability trend analysis
 
-### **⚡ Performance Optimizations**
+### **⚡ Performance Optimizations** ✅ **Done**
 
 #### **Caching Improvements**
 - **Multi-layer Caching**: Registry data, vulnerability data, and analysis results
@@ -70,9 +71,9 @@ NullVoid aims to be the most comprehensive and accurate static analysis security
 - **Memory Pool Management**: Efficient memory allocation and deallocation
 - **Resource Monitoring**: Real-time resource usage monitoring
 
-#### **Network Optimization**
-- **Connection Pooling**: HTTP connection reuse and pooling
-- **Request Batching**: Batch multiple API requests for efficiency
+#### **Network Optimization** ✅
+- **Connection Pooling**: HTTP connection reuse and pooling (provider HTTP client)
+- **Request Batching**: Batch multiple API requests for efficiency (provider HTTP client)
 - **Compression Support**: Gzip/Brotli compression for API responses
 - **CDN Integration**: Content delivery network integration for faster data access
 
