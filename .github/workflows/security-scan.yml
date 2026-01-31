@@ -13,6 +13,7 @@ permissions:
   contents: read
   pull-requests: write
   issues: write
+  security-events: write  # for SARIF upload to Code Scanning
 
 jobs:
   security-scan:
@@ -40,11 +41,26 @@ jobs:
     - name: Run NullVoid security scan
       run: node ts/dist/bin/nullvoid.js . --format json --output security-report.json
       
+    - name: Convert to SARIF for Code Scanning
+      run: node scripts/json-to-sarif.js security-report.json nullvoid-results.sarif
+      
+    - name: Upload SARIF to GitHub Code Scanning
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: nullvoid-results.sarif
+      continue-on-error: true  # do not fail job if repo has no Code Scanning enabled
+      
     - name: Upload security report
       uses: actions/upload-artifact@v4
       with:
         name: security-report
         path: security-report.json
+        
+    - name: Upload SARIF artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: nullvoid-sarif
+        path: nullvoid-results.sarif
         
     - name: Comment PR with security results
       if: github.event_name == 'pull_request'
