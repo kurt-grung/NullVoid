@@ -724,7 +724,7 @@ NullVoid has a comprehensive roadmap for 2025 focusing on advanced threat detect
 #### **Q2 2025 - Enhanced Detection & Developer Experience**
 - **Advanced Timeline Analysis**: ML-based timeline analysis and commit pattern analysis
 - **IDE Integration**: [VS Code extension](packages/vscode-extension) (run scan from Command Palette); IntelliJ plugins planned
-- **Pre-commit Hooks**: Optional scan before commit—set `NULLVOID_PRE_COMMIT=1` to enable; see [Pre-commit Integration](docs/CONFIGURATION.md#pre-commit-integration).
+- **Pre-commit Hooks**: Optional scan before commit—set `NULLVOID_PRE_COMMIT=1` to enable; commit is **blocked** if threats are found. See [Pre-commit Integration](docs/PRE_COMMIT.md).
 - **More CI/CD Platforms**: Jenkins, CircleCI, Travis CI integration
 
 #### **Q3 2025 - Enterprise Features & Advanced Analytics**

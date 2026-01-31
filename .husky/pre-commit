@@ -1,6 +1,6 @@
 npx lint-staged
 
-# Optional: run NullVoid security scan before commit (set NULLVOID_PRE_COMMIT=1 to enable)
+# Optional: run NullVoid and block commit if threats found (set NULLVOID_PRE_COMMIT=1 to enable)
 if [ "$NULLVOID_PRE_COMMIT" = "1" ]; then
-  npm run build && npx nullvoid . --format text --depth 2
+  npm run build && node scripts/nullvoid-pre-commit.js
 fi

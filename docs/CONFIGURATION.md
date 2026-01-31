@@ -443,7 +443,9 @@ if (errors.length > 0) {
 
 ## Pre-commit Integration
 
-You can run a NullVoid security scan automatically before each commit using the optional pre-commit hook.
+You can run a NullVoid security scan automatically before each commit. When enabled, the hook **blocks the commit** if any threats are found.
+
+**Full guide:** [Pre-commit Integration](PRE_COMMIT.md).
 
 ### Enable
 
@@ -461,9 +463,8 @@ NULLVOID_PRE_COMMIT=1 git commit -m "your message"
 
 ### Behavior
 
-- When `NULLVOID_PRE_COMMIT=1`, the hook runs `npm run build` then `npx nullvoid . --format text --depth 2` from the repository root.
-- `--depth 2` keeps the scan shallow so commits stay quick.
-- The commit is blocked if the build fails or if the scanner throws an error; otherwise the commit proceeds (the CLI does not exit non-zero when threats are found, only on exceptions).
+- When `NULLVOID_PRE_COMMIT=1`, the hook runs `npm run build` then `scripts/nullvoid-pre-commit.js`, which runs NullVoid with `--depth 1` and **exits 1 if any threats are found**, so the commit is blocked.
+- The commit is also blocked if the build fails.
 
 ### Disable
 

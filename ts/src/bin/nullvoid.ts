@@ -115,7 +115,7 @@ async function performScan(target: string | undefined, options: CliOptions) {
       verbose: options.verbose || false,
       debug: options.debug || false,
       all: options.all || false,
-      iocEnabled: !options['no-ioc'], // Enable IoC by default unless --no-ioc is specified
+      iocEnabled: !(options['no-ioc'] || (options as { noIoc?: boolean }).noIoc), // Disable when --no-ioc is passed (Commander may set noIoc)
     };
 
     // Add optional properties only if they exist
