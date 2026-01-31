@@ -12,6 +12,12 @@ const { timelineAnomalyScore, analyzeTimeline } = require('./timelineAnalysis');
 const PHASE2 = DEPENDENCY_CONFUSION_CONFIG?.PHASE2_DETECTION ?? {};
 const ML_ENABLED = PHASE2.ML_SCORING !== false;
 const ANOMALY_THRESHOLD = PHASE2.ML_ANOMALY_THRESHOLD ?? 0.7;
+const ML_WEIGHTS = PHASE2.ML_WEIGHTS ?? {
+  timelineAnomaly: 0.5,
+  scopePrivate: 0.2,
+  suspiciousPatterns: 0.2,
+  lowActivityRecent: 0.1
+};
 
 /**
  * Build a feature vector for a package (for future ML model)
@@ -43,17 +49,21 @@ function buildFeatureVector(params) {
 }
 
 /**
- * Compute a single threat score (0–1) from features. Currently rule-based;
- * can be replaced by ML model inference later.
+ * Compute a single threat score (0–1) from features using configurable ML weights
+ * (linear model). Weights can be tuned or replaced by a trained model later.
  * @param {Object} features - From buildFeatureVector
+ * @param {Object} [weights] - Override PHASE2_DETECTION.ML_WEIGHTS
  * @returns {number} Score 0–1
  */
-function computeThreatScore(features) {
+function computeThreatScore(features, weights = ML_WEIGHTS) {
   let score = 0;
-  if (features.timelineAnomaly != null) score += 0.5 * features.timelineAnomaly;
-  if (features.scopePrivate === 1) score += 0.2;
-  if (features.suspiciousPatternsCount > 0) score += Math.min(0.2, 0.1 * features.suspiciousPatternsCount);
-  if (features.recentCommitCount < 5 && features.daysDifference < 30) score += 0.1;
+  if (features.timelineAnomaly != null && weights.timelineAnomaly)
+    score += weights.timelineAnomaly * features.timelineAnomaly;
+  if (features.scopePrivate === 1 && weights.scopePrivate) score += weights.scopePrivate;
+  if (features.suspiciousPatternsCount > 0 && weights.suspiciousPatterns)
+    score += Math.min(weights.suspiciousPatterns, 0.1 * features.suspiciousPatternsCount * (weights.suspiciousPatterns / 0.2));
+  if (weights.lowActivityRecent && features.recentCommitCount < 5 && features.daysDifference < 30)
+    score += weights.lowActivityRecent;
   return Math.min(1, score);
 }
 

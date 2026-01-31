@@ -81,10 +81,12 @@ NullVoid aims to be the most comprehensive and accurate static analysis security
 
 ## 🔍 **Phase 2: Enhanced Detection & Developer Experience (Q2 2025)**
 
+**Phase 2 detection updates:** Registry health monitoring and configurable ML weights are implemented. Registry health: `checkRegistryHealth()` / `checkAllRegistriesHealth()` and CLI `nullvoid registry-health`. ML: `PHASE2_DETECTION.ML_WEIGHTS` (linear model); fallback config in `registries.js` uses `DEFAULT_ORDER` (not `defaultOrder`).
+
 ### **🧠 Enhanced Timeline Analysis** ✅ **In progress**
 
 #### **Advanced Algorithms**
-- **Machine Learning Models**: ML-based timeline analysis for better accuracy — *scaffold in place* (`lib/mlDetection.js`), rule-based + anomaly scoring; ready for model integration
+- **Machine Learning Models**: ML-based timeline analysis for better accuracy — *scaffold + configurable weights* (`lib/mlDetection.js`): rule-based + anomaly scoring, `PHASE2_DETECTION.ML_WEIGHTS` for linear model; ready for full model integration
 - **Pattern Recognition**: Advanced pattern recognition in git history
 - **Anomaly Detection**: Statistical anomaly detection in package timelines — *implemented* (`lib/timelineAnalysis.js`: `timelineAnomalyScore`, `analyzeTimeline`)
 - **Predictive Analysis**: Predicting potential security issues based on patterns
@@ -99,7 +101,7 @@ NullVoid aims to be the most comprehensive and accurate static analysis security
 - **GitHub Packages**: Support for GitHub's package registry — *implemented* (`lib/registries.js`)
 - **Private Registries**: Support for private npm registries and enterprise solutions — *configurable via* `DEPENDENCY_CONFUSION_CONFIG.REGISTRIES.CUSTOM`
 - **Registry Comparison**: Cross-registry package comparison and analysis — *implemented* (`compareRegistries()`)
-- **Registry Health Monitoring**: Monitoring registry health and availability
+- **Registry Health Monitoring**: Monitoring registry health and availability — *implemented* (`checkRegistryHealth()`, `checkAllRegistriesHealth()`; CLI: `nullvoid registry-health`)
 
 ### **🛠️ Developer Experience**
 

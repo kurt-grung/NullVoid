@@ -10,8 +10,9 @@ const https = require('https');
 const { DEPENDENCY_CONFUSION_CONFIG } = require('./config');
 
 const REGISTRY_ENDPOINTS = DEPENDENCY_CONFUSION_CONFIG.REGISTRY_ENDPOINTS || {};
-const REGISTRIES = DEPENDENCY_CONFUSION_CONFIG.REGISTRIES || { defaultOrder: ['npm'], custom: [] };
+const REGISTRIES = DEPENDENCY_CONFUSION_CONFIG.REGISTRIES || { DEFAULT_ORDER: ['npm'], CUSTOM: [] };
 const TIMEOUT = DEPENDENCY_CONFUSION_CONFIG.ANALYSIS_SETTINGS?.TIMEOUT ?? 10000;
+const HEALTH_CHECK_TIMEOUT = 5000;
 
 /**
  * Fetch JSON from a URL (GET)
@@ -180,7 +181,11 @@ async function getPackageCreationDateMulti(packageName, options = {}) {
       }
     }
   }
-  return allResults.length ? { created: allResults[0].created, registryName: order[0], allResults } : null;
+  // Return null if no registry had a creation date (do not return created: null)
+  const firstWithCreated = allResults.find((r) => r.created != null);
+  return firstWithCreated
+    ? { created: firstWithCreated.created, registryName: firstWithCreated.registryName, allResults }
+    : null;
 }
 
 /**
@@ -205,11 +210,66 @@ async function compareRegistries(packageName) {
   return results;
 }
 
+/**
+ * Registry health check: ping registry root and measure latency (Phase 2).
+ * @param {string} registryName - npm, github, or custom name
+ * @param {Object} [options] - { timeout }
+ * @returns {Promise<{ registryName: string, ok: boolean, latencyMs: number, statusCode?: number, error?: string }>}
+ */
+function checkRegistryHealth(registryName, options = {}) {
+  const base = getRegistryBase(registryName);
+  const timeout = options.timeout ?? HEALTH_CHECK_TIMEOUT;
+  return new Promise((resolve) => {
+    if (!base?.url) {
+      resolve({ registryName, ok: false, latencyMs: 0, error: 'Unknown registry' });
+      return;
+    }
+    const start = Date.now();
+    const url = `${base.url}/`;
+    const req = https.get(
+      url,
+      {
+        headers: { 'User-Agent': 'NullVoid-Security-Scanner/2.0' },
+        timeout
+      },
+      (res) => {
+        const latencyMs = Date.now() - start;
+        const ok = res.statusCode >= 200 && res.statusCode < 400;
+        resolve({ registryName, ok, latencyMs, statusCode: res.statusCode });
+      }
+    );
+    req.on('error', (err) => {
+      resolve({ registryName, ok: false, latencyMs: Date.now() - start, error: err.message });
+    });
+    req.setTimeout(timeout, () => {
+      req.destroy();
+      resolve({ registryName, ok: false, latencyMs: Date.now() - start, error: 'Timeout' });
+    });
+  });
+}
+
+/**
+ * Check health of all configured registries (Phase 2).
+ * @param {Object} [options] - { timeout }
+ * @returns {Promise<Array<{ registryName: string, ok: boolean, latencyMs: number, statusCode?: number, error?: string }>>}
+ */
+async function checkAllRegistriesHealth(options = {}) {
+  const order = getRegistryOrder();
+  const results = [];
+  for (const name of order) {
+    const health = await checkRegistryHealth(name, options);
+    results.push(health);
+  }
+  return results;
+}
+
 module.exports = {
   getRegistryOrder,
   getRegistryBase,
   fetchFromRegistry,
   getPackageCreationDateMulti,
   compareRegistries,
+  checkRegistryHealth,
+  checkAllRegistriesHealth,
   fetchJson
 };

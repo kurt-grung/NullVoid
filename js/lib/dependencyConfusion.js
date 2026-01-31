@@ -254,7 +254,7 @@ async function detectDependencyConfusion(packageName, packagePath) {
     if (timelineRisk !== 'LOW') {
       const confidence = mlResult.enabled && mlResult.aboveThreshold
         ? Math.min(95, 70 + Math.round(mlResult.threatScore * 25))
-        : Math.min(95, 60 + (30 - daysDifference) * 2);
+        : Math.min(95, Math.max(0, 60 + (30 - daysDifference) * 2));
       threats.push({
         type: 'DEPENDENCY_CONFUSION_TIMELINE',
         message: `Package creation date suspiciously close to git history (${Math.round(daysDifference)} days)`,

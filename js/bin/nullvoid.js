@@ -7,6 +7,7 @@ const path = require('path');
 const { scan } = require('../scan');
 const packageJson = require('../package.json');
 const { generateSarifOutput, writeSarifFile } = require('../lib/sarif');
+const { checkAllRegistriesHealth } = require('../lib/registries');
 
 // Import secure validation
 const { InputValidator, SecurityError, ValidationError } = require('../lib/secureErrorHandler');
@@ -200,6 +201,34 @@ program
       process.exit(0);
     } catch (error) {
       spinner.fail('❌ Scan failed');
+      console.error(colors.red('Error:'), error.message);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('registry-health')
+  .description('Check health and availability of configured package registries (Phase 2)')
+  .option('-o, --output <format>', 'Output format (table, json)', 'table')
+  .option('-t, --timeout <ms>', 'Health check timeout in ms', '5000')
+  .action(async (options) => {
+    try {
+      const timeout = parseInt(options.timeout, 10) || 5000;
+      const results = await checkAllRegistriesHealth({ timeout });
+      if (options.output === 'json') {
+        console.log(JSON.stringify(results, null, 2));
+      } else {
+        console.log(colors.bold('\n📡 Registry Health\n'));
+        results.forEach((r) => {
+          const status = r.ok ? colors.green('✓') : colors.red('✗');
+          const latency = r.latencyMs != null ? ` ${r.latencyMs}ms` : '';
+          const extra = r.statusCode != null ? ` (${r.statusCode})` : r.error ? ` (${r.error})` : '';
+          console.log(`  ${status} ${r.registryName}${latency}${extra}`);
+        });
+        console.log('');
+      }
+      process.exit(0);
+    } catch (error) {
       console.error(colors.red('Error:'), error.message);
       process.exit(1);
     }

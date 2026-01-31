@@ -494,7 +494,14 @@ const DEPENDENCY_CONFUSION_CONFIG = {
     MULTI_REGISTRY: true,
     TIMELINE_ANOMALY: true,
     ML_SCORING: true,
-    ML_ANOMALY_THRESHOLD: 0.7  // 0-1; score >= this may be flagged
+    ML_ANOMALY_THRESHOLD: 0.7,  // 0-1; score >= this may be flagged
+    // Configurable ML weights (linear model); sum should be ~1 for 0-1 output
+    ML_WEIGHTS: {
+      timelineAnomaly: 0.5,
+      scopePrivate: 0.2,
+      suspiciousPatterns: 0.2,
+      lowActivityRecent: 0.1
+    }
   },
   
   // Analysis settings
