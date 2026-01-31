@@ -13,7 +13,7 @@ import type {
   CVEInfo,
 } from '../../types/ioc-types';
 import { logger } from '../logger';
-import { fetchWithTimeout } from './fetchWithTimeout';
+import { providerFetch } from './providerHttpClient';
 
 /**
  * GHSA GraphQL response types
@@ -267,7 +267,7 @@ export class GHSAProvider implements IoCProvider {
       headers['Authorization'] = `Bearer ${this.config.apiKey}`;
     }
 
-    const response = await fetchWithTimeout(this.graphqlUrl, {
+    const response = await providerFetch(this.graphqlUrl, {
       method: 'POST',
       headers,
       body: JSON.stringify({

@@ -30,8 +30,10 @@ interface CliOptions {
   all?: boolean;
   'ioc-providers'?: string;
   'cache-stats'?: boolean;
+  cacheStats?: boolean;
   'enable-redis'?: boolean;
   'network-stats'?: boolean;
+  networkStats?: boolean;
   'no-ioc'?: boolean;
 }
 
@@ -184,53 +186,58 @@ async function performScan(target: string | undefined, options: CliOptions) {
     // Display results
     displayResults(result, options);
 
-    // Display cache statistics if requested
-    if (options['cache-stats']) {
+    // Display cache statistics if requested (Commander exposes --cache-stats as cacheStats)
+    if (options['cache-stats'] ?? options.cacheStats) {
       try {
         const ioCManager = getIoCManager();
         const cacheStats = ioCManager.getCacheStats();
         const cacheAnalytics = getCacheAnalytics();
-        const multiLayerStats = cacheAnalytics.getSummary({
-          layers: {
-            L1: {
-              layer: 'L1',
-              size: cacheStats.size,
-              maxSize: cacheStats.maxSize,
-              hits: cacheStats.hits,
-              misses: cacheStats.misses,
-              evictions: 0,
-              hitRate: cacheStats.hitRate,
-              missRate: cacheStats.missRate,
-              utilization: cacheStats.size / cacheStats.maxSize,
-            },
-            L2: {
-              layer: 'L2',
-              size: 0,
-              maxSize: 0,
-              hits: 0,
-              misses: 0,
-              evictions: 0,
-              hitRate: 0,
-              missRate: 0,
-              utilization: 0,
-            },
-            L3: {
-              layer: 'L3',
-              size: 0,
-              maxSize: 0,
-              hits: 0,
-              misses: 0,
-              evictions: 0,
-              hitRate: 0,
-              missRate: 0,
-              utilization: 0,
-            },
-          },
-          totalHits: cacheStats.hits,
-          totalMisses: cacheStats.misses,
-          overallHitRate: cacheStats.hitRate,
-          warming: false,
-        });
+        // IoC may use LRU (CacheStats) or MultiLayerCache (MultiLayerCacheStats)
+        const statsForSummary =
+          'layers' in cacheStats
+            ? cacheStats
+            : {
+                layers: {
+                  L1: {
+                    layer: 'L1' as const,
+                    size: cacheStats.size,
+                    maxSize: cacheStats.maxSize,
+                    hits: cacheStats.hits,
+                    misses: cacheStats.misses,
+                    evictions: cacheStats.evictions ?? 0,
+                    hitRate: cacheStats.hitRate,
+                    missRate: cacheStats.missRate,
+                    utilization: cacheStats.maxSize ? cacheStats.size / cacheStats.maxSize : 0,
+                  },
+                  L2: {
+                    layer: 'L2' as const,
+                    size: 0,
+                    maxSize: 0,
+                    hits: 0,
+                    misses: 0,
+                    evictions: 0,
+                    hitRate: 0,
+                    missRate: 0,
+                    utilization: 0,
+                  },
+                  L3: {
+                    layer: 'L3' as const,
+                    size: 0,
+                    maxSize: 0,
+                    hits: 0,
+                    misses: 0,
+                    evictions: 0,
+                    hitRate: 0,
+                    missRate: 0,
+                    utilization: 0,
+                  },
+                },
+                totalHits: cacheStats.hits,
+                totalMisses: cacheStats.misses,
+                overallHitRate: cacheStats.hitRate,
+                warming: false,
+              };
+        const multiLayerStats = cacheAnalytics.getSummary(statsForSummary);
 
         console.log('\n📊 Cache Statistics:');
         console.log(`   L1 (Memory) Cache:`);
@@ -251,8 +258,8 @@ async function performScan(target: string | undefined, options: CliOptions) {
       }
     }
 
-    // Display network statistics if requested
-    if (options['network-stats']) {
+    // Display network statistics if requested (Commander exposes --network-stats as networkStats)
+    if (options['network-stats'] ?? options.networkStats) {
       try {
         const connectionPool = getConnectionPool();
         const poolStats = connectionPool.getStats();

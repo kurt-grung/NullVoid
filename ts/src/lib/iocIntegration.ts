@@ -14,7 +14,11 @@ import type {
   ProviderRegistryEntry,
   IoCProviderFactory,
 } from '../types/ioc-types';
+import type { MultiLayerCacheStats } from '../types/cache-types';
 import { LRUCache } from './cache';
+import { MultiLayerCache } from './cache/multiLayerCache';
+import { getCacheAnalytics } from './cache/cacheAnalytics';
+import { IOC_CONFIG } from './config';
 import { logger } from './logger';
 import { RateLimiter } from './rateLimiter';
 
@@ -59,22 +63,30 @@ class ProviderRegistry {
  */
 const providerRegistry = new ProviderRegistry();
 
+/** Cache backend: either single LRU or multi-layer (L1+L2, optional L3) */
+type IoCCacheBackend = LRUCache<IoCResponse> | MultiLayerCache<IoCResponse>;
+
 /**
  * IoC Integration Manager
  * Manages all IoC providers, caching, rate limiting, and result aggregation
  */
 export class IoCIntegrationManager {
   private providers: Map<IoCProviderName, IoCProvider> = new Map();
-  private cache: LRUCache<IoCResponse>;
+  private cache: IoCCacheBackend;
+  private readonly useMultiLayer: boolean;
   private rateLimiters: Map<IoCProviderName, RateLimiter> = new Map();
 
   constructor() {
-    // Initialize cache with 1 hour TTL for vulnerability data
-    this.cache = new LRUCache<IoCResponse>({
-      maxSize: 10000,
-      defaultTTL: 60 * 60 * 1000, // 1 hour
-      cleanupInterval: 5 * 60 * 1000, // 5 minutes
-    });
+    this.useMultiLayer = IOC_CONFIG.USE_MULTI_LAYER_CACHE;
+    if (this.useMultiLayer) {
+      this.cache = new MultiLayerCache<IoCResponse>();
+    } else {
+      this.cache = new LRUCache<IoCResponse>({
+        maxSize: 10000,
+        defaultTTL: 60 * 60 * 1000, // 1 hour
+        cleanupInterval: 5 * 60 * 1000, // 5 minutes
+      });
+    }
   }
 
   /**
@@ -113,16 +125,31 @@ export class IoCIntegrationManager {
 
     // Check cache first
     const cacheKey = this.getCacheKey(providerName, options);
-    const cached = this.cache.get(cacheKey);
-    if (cached) {
-      logger.debug(`Cache hit for ${providerName}:${options.packageName}`);
-      return {
-        ...cached,
-        metadata: {
-          ...cached.metadata,
-          fromCache: true,
-        },
-      };
+    if (this.useMultiLayer) {
+      const result = await (this.cache as MultiLayerCache<IoCResponse>).get(cacheKey);
+      const value = result.success ? result.value : undefined;
+      if (value) {
+        logger.debug(`Cache hit for ${providerName}:${options.packageName}`);
+        return {
+          ...value,
+          metadata: {
+            ...value.metadata,
+            fromCache: true,
+          },
+        };
+      }
+    } else {
+      const cached = (this.cache as LRUCache<IoCResponse>).get(cacheKey);
+      if (cached) {
+        logger.debug(`Cache hit for ${providerName}:${options.packageName}`);
+        return {
+          ...cached,
+          metadata: {
+            ...cached.metadata,
+            fromCache: true,
+          },
+        };
+      }
     }
 
     // Check rate limit and wait if needed
@@ -149,7 +176,11 @@ export class IoCIntegrationManager {
 
       // Cache result
       const ttl = provider.config.cacheTTL;
-      this.cache.set(cacheKey, response, ttl);
+      if (this.useMultiLayer) {
+        await (this.cache as MultiLayerCache<IoCResponse>).set(cacheKey, response, ttl);
+      } else {
+        this.cache.set(cacheKey, response, ttl);
+      }
 
       logger.debug(`Queried ${providerName} for ${options.packageName} in ${responseTime}ms`);
       return response;
@@ -281,38 +312,45 @@ export class IoCIntegrationManager {
   }
 
   /**
-   * Clear cache for a specific package/provider
+   * Clear cache for a specific package/provider (or all). Async when using multi-layer cache.
    */
-  clearCache(providerName?: IoCProviderName, packageName?: string): void {
+  async clearCache(providerName?: IoCProviderName, packageName?: string): Promise<void> {
+    if (this.useMultiLayer) {
+      await (this.cache as MultiLayerCache<IoCResponse>).clear();
+      return;
+    }
+    const lruCache = this.cache as LRUCache<IoCResponse>;
     if (providerName && packageName) {
-      // Clear specific entry
-      const keys = this.cache.keys();
+      const keys = lruCache.keys();
       const prefix = `${providerName}:${packageName}:`;
       for (const key of keys) {
         if (key.startsWith(prefix)) {
-          this.cache.delete(key);
+          lruCache.delete(key);
         }
       }
     } else if (providerName) {
-      // Clear all entries for provider
-      const keys = this.cache.keys();
+      const keys = lruCache.keys();
       const prefix = `${providerName}:`;
       for (const key of keys) {
         if (key.startsWith(prefix)) {
-          this.cache.delete(key);
+          lruCache.delete(key);
         }
       }
     } else {
-      // Clear all cache
-      this.cache.clear();
+      lruCache.clear();
     }
   }
 
   /**
-   * Get cache statistics
+   * Get cache statistics (LRU CacheStats or MultiLayerCacheStats when using multi-layer cache)
    */
-  getCacheStats() {
-    return this.cache.getStats();
+  getCacheStats(): ReturnType<LRUCache<IoCResponse>['getStats']> | MultiLayerCacheStats {
+    if (this.useMultiLayer) {
+      const stats = (this.cache as MultiLayerCache<IoCResponse>).getStats();
+      getCacheAnalytics().recordStats(stats);
+      return stats;
+    }
+    return (this.cache as LRUCache<IoCResponse>).getStats();
   }
 
   /**

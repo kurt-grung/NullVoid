@@ -15,6 +15,8 @@ import { isNullVoidCode } from './lib/nullvoidDetection';
 import { detectMalware } from './lib/detection';
 import { filterThreatsBySeverity } from './lib/detection';
 import { queryIoCProviders, mergeIoCThreats } from './lib/iocScanIntegration';
+import { getOptimalWorkerCount, getOptimalChunkSize, chunkPackages } from './lib/parallel';
+import { SCAN_CONFIG, PARALLEL_CONFIG } from './lib/config';
 import type { IoCProviderName } from './types/ioc-types';
 
 const logger = createLogger('scan');
@@ -35,8 +37,172 @@ const SUSPICIOUS_PATTERNS = {
   keywords: ['malware', 'virus', 'trojan', 'backdoor'],
 };
 
+const SCANABLE_EXTENSIONS = ['.js', '.ts', '.jsx', '.tsx'];
+
+function isScanableFile(name: string): boolean {
+  return SCANABLE_EXTENSIONS.some((ext) => name.endsWith(ext));
+}
+
 /**
- * Scan a directory for threats
+ * Recursively collect all scanable file paths and directory structure
+ */
+function collectScanablePaths(
+  dirPath: string,
+  options: ScanOptions
+): { paths: string[]; directoryStructure: DirectoryStructure } {
+  const paths: string[] = [];
+  const files: string[] = [];
+  const directories: string[] = [];
+  const skipDirs = [
+    'node_modules',
+    '.git',
+    '.vscode',
+    '.idea',
+    'dist',
+    'build',
+    'coverage',
+    '.nyc_output',
+  ];
+
+  try {
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = path.resolve(path.join(dirPath, entry.name));
+
+      if (entry.isDirectory()) {
+        if (skipDirs.includes(entry.name)) {
+          continue;
+        }
+        directories.push(entry.name);
+        const depth = (options.depth ?? 5) - 1;
+        if (depth > 0) {
+          const sub = collectScanablePaths(fullPath, { ...options, depth });
+          paths.push(...sub.paths);
+          files.push(...sub.directoryStructure.files.map((f) => path.join(entry.name, f)));
+          directories.push(
+            ...sub.directoryStructure.directories.map((d) => path.join(entry.name, d))
+          );
+        }
+      } else if (entry.isFile()) {
+        files.push(entry.name);
+        if (isScanableFile(entry.name)) {
+          paths.push(fullPath);
+        }
+      }
+    }
+  } catch (error) {
+    if (options.verbose) {
+      logger.warn(`Failed to read directory ${dirPath}: ${(error as Error).message}`);
+    }
+  }
+
+  return {
+    paths,
+    directoryStructure: {
+      path: dirPath,
+      files,
+      directories,
+      totalFiles: files.length,
+      totalDirectories: directories.length,
+    },
+  };
+}
+
+/**
+ * Process file paths: read content, skip NullVoid files, run detectMalware.
+ * Uses parallel chunks when options.parallel and SCAN_CONFIG.enableParallel and path count >= MIN_CHUNK_SIZE.
+ */
+async function processPaths(
+  filePaths: string[],
+  options: ScanOptions,
+  progressCallback?: ProgressCallback
+): Promise<{ threats: Threat[]; filesScanned: number }> {
+  const threats: Threat[] = [];
+  let filesScanned = 0;
+
+  const useParallel =
+    options.parallel !== false &&
+    SCAN_CONFIG.enableParallel &&
+    filePaths.length >= PARALLEL_CONFIG.MIN_CHUNK_SIZE;
+
+  if (!useParallel) {
+    for (let i = 0; i < filePaths.length; i++) {
+      const fullPath = filePaths[i] as string;
+      if (progressCallback) {
+        progressCallback({
+          current: i + 1,
+          total: filePaths.length,
+          message: `Scanning ${path.basename(fullPath)}`,
+          packageName: fullPath,
+        });
+      }
+      try {
+        const content = fs.readFileSync(fullPath, 'utf8');
+        if (isNullVoidCode(fullPath)) {
+          if (options.verbose) {
+            logger.info(`Skipping NullVoid file: ${path.basename(fullPath)}`);
+          }
+          continue;
+        }
+        const fileThreats = detectMalware(content, fullPath);
+        threats.push(...fileThreats);
+        filesScanned++;
+      } catch (error) {
+        if (options.verbose) {
+          logger.warn(`Failed to scan file ${fullPath}: ${(error as Error).message}`);
+        }
+      }
+    }
+    return { threats, filesScanned };
+  }
+
+  const workerCount = getOptimalWorkerCount();
+  const chunkSize = getOptimalChunkSize(filePaths.length, workerCount);
+  const chunks = chunkPackages(filePaths, chunkSize);
+
+  const chunkResults = await Promise.all(
+    chunks.map(async (chunk) => {
+      const chunkThreats: Threat[] = [];
+      let chunkScanned = 0;
+      for (const fullPath of chunk) {
+        try {
+          const content = fs.readFileSync(fullPath, 'utf8');
+          if (isNullVoidCode(fullPath)) {
+            continue;
+          }
+          const fileThreats = detectMalware(content, fullPath);
+          chunkThreats.push(...fileThreats);
+          chunkScanned++;
+        } catch (error) {
+          if (options.verbose) {
+            logger.warn(`Failed to scan file ${fullPath}: ${(error as Error).message}`);
+          }
+        }
+      }
+      return { threats: chunkThreats, filesScanned: chunkScanned };
+    })
+  );
+
+  for (const result of chunkResults) {
+    threats.push(...result.threats);
+    filesScanned += result.filesScanned;
+  }
+
+  if (progressCallback && filePaths.length > 0) {
+    progressCallback({
+      current: filePaths.length,
+      total: filePaths.length,
+      message: 'Scan completed',
+      packageName: '',
+    });
+  }
+
+  return { threats, filesScanned };
+}
+
+/**
+ * Scan a directory for threats (uses parallel file processing when enabled)
  */
 async function scanDirectory(
   dirPath: string,
@@ -48,110 +214,13 @@ async function scanDirectory(
   packagesScanned: number;
   directoryStructure: DirectoryStructure;
 }> {
-  const threats: Threat[] = [];
-  let filesScanned = 0;
-  let packagesScanned = 0;
-  const files: string[] = [];
-  const directories: string[] = [];
-
-  try {
-    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-
-    for (const entry of entries) {
-      const fullPath = path.resolve(path.join(dirPath, entry.name));
-
-      // Skip common directories that shouldn't be scanned
-      if (entry.isDirectory()) {
-        const skipDirs = [
-          'node_modules',
-          '.git',
-          '.vscode',
-          '.idea',
-          'dist',
-          'build',
-          'coverage',
-          '.nyc_output',
-        ];
-        if (skipDirs.includes(entry.name)) {
-          continue;
-        }
-
-        directories.push(entry.name);
-
-        // Recursively scan subdirectories (with depth limit)
-        const depth = (options.depth || 5) - 1;
-        if (depth > 0) {
-          const subResult = await scanDirectory(fullPath, { ...options, depth }, progressCallback);
-          threats.push(...subResult.threats);
-          filesScanned += subResult.filesScanned;
-          packagesScanned += subResult.packagesScanned;
-          // Merge subdirectory files and directories
-          files.push(...subResult.directoryStructure.files.map((f) => path.join(entry.name, f)));
-          directories.push(
-            ...subResult.directoryStructure.directories.map((d) => path.join(entry.name, d))
-          );
-        }
-      } else if (entry.isFile()) {
-        files.push(entry.name);
-
-        // Check if it's a JavaScript file
-        if (
-          entry.name.endsWith('.js') ||
-          entry.name.endsWith('.ts') ||
-          entry.name.endsWith('.jsx') ||
-          entry.name.endsWith('.tsx')
-        ) {
-          // Call progress callback for all files (including skipped ones)
-          if (progressCallback) {
-            progressCallback({
-              current: filesScanned + 1,
-              total: 0, // We don't know total in advance
-              message: `Scanning ${entry.name}`,
-              packageName: fullPath,
-            });
-          }
-
-          try {
-            const content = fs.readFileSync(fullPath, 'utf8');
-
-            // Skip NullVoid's own files
-            if (isNullVoidCode(fullPath)) {
-              if (options.verbose) {
-                logger.info(`Skipping NullVoid file: ${entry.name}`);
-              }
-              continue;
-            }
-
-            // Detect threats in the file
-            const fileThreats = detectMalware(content, fullPath);
-            threats.push(...fileThreats);
-
-            filesScanned++;
-          } catch (error) {
-            if (options.verbose) {
-              logger.warn(`Failed to scan file ${fullPath}: ${(error as Error).message}`);
-            }
-          }
-        }
-      }
-    }
-  } catch (error) {
-    if (options.verbose) {
-      logger.warn(`Failed to scan directory ${dirPath}: ${(error as Error).message}`);
-    }
-  }
-
+  const { paths, directoryStructure } = collectScanablePaths(dirPath, options);
+  const { threats, filesScanned } = await processPaths(paths, options, progressCallback);
   return {
     threats,
     filesScanned,
-    packagesScanned,
-    directoryStructure: {
-      path: dirPath,
-      files,
-      directories,
-      totalFiles: files.length,
-      totalDirectories: directories.length,
-    },
+    packagesScanned: 0,
+    directoryStructure,
   };
 }
 

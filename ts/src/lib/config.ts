@@ -906,6 +906,8 @@ export const IOC_CONFIG = {
     // Prefer provider order (first provider's result takes precedence)
     providerPriority: ['snyk', 'npm', 'ghsa', 'cve'] as const,
   },
+  // Use multi-layer cache (L1+L2, optional L3 Redis) for IoC results when true; else single LRU
+  USE_MULTI_LAYER_CACHE: process.env['NULLVOID_IOC_MULTI_LAYER_CACHE']?.toLowerCase() === 'true',
 } as const;
 
 /**

@@ -13,7 +13,7 @@ import type {
   CVEInfo,
 } from '../../types/ioc-types';
 import { logger } from '../logger';
-import { fetchWithTimeout } from './fetchWithTimeout';
+import { providerFetch } from './providerHttpClient';
 
 /**
  * npm Advisory response types
@@ -68,7 +68,7 @@ export class NpmAdvisoriesProvider implements IoCProvider {
    */
   async getHealth(): Promise<{ healthy: boolean; message?: string }> {
     try {
-      const response = await fetchWithTimeout(`${this.baseUrl}?per_page=1`, {
+      const response = await providerFetch(`${this.baseUrl}?per_page=1`, {
         timeout: this.config.timeout,
       });
 
@@ -109,7 +109,7 @@ export class NpmAdvisoriesProvider implements IoCProvider {
       // Note: npm API doesn't have a direct package endpoint, so we query all and filter
       const url = `${this.baseUrl}?package=${encodeURIComponent(options.packageName)}`;
 
-      const response = await fetchWithTimeout(url, {
+      const response = await providerFetch(url, {
         headers: {
           'Content-Type': 'application/json',
         },

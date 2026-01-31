@@ -14,7 +14,7 @@ import type {
   CVEInfo,
 } from '../../types/ioc-types';
 import { logger } from '../logger';
-import { fetchWithTimeout } from './fetchWithTimeout';
+import { providerFetch } from './providerHttpClient';
 
 /**
  * NVD API response types
@@ -114,7 +114,7 @@ export class CVEProvider implements IoCProvider {
   async getHealth(): Promise<{ healthy: boolean; message?: string }> {
     try {
       // Simple health check - query for a known CVE
-      const response = await fetchWithTimeout(`${this.baseUrl}?cveId=CVE-2021-44228`, {
+      const response = await providerFetch(`${this.baseUrl}?cveId=CVE-2021-44228`, {
         timeout: this.config.timeout,
       });
 
@@ -158,7 +158,7 @@ export class CVEProvider implements IoCProvider {
       const keywordSearch = `keywordSearch=${encodeURIComponent(options.packageName)}`;
       const url = `${this.baseUrl}?${keywordSearch}&resultsPerPage=${options.maxResults || 20}`;
 
-      const response = await fetchWithTimeout(url, {
+      const response = await providerFetch(url, {
         headers: {
           'Content-Type': 'application/json',
         },

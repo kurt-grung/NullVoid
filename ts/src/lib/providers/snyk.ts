@@ -13,7 +13,7 @@ import type {
   CVEInfo,
 } from '../../types/ioc-types';
 import { logger } from '../logger';
-import { fetchWithTimeout } from './fetchWithTimeout';
+import { providerFetch } from './providerHttpClient';
 
 /**
  * Snyk API response types
@@ -75,7 +75,7 @@ export class SnykProvider implements IoCProvider {
     }
 
     try {
-      const response = await fetchWithTimeout(`${this.baseUrl}/user/me`, {
+      const response = await providerFetch(`${this.baseUrl}/user/me`, {
         headers: {
           Authorization: `token ${this.config.apiKey}`,
           'Content-Type': 'application/json',
@@ -119,7 +119,7 @@ export class SnykProvider implements IoCProvider {
       // Snyk API endpoint for npm package vulnerabilities
       const url = `${this.baseUrl}/vuln/npm/${options.packageName}`;
 
-      const response = await fetchWithTimeout(url, {
+      const response = await providerFetch(url, {
         headers: {
           Authorization: `token ${this.config.apiKey}`,
           'Content-Type': 'application/json',
