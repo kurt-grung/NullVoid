@@ -42,6 +42,26 @@ If the extension isn’t in your editor’s marketplace (e.g. Cursor), you can i
    ```
 2. In VS Code or Cursor: **Ctrl+Shift+P** / **Cmd+Shift+P** → **Extensions: Install from VSIX…** → choose the generated `.vsix` file (e.g. `nullvoid-vscode-0.1.0.vsix`).
 
+   Or use the package script: `npm run package` (builds and runs `vsce package`).
+
+### Publish to marketplace
+
+To publish the extension to the **VS Code Marketplace** or **Open VSX**:
+
+1. **Package:** From `packages/vscode-extension` run `npm run package` to produce a `.vsix`.
+
+2. **VS Code Marketplace (Visual Studio Code):**
+   - Create a [Personal Access Token (PAT)](https://dev.azure.com) in Azure DevOps with **Marketplace: Manage**.
+   - Create a publisher (e.g. `nullvoid`) at [marketplace.visualstudio.com](https://marketplace.visualstudio.com/manage) or via `vsce create-publisher <publisher>`.
+   - Run: `npx @vscode/vsce publish -p <PAT>` (or set `VSCE_PAT` and run `npx @vscode/vsce publish`).
+
+3. **Open VSX (VS Codium, Eclipse Theia, etc.):**
+   - Create an account at [open-vsx.org](https://open-vsx.org) (linked to GitHub).
+   - Create a token at [open-vsx.org/user-settings/tokens](https://open-vsx.org/user-settings/tokens).
+   - Install the Open VSX CLI: `npm i -g ovsx`, then run: `ovsx publish --pat <token>`.
+
+4. **Bump version** in `package.json` before each publish.
+
 ## Usage
 
 - **Command Palette** (Ctrl+Shift+P / Cmd+Shift+P): run **NullVoid: Run Security Scan**.
