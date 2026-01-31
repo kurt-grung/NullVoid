@@ -8,6 +8,7 @@ Run [NullVoid](https://github.com/kurt-grung/NullVoid) security scans from the e
   - Shows scan output in the **Output** panel (channel: NullVoid).
   - Publishes findings to the **Problems** panel as diagnostics (file, line, severity, message).
   - Updates the **status bar** with a summary (e.g. `NullVoid: 0 issues` or `NullVoid: 3 issue(s)`).
+- **Scan on folder open** (optional) — When enabled in settings, runs a scan automatically when you open a workspace folder, after a short delay.
 
 ## Setup
 
@@ -33,6 +34,13 @@ Run [NullVoid](https://github.com/kurt-grung/NullVoid) security scans from the e
 
 - **Command Palette** (Ctrl+Shift+P / Cmd+Shift+P): run **NullVoid: Run Security Scan**.
 - Output appears in **View > Output**, then select **NullVoid** in the dropdown.
+
+### Settings
+
+| Setting | Default | Description |
+|--------|---------|-------------|
+| `nullvoid.scanOnFolderOpen` | `false` | Run a security scan when a workspace folder is opened. |
+| `nullvoid.scanOnFolderOpenDelay` | `2` | Delay in seconds before the auto-scan runs (only when scan on folder open is enabled). |
 
 ## License
 

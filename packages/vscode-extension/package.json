@@ -12,7 +12,8 @@
     "Testing"
   ],
   "activationEvents": [
-    "onCommand:nullvoid.runScan"
+    "onCommand:nullvoid.runScan",
+    "workspaceContains:package.json"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -21,7 +22,23 @@
         "command": "nullvoid.runScan",
         "title": "NullVoid: Run Security Scan"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "NullVoid",
+      "properties": {
+        "nullvoid.scanOnFolderOpen": {
+          "type": "boolean",
+          "default": false,
+          "description": "Run a security scan when a workspace folder is opened."
+        },
+        "nullvoid.scanOnFolderOpenDelay": {
+          "type": "number",
+          "default": 2,
+          "minimum": 0,
+          "description": "Delay in seconds before running the scan after a folder is opened (only when scanOnFolderOpen is true)."
+        }
+      }
+    }
   },
   "scripts": {
     "compile": "tsc -p .",

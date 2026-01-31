@@ -151,8 +151,9 @@ export function activate(context: vscode.ExtensionContext): void {
   const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   context.subscriptions.push(statusBarItem);
 
+  const channel = vscode.window.createOutputChannel(OUTPUT_CHANNEL_NAME);
+
   const runScanDisposable = vscode.commands.registerCommand('nullvoid.runScan', async () => {
-    const channel = vscode.window.createOutputChannel(OUTPUT_CHANNEL_NAME);
     channel.clear();
     channel.show();
     statusBarItem.text = '$(sync~spin) NullVoid scanning…';
@@ -166,6 +167,40 @@ export function activate(context: vscode.ExtensionContext): void {
   });
 
   context.subscriptions.push(runScanDisposable);
+
+  // Optional: scan when a workspace folder is opened
+  let scanOnFolderOpenTimeout: ReturnType<typeof setTimeout> | undefined;
+  const scheduleScanOnFolderOpen = (): void => {
+    const config = vscode.workspace.getConfiguration('nullvoid');
+    if (!config.get<boolean>('scanOnFolderOpen')) return;
+    if (!vscode.workspace.workspaceFolders?.length) return;
+
+    if (scanOnFolderOpenTimeout) clearTimeout(scanOnFolderOpenTimeout);
+    const delaySeconds = Math.max(0, config.get<number>('scanOnFolderOpenDelay') ?? 2);
+    scanOnFolderOpenTimeout = setTimeout(() => {
+      scanOnFolderOpenTimeout = undefined;
+      statusBarItem.text = '$(sync~spin) NullVoid scanning…';
+      statusBarItem.show();
+      channel.appendLine(`[Auto] Scanning workspace (scan on folder open).\n`);
+      runScan(context, channel, diagnosticCollection, statusBarItem);
+    }, delaySeconds * 1000);
+  };
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeWorkspaceFolders((e) => {
+      if (e.added.length > 0) scheduleScanOnFolderOpen();
+    })
+  );
+
+  if (vscode.workspace.workspaceFolders?.length) {
+    scheduleScanOnFolderOpen();
+  }
+
+  context.subscriptions.push({
+    dispose: () => {
+      if (scanOnFolderOpenTimeout) clearTimeout(scanOnFolderOpenTimeout);
+    },
+  });
 }
 
 export function deactivate(): void {}
