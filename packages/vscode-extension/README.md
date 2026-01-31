@@ -30,6 +30,18 @@ Run [NullVoid](https://github.com/kurt-grung/NullVoid) security scans from the e
    ```
    The extension will use `npx nullvoid` when the local repo build is not found.
 
+### Install from VSIX (Cursor / no marketplace)
+
+If the extension isn’t in your editor’s marketplace (e.g. Cursor), you can install it from a built `.vsix`:
+
+1. Build the `.vsix` from the extension folder:
+   ```bash
+   cd packages/vscode-extension
+   npm run compile
+   npx @vscode/vsce package --no-dependencies
+   ```
+2. In VS Code or Cursor: **Ctrl+Shift+P** / **Cmd+Shift+P** → **Extensions: Install from VSIX…** → choose the generated `.vsix` file (e.g. `nullvoid-vscode-0.1.0.vsix`).
+
 ## Usage
 
 - **Command Palette** (Ctrl+Shift+P / Cmd+Shift+P): run **NullVoid: Run Security Scan**.
