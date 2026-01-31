@@ -1,11 +1,11 @@
 /**
  * Dependency Confusion Detection Module
- * 
+ *
  * Detects potential dependency confusion attacks by analyzing:
- * - Git history vs npm registry creation dates
+ * - Git history vs npm registry creation dates (Phase 2: multi-registry)
  * - Scope ownership and namespace conflicts
  * - Package name similarity patterns
- * - Timeline-based threat indicators
+ * - Timeline-based threat indicators (Phase 2: enhanced timeline, ML scoring)
  */
 
 const fs = require('fs');
@@ -14,6 +14,9 @@ const { execSync } = require('child_process');
 const https = require('https');
 const { promisify } = require('util');
 const { DEPENDENCY_CONFUSION_CONFIG } = require('./config');
+const { getPackageCreationDateMulti } = require('./registries');
+const { analyzeTimeline } = require('./timelineAnalysis');
+const { runMLDetection } = require('./mlDetection');
 
 /**
  * Calculate string similarity using Levenshtein distance
@@ -198,50 +201,92 @@ function analyzePackageName(packageName) {
  */
 async function detectDependencyConfusion(packageName, packagePath) {
   const threats = [];
-  
+  const useMultiRegistry = DEPENDENCY_CONFUSION_CONFIG.PHASE2_DETECTION?.MULTI_REGISTRY !== false;
+
   try {
-    // Get package creation date from npm registry
-    const creationDate = await getPackageCreationDate(packageName);
+    // Get package creation date (Phase 2: multi-registry or single npm)
+    let creationDate = null;
+    let registryName = 'npm';
+    if (useMultiRegistry) {
+      const multi = await getPackageCreationDateMulti(packageName);
+      if (multi?.created) {
+        creationDate = multi.created;
+        registryName = multi.registryName || 'npm';
+      }
+    }
+    if (!creationDate) {
+      creationDate = await getPackageCreationDate(packageName);
+    }
     if (!creationDate) {
       return threats; // Skip if we can't get registry data
     }
-    
+
     // Get git history
     const gitHistory = getGitHistory(packagePath);
     if (!gitHistory || !gitHistory.hasGitHistory) {
       return threats; // Skip if no git history
     }
-    
+
     // Analyze package name
     const nameAnalysis = analyzePackageName(packageName);
-    
-    // Calculate timeline risk
-    const daysDifference = Math.abs(creationDate - gitHistory.firstCommitDate) / (1000 * 60 * 60 * 24);
-    
-    let timelineRisk = 'LOW';
-    if (daysDifference <= DEPENDENCY_CONFUSION_CONFIG.TIMELINE_THRESHOLDS.CRITICAL) {
-      timelineRisk = 'CRITICAL';
-    } else if (daysDifference <= DEPENDENCY_CONFUSION_CONFIG.TIMELINE_THRESHOLDS.HIGH_RISK) {
-      timelineRisk = 'HIGH';
-    } else if (daysDifference <= DEPENDENCY_CONFUSION_CONFIG.TIMELINE_THRESHOLDS.SUSPICIOUS) {
-      timelineRisk = 'MEDIUM';
-    }
-    
+
+    // Phase 2: enhanced timeline analysis
+    const timelineResult = analyzeTimeline({
+      registryCreated: creationDate,
+      firstCommitDate: gitHistory.firstCommitDate,
+      recentCommitCount: gitHistory.recentCommitCount ?? 0,
+      scopeType: nameAnalysis.scopeType
+    });
+    const daysDifference = timelineResult.daysDifference ?? 0;
+    const timelineRisk = timelineResult.riskLevel;
+
+    // Phase 2: ML detection (anomaly + threat score)
+    const mlResult = runMLDetection({
+      creationDate,
+      firstCommitDate: gitHistory.firstCommitDate,
+      recentCommitCount: gitHistory.recentCommitCount ?? 0,
+      scopeType: nameAnalysis.scopeType,
+      suspiciousPatternsCount: nameAnalysis.suspiciousPatterns?.length ?? 0,
+      registryName
+    });
+
     // Generate threats based on analysis
     if (timelineRisk !== 'LOW') {
+      const confidence = mlResult.enabled && mlResult.aboveThreshold
+        ? Math.min(95, 70 + Math.round(mlResult.threatScore * 25))
+        : Math.min(95, 60 + (30 - daysDifference) * 2);
       threats.push({
         type: 'DEPENDENCY_CONFUSION_TIMELINE',
         message: `Package creation date suspiciously close to git history (${Math.round(daysDifference)} days)`,
-        severity: timelineRisk === 'CRITICAL' ? 'CRITICAL' : 
+        severity: timelineRisk === 'CRITICAL' ? 'CRITICAL' :
                  timelineRisk === 'HIGH' ? 'HIGH' : 'MEDIUM',
         package: packageName,
-        details: `Package created: ${creationDate.toISOString()}, First git commit: ${gitHistory.firstCommitDate.toISOString()}`,
-        confidence: Math.min(95, 60 + (30 - daysDifference) * 2),
+        details: `Package created: ${creationDate.toISOString()}, First git commit: ${gitHistory.firstCommitDate.toISOString()}${registryName !== 'npm' ? ` (registry: ${registryName})` : ''}`,
+        confidence,
         properties: {
           creationDate: creationDate.toISOString(),
           firstCommitDate: gitHistory.firstCommitDate.toISOString(),
           daysDifference: Math.round(daysDifference),
-          timelineRisk
+          timelineRisk,
+          registryName,
+          ...(mlResult.enabled && { mlAnomalyScore: mlResult.anomalyScore, mlThreatScore: mlResult.threatScore })
+        }
+      });
+    }
+
+    // Phase 2: ML-only threat when timeline is LOW but anomaly/threat score is high
+    if (timelineRisk === 'LOW' && mlResult.enabled && mlResult.aboveThreshold) {
+      threats.push({
+        type: 'DEPENDENCY_CONFUSION_ML_ANOMALY',
+        message: 'ML anomaly score indicates potential dependency confusion risk',
+        severity: mlResult.threatScore >= 0.8 ? 'HIGH' : 'MEDIUM',
+        package: packageName,
+        details: `Anomaly score: ${(mlResult.anomalyScore * 100).toFixed(0)}%, Threat score: ${(mlResult.threatScore * 100).toFixed(0)}%`,
+        confidence: Math.round(mlResult.threatScore * 90),
+        properties: {
+          mlAnomalyScore: mlResult.anomalyScore,
+          mlThreatScore: mlResult.threatScore,
+          registryName
         }
       });
     }

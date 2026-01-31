@@ -477,10 +477,24 @@ const DEPENDENCY_CONFUSION_CONFIG = {
     /^[a-z]+[0-9]+[a-z]+$/     // letters-numbers-letters
   ],
   
-  // Registry endpoints
+  // Registry endpoints (Phase 2: multi-registry)
   REGISTRY_ENDPOINTS: {
     npm: 'https://registry.npmjs.org',
     github: 'https://npm.pkg.github.com'
+  },
+
+  // Phase 2: Multi-registry query order and optional custom registries
+  REGISTRIES: {
+    DEFAULT_ORDER: ['npm', 'github'],
+    CUSTOM: [] // e.g. [{ name: 'company', url: 'https://npm.company.com', auth: 'Bearer TOKEN' }]
+  },
+
+  // Phase 2: Timeline & ML detection
+  PHASE2_DETECTION: {
+    MULTI_REGISTRY: true,
+    TIMELINE_ANOMALY: true,
+    ML_SCORING: true,
+    ML_ANOMALY_THRESHOLD: 0.7  // 0-1; score >= this may be flagged
   },
   
   // Analysis settings
