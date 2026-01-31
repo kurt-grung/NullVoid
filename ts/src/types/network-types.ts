@@ -194,4 +194,3 @@ export interface CompressionResult {
   /** Time taken to compress (ms) */
   compressionTime: number;
 }
-

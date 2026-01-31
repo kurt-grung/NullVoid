@@ -13,7 +13,7 @@ export class WorkStealingQueue<T> {
   private queues: Array<Array<WorkerJob<T>>> = [];
   private queueLocks: Array<boolean> = [];
   private totalJobs = 0;
-  
+
   constructor(numWorkers: number) {
     // Create one queue per worker
     for (let i = 0; i < numWorkers; i++) {
@@ -21,7 +21,7 @@ export class WorkStealingQueue<T> {
       this.queueLocks.push(false);
     }
   }
-  
+
   /**
    * Push job to worker's queue
    */
@@ -30,11 +30,11 @@ export class WorkStealingQueue<T> {
       logger.warn(`Invalid worker ID ${workerId}, using worker 0`);
       workerId = 0;
     }
-    
+
     this.queues[workerId]!.push(job);
     this.totalJobs++;
   }
-  
+
   /**
    * Pop job from worker's queue (LIFO for better cache locality)
    */
@@ -42,17 +42,17 @@ export class WorkStealingQueue<T> {
     if (workerId < 0 || workerId >= this.queues.length) {
       return null;
     }
-    
+
     const queue = this.queues[workerId]!;
     if (queue.length === 0) {
       return null;
     }
-    
+
     const job = queue.pop()!;
     this.totalJobs--;
     return job;
   }
-  
+
   /**
    * Steal job from another worker's queue (FIFO to reduce contention)
    */
@@ -60,18 +60,18 @@ export class WorkStealingQueue<T> {
     if (workerId < 0 || workerId >= this.queues.length) {
       return null;
     }
-    
+
     // Try to steal from other workers
     const numWorkers = this.queues.length;
     for (let i = 1; i < numWorkers; i++) {
       const targetWorkerId = (workerId + i) % numWorkers;
       const targetQueue = this.queues[targetWorkerId]!;
-      
+
       // Skip if queue is locked or empty
       if (this.queueLocks[targetWorkerId] || targetQueue.length === 0) {
         continue;
       }
-      
+
       // Try to steal from the front (FIFO)
       const job = targetQueue.shift();
       if (job) {
@@ -80,10 +80,10 @@ export class WorkStealingQueue<T> {
         return job;
       }
     }
-    
+
     return null;
   }
-  
+
   /**
    * Get job for worker (tries own queue first, then steals)
    */
@@ -93,25 +93,25 @@ export class WorkStealingQueue<T> {
     if (ownJob) {
       return ownJob;
     }
-    
+
     // Try to steal from others
     return this.steal(workerId);
   }
-  
+
   /**
    * Check if queue is empty
    */
   isEmpty(): boolean {
     return this.totalJobs === 0;
   }
-  
+
   /**
    * Get total number of jobs
    */
   size(): number {
     return this.totalJobs;
   }
-  
+
   /**
    * Get queue size for specific worker
    */
@@ -121,7 +121,7 @@ export class WorkStealingQueue<T> {
     }
     return this.queues[workerId]!.length;
   }
-  
+
   /**
    * Lock queue (prevent stealing)
    */
@@ -130,7 +130,7 @@ export class WorkStealingQueue<T> {
       this.queueLocks[workerId] = true;
     }
   }
-  
+
   /**
    * Unlock queue (allow stealing)
    */
@@ -139,7 +139,7 @@ export class WorkStealingQueue<T> {
       this.queueLocks[workerId] = false;
     }
   }
-  
+
   /**
    * Get queue statistics
    */
@@ -150,21 +150,21 @@ export class WorkStealingQueue<T> {
     maxQueueSize: number;
     minQueueSize: number;
   } {
-    const jobsPerQueue = this.queues.map(q => q.length);
+    const jobsPerQueue = this.queues.map((q) => q.length);
     const total = jobsPerQueue.reduce((sum, size) => sum + size, 0);
     const average = jobsPerQueue.length > 0 ? total / jobsPerQueue.length : 0;
     const max = Math.max(...jobsPerQueue, 0);
     const min = Math.min(...jobsPerQueue, 0);
-    
+
     return {
       totalJobs: this.totalJobs,
       jobsPerQueue,
       averageQueueSize: average,
       maxQueueSize: max,
-      minQueueSize: min
+      minQueueSize: min,
     };
   }
-  
+
   /**
    * Clear all queues
    */
@@ -187,37 +187,37 @@ export class WorkStealingScheduler<T> {
     idleTime: number;
     busyTime: number;
   }> = [];
-  
+
   constructor(numWorkers: number) {
     this.queue = new WorkStealingQueue<T>(numWorkers);
-    
+
     // Initialize worker stats
     for (let i = 0; i < numWorkers; i++) {
       this.workerStats.push({
         jobsProcessed: 0,
         jobsStolen: 0,
         idleTime: 0,
-        busyTime: 0
+        busyTime: 0,
       });
     }
   }
-  
+
   /**
    * Add job to queue
    */
   addJob(workerId: number, job: WorkerJob<T>): void {
     this.queue.push(workerId, job);
   }
-  
+
   /**
    * Get next job for worker
    */
   getNextJob(workerId: number): WorkerJob<T> | null {
     const job = this.queue.getJob(workerId);
-    
+
     if (job) {
       this.workerStats[workerId]!.jobsProcessed++;
-      
+
       // Check if job was stolen (heuristic: if it came from steal)
       // In a real implementation, we'd track this more precisely
       if (this.queue.queueSize(workerId) === 0) {
@@ -227,10 +227,10 @@ export class WorkStealingScheduler<T> {
       // Worker is idle
       this.workerStats[workerId]!.idleTime++;
     }
-    
+
     return job;
   }
-  
+
   /**
    * Get scheduler statistics
    */
@@ -247,36 +247,38 @@ export class WorkStealingScheduler<T> {
     overallUtilization: number;
   } {
     const queueStats = this.queue.getStats();
-    
+
     const workerStatsWithUtil = this.workerStats.map((stats, workerId) => {
       const totalTime = stats.idleTime + stats.busyTime;
       const utilization = totalTime > 0 ? stats.busyTime / totalTime : 0;
-      
+
       return {
         workerId,
         ...stats,
-        utilization
+        utilization,
       };
     });
-    
-    const overallUtilization = workerStatsWithUtil.length > 0
-      ? workerStatsWithUtil.reduce((sum, stats) => sum + stats.utilization, 0) / workerStatsWithUtil.length
-      : 0;
-    
+
+    const overallUtilization =
+      workerStatsWithUtil.length > 0
+        ? workerStatsWithUtil.reduce((sum, stats) => sum + stats.utilization, 0) /
+          workerStatsWithUtil.length
+        : 0;
+
     return {
       queueStats,
       workerStats: workerStatsWithUtil,
-      overallUtilization
+      overallUtilization,
     };
   }
-  
+
   /**
    * Check if scheduler is idle
    */
   isIdle(): boolean {
     return this.queue.isEmpty();
   }
-  
+
   /**
    * Clear scheduler
    */
@@ -297,4 +299,3 @@ export class WorkStealingScheduler<T> {
 export function createWorkStealingScheduler<T>(numWorkers: number): WorkStealingScheduler<T> {
   return new WorkStealingScheduler<T>(numWorkers);
 }
-

@@ -11,7 +11,7 @@ import { ScanConfig, SecurityConfig, PerformanceConfig } from '../types';
 export const CACHE_CONFIG = {
   TTL: 5 * 60 * 1000, // 5 minutes
   MAX_SIZE: 1000, // Maximum number of cached items
-  CLEANUP_INTERVAL: 60 * 1000 // 1 minute cleanup interval
+  CLEANUP_INTERVAL: 60 * 1000, // 1 minute cleanup interval
 } as const;
 
 /**
@@ -23,8 +23,8 @@ export const NETWORK_CONFIG = {
   RETRY_DELAY: 1000, // 1 second
   RATE_LIMIT: {
     MAX_REQUESTS: 100, // per minute
-    WINDOW_SIZE: 60 * 1000 // 1 minute window
-  }
+    WINDOW_SIZE: 60 * 1000, // 1 minute window
+  },
 } as const;
 
 /**
@@ -36,7 +36,7 @@ export const PARALLEL_CONFIG = {
   TIMEOUT: 30000, // 30 seconds
   RETRY_ATTEMPTS: 2,
   MIN_CHUNK_SIZE: 5,
-  MAX_CHUNK_SIZE: 20
+  MAX_CHUNK_SIZE: 20,
 } as const;
 
 /**
@@ -45,7 +45,7 @@ export const PARALLEL_CONFIG = {
 export const FILE_CONFIG = {
   MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
   MAX_FILES_PER_PACKAGE: 1000,
-  SCAN_TIMEOUT: 30000 // 30 seconds per file
+  SCAN_TIMEOUT: 30000, // 30 seconds per file
 } as const;
 
 /**
@@ -56,7 +56,7 @@ export const ENTROPY_THRESHOLDS = {
   JSON: 3.0,
   TEXT: 2.5,
   BINARY: 6.0,
-  DEFAULT: 4.0
+  DEFAULT: 4.0,
 } as const;
 
 /**
@@ -93,7 +93,7 @@ export const DETECTION_PATTERNS = {
     'LICENSE',
     'CONTRIBUTING.md',
     'SECURITY.md',
-    'CODE_OF_CONDUCT.md'
+    'CODE_OF_CONDUCT.md',
   ] as string[],
 
   // Additional config file patterns (dot files, config extensions, etc.)
@@ -115,103 +115,88 @@ export const DETECTION_PATTERNS = {
     '.npmignore',
     '.dockerignore',
     '.gitkeep',
-    '.keep'
+    '.keep',
   ] as string[],
 
   // Config file extensions
-  CONFIG_EXTENSIONS: [
-    '.config.js',
-    '.config.json',
-    '.config.yaml',
-    '.config.yml'
-  ] as string[],
+  CONFIG_EXTENSIONS: ['.config.js', '.config.json', '.config.yaml', '.config.yml'] as string[],
 
   // Graphics/WebGL related file patterns
-  GRAPHICS_FILE_PATTERNS: [
-    'three',
-    'webgl',
-    'shader',
-    'graphics',
-    'render',
-    'canvas'
-  ] as string[],
+  GRAPHICS_FILE_PATTERNS: ['three', 'webgl', 'shader', 'graphics', 'render', 'canvas'] as string[],
 
   // Directory patterns to exclude
-  EXCLUDED_DIRECTORIES: [
-    'node_modules/',
-    '.git/'
-  ] as string[],
+  EXCLUDED_DIRECTORIES: ['node_modules/', '.git/'] as string[],
 
   // Legitimate code patterns
   LEGITIMATE_PATTERNS: [
     /module\.exports\s*=\s*[^;]+;\s*/, // module.exports = ...;
-    /exports\s*=\s*[^;]+;\s*/,         // exports = ...;
-    /return\s+[^;]+;\s*/,              // return ...;
-    /const\s+\w+\s*=\s*[^;]+;\s*/,     // const ... = ...;
-    /let\s+\w+\s*=\s*[^;]+;\s*/,       // let ... = ...;
-    /var\s+\w+\s*=\s*[^;]+;\s*/,       // var ... = ...;
-    /module\.exports\s*=\s*\w+;?\s*/,   // module.exports = router; (with optional semicolon)
-    /exports\s*=\s*\w+;?\s*/           // exports = router; (with optional semicolon)
+    /exports\s*=\s*[^;]+;\s*/, // exports = ...;
+    /return\s+[^;]+;\s*/, // return ...;
+    /const\s+\w+\s*=\s*[^;]+;\s*/, // const ... = ...;
+    /let\s+\w+\s*=\s*[^;]+;\s*/, // let ... = ...;
+    /var\s+\w+\s*=\s*[^;]+;\s*/, // var ... = ...;
+    /module\.exports\s*=\s*\w+;?\s*/, // module.exports = router; (with optional semicolon)
+    /exports\s*=\s*\w+;?\s*/, // exports = router; (with optional semicolon)
   ],
 
   // Malware detection patterns
   MALWARE_PATTERNS: {
     // Variable mangling patterns
     VARIABLE_MANGLING: /const\s+[a-z]+\d*\s*=\s*[A-Za-z0-9]+\s*,\s*[a-z]+\d*\s*=\s*[A-Za-z0-9]+/,
-    VARIABLE_MANGLING_SIMPLE: /const\s+[a-z]\d+\s*=\s*[A-Z]/,  // const b3=I
-    VAR_MANGLING: /var\s+[a-z]\d+\s*=\s*[A-Z]/,    // var b3=I
-    LET_MANGLING: /let\s+[a-z]\d+\s*=\s*[A-Z]/,     // let b3=I
-    
+    VARIABLE_MANGLING_SIMPLE: /const\s+[a-z]\d+\s*=\s*[A-Z]/, // const b3=I
+    VAR_MANGLING: /var\s+[a-z]\d+\s*=\s*[A-Z]/, // var b3=I
+    LET_MANGLING: /let\s+[a-z]\d+\s*=\s*[A-Z]/, // let b3=I
+
     // Obfuscation patterns
     HEX_ARRAYS: /\[(0x[0-9a-fA-F]+,\s*){3,}/g,
     BASE64_ARRAYS: /\[('[A-Za-z0-9+/=]{8,}',\s*){5,}/,
     STRING_FROM_CHARCODE: /String\.fromCharCode\s*\(/,
     BASE64_DECODE: /atob\s*\(/,
     BASE64_ENCODE: /btoa\s*\(/,
-    
+
     // Module export patterns
     MODULE_EXPORT_MALICIOUS: /module\.exports\s*=\s*[^;]+;\s*const\s+[a-z]\d+\s*=\s*[A-Z]/g,
     MASSIVE_BLOB: /.{5000,}/,
-    MODULE_APPEND: /module\.exports\s*=\s*[^;]+;\s*[^;]{1000,}/
+    MODULE_APPEND: /module\.exports\s*=\s*[^;]+;\s*[^;]{1000,}/,
   },
 
   // Suspicious function patterns
   SUSPICIOUS_FUNCTIONS: [
     /function\s+\w+\s*\(\s*\w+\s*,\s*\w+\s*\)\s*\{\s*const\s+\w+\s*=\s*\w+/, // Suspicious functions
-    /eval\s*\(/,                    // eval calls
-    /new\s+Function\s*\(/,           // Function constructor
-    /setTimeout\s*\(\s*['"`]/,       // setTimeout with string
-    /setInterval\s*\(\s*['"`]/       // setInterval with string
+    /eval\s*\(/, // eval calls
+    /new\s+Function\s*\(/, // Function constructor
+    /setTimeout\s*\(\s*['"`]/, // setTimeout with string
+    /setInterval\s*\(\s*['"`]/, // setInterval with string
   ],
 
   // Dynamic module loading patterns
   DYNAMIC_REQUIRES: [
     /require\s*\(\s*['"`][^'"`]*['"`]\s*\)/, // Dynamic requires
-    /import\s*\(\s*['"`][^'"`]*['"`]\s*\)/,  // Dynamic imports
-    /__webpack_require__\s*\(/,       // Webpack requires
-    /System\.import\s*\(/             // System.import
+    /import\s*\(\s*['"`][^'"`]*['"`]\s*\)/, // Dynamic imports
+    /__webpack_require__\s*\(/, // Webpack requires
+    /System\.import\s*\(/, // System.import
   ],
 
   // Wallet hijacking patterns
   WALLET_HIJACKING: [
-    /window\.ethereum\s*=\s*new\s+Proxy/,     // Ethereum proxy
+    /window\.ethereum\s*=\s*new\s+Proxy/, // Ethereum proxy
     /Object\.defineProperty\s*\(\s*window\s*,\s*['"`]ethereum/, // Ethereum property override
     /window\.__defineGetter__\s*\(\s*['"`]ethereum/, // Ethereum getter override
     /eth_sendTransaction.*?params.*?to\s*[:=]/, // Transaction manipulation
     /eth_requestAccounts.*?params.*?from\s*[:=]/, // Account request manipulation
-    /web3\.eth\.sendTransaction/,              // Web3 transaction sending
+    /web3\.eth\.sendTransaction/, // Web3 transaction sending
     /ethereum\.request.*?method.*?['"`]eth_sendTransaction['"`]/, // Ethereum RPC calls
-    /wallet.*?address.*?replace/,             // Address replacement
-    /private.*?key.*?extract/,                // Private key extraction
-    /mnemonic.*?phrase.*?steal/,               // Mnemonic phrase theft
-    /seed.*?phrase.*?extract/                 // Seed phrase extraction
+    /wallet.*?address.*?replace/, // Address replacement
+    /private.*?key.*?extract/, // Private key extraction
+    /mnemonic.*?phrase.*?steal/, // Mnemonic phrase theft
+    /seed.*?phrase.*?extract/, // Seed phrase extraction
   ],
 
   // IOC (Indicators of Compromise) patterns
   IOC_PATTERNS: {
     URLS: /https?:\/\/[^\s'"]+/g,
     IPS: /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g,
-    DOMAINS: /\b[a-zA-Z0-9-]+\.[a-zA-Z]{2,}\b/g
+    DOMAINS: /\b[a-zA-Z0-9-]+\.[a-zA-Z]{2,}\b/g,
   },
 
   // Shader patterns for GLSL detection
@@ -222,13 +207,13 @@ export const DETECTION_PATTERNS = {
     /varying\s+\w+\s+\w+;/g,
     /gl_Position\s*=/g,
     /gl_PointSize\s*=/g,
-    
+
     // Fragment shader patterns
     /precision\s+\w+\s+\w+;/g,
     /gl_FragColor\s*=/g,
     /gl_FragCoord/g,
     /gl_FragDepth\s*=/g,
-    
+
     // Common GLSL functions
     /texture2D\s*\(/g,
     /textureCube\s*\(/g,
@@ -240,13 +225,13 @@ export const DETECTION_PATTERNS = {
     /cross\s*\(/g,
     /reflect\s*\(/g,
     /refract\s*\(/g,
-    
+
     // GLSL types
     /vec[234]\s/g,
     /mat[234]\s/g,
     /sampler2D/g,
     /samplerCube/g,
-    /sampler2DShadow/g
+    /sampler2DShadow/g,
   ],
 
   // Three.js patterns for WebGL framework detection
@@ -255,14 +240,14 @@ export const DETECTION_PATTERNS = {
     /import\s+.*\s+from\s+['"]three['"]/g,
     /import\s+\*\s+as\s+THREE\s+from\s+['"]three['"]/g,
     /require\s*\(\s*['"]three['"]\s*\)/g,
-    
+
     // Three.js class usage patterns
     /new\s+THREE\.\w+\(/g,
     /THREE\.\w+\.prototype/g,
     /extends\s+THREE\.\w+/g,
-    
+
     // Three.js specific methods and properties
-    /\.add\s*\(/g,  // scene.add, group.add
+    /\.add\s*\(/g, // scene.add, group.add
     /\.position\s*=/g,
     /\.rotation\s*=/g,
     /\.scale\s*=/g,
@@ -270,7 +255,7 @@ export const DETECTION_PATTERNS = {
     /\.geometry\s*=/g,
     /\.render\s*\(/g,
     /\.setSize\s*\(/g,
-    /\.setClearColor\s*\(/g
+    /\.setClearColor\s*\(/g,
   ],
 
   // Other graphics framework patterns
@@ -280,7 +265,7 @@ export const DETECTION_PATTERNS = {
     /import.*from\s+['"]pixi\.js['"]/g,
     /import.*from\s+['"]@pixi['"]/g,
     /import.*from\s+['"]aframe['"]/g,
-    /import.*from\s+['"]react-three-fiber['"]/g
+    /import.*from\s+['"]react-three-fiber['"]/g,
   ],
 
   // React patterns for framework detection
@@ -291,7 +276,7 @@ export const DETECTION_PATTERNS = {
     /import\s+.*\s+from\s+['"]react-dom['"]/g,
     /import\s+.*\s+from\s+['"]@reduxjs\/toolkit['"]/g,
     /import\s+.*\s+from\s+['"]react-redux['"]/g,
-    
+
     // React hooks
     /useState\s*\(/g,
     /useEffect\s*\(/g,
@@ -302,7 +287,7 @@ export const DETECTION_PATTERNS = {
     /useMemo\s*\(/g,
     /useRef\s*\(/g,
     /useContext\s*\(/g,
-    
+
     // React component patterns
     /className\s*=/g,
     /onClick\s*=/g,
@@ -311,33 +296,34 @@ export const DETECTION_PATTERNS = {
     /onKeyDown\s*=/g,
     /onKeyUp\s*=/g,
     /style\s*=\s*{/g,
-    
+
     // JSX patterns
-    /<[A-Z]\w+/g,  // JSX components
-    /<\/[A-Z]\w+>/g,  // JSX closing tags
+    /<[A-Z]\w+/g, // JSX components
+    /<\/[A-Z]\w+>/g, // JSX closing tags
     /<div\s/g,
     /<span\s/g,
     /<p\s/g,
     /<button\s/g,
     /<input\s/g,
-    
+
     // React patterns
     /\.map\s*\(/g,
     /return\s*\(/g,
     /export\s+default/g,
     /React\.createElement/g,
     /React\.Component/g,
-    
+
     // Simple React component patterns
-    /export\s+const\s+\w+\s*=\s*\(\)\s*=>/g,  // export const Component = () =>
-    /export\s+default\s+\w+/g,  // export default Component
-    /<[A-Z]\w+\s*\/>/g,  // <Component />
-    /<[A-Z]\w+>/g,  // <Component>
-    /<\/[A-Z]\w+>/g  // </Component>
+    /export\s+const\s+\w+\s*=\s*\(\)\s*=>/g, // export const Component = () =>
+    /export\s+default\s+\w+/g, // export default Component
+    /<[A-Z]\w+\s*\/>/g, // <Component />
+    /<[A-Z]\w+>/g, // <Component>
+    /<\/[A-Z]\w+>/g, // </Component>
   ],
 
   // Shader string pattern for detecting GLSL in strings
-  SHADER_STRING_PATTERN: /['"`]([^'"`]*\b(?:attribute|uniform|varying|precision|gl_Position|gl_FragColor|texture2D|vec[234]|mat[234])\b[^'"`]*)['"`]/g,
+  SHADER_STRING_PATTERN:
+    /['"`]([^'"`]*\b(?:attribute|uniform|varying|precision|gl_Position|gl_FragColor|texture2D|vec[234]|mat[234])\b[^'"`]*)['"`]/g,
 
   // Utility/Math function patterns for legitimate code detection
   UTILITY_FUNCTION_PATTERNS: [
@@ -358,7 +344,7 @@ export const DETECTION_PATTERNS = {
     /rowIndex|colIndex/g,
     // Point/mesh calculations
     /point[12]\.(x|y|z)/g,
-    /meshPosition|tileSize/g
+    /meshPosition|tileSize/g,
   ],
 
   // React/Testing patterns for legitimate code detection
@@ -376,7 +362,7 @@ export const DETECTION_PATTERNS = {
     /toHaveTextContent/g,
     // React testing patterns
     /testing-library\/jest-dom/g,
-    /github\.com\/testing-library/g
+    /github\.com\/testing-library/g,
   ],
 
   // Blockchain/Contract patterns for legitimate code detection
@@ -390,7 +376,7 @@ export const DETECTION_PATTERNS = {
     // Blockchain patterns
     /ethereum|ethers|web3/g,
     /blockchain|crypto/g,
-    /wallet|metamask/g
+    /wallet|metamask/g,
   ],
 
   // Node.js/Socket.IO server patterns for legitimate code detection
@@ -443,7 +429,7 @@ export const DETECTION_PATTERNS = {
     /room\s*in\s*games/g,
     /players\[/g,
     /\.status\s*=/g,
-    /\.socket\s*=/g
+    /\.socket\s*=/g,
   ],
 
   // Socket/Network event mapping patterns
@@ -461,7 +447,7 @@ export const DETECTION_PATTERNS = {
     /['"`]\w*[Gg]ame\w*['"`]\s*:\s*0x[0-9a-fA-F]+/g,
     /['"`]\w*[Rr]oom\w*['"`]\s*:\s*0x[0-9a-fA-F]+/g,
     /['"`]\w*[Mm]ove\w*['"`]\s*:\s*0x[0-9a-fA-F]+/g,
-    /['"`]\w*[Pp]iece\w*['"`]\s*:\s*0x[0-9a-fA-F]+/g
+    /['"`]\w*[Pp]iece\w*['"`]\s*:\s*0x[0-9a-fA-F]+/g,
   ],
 
   // React library imports for framework detection
@@ -475,7 +461,7 @@ export const DETECTION_PATTERNS = {
     'react-hook-form',
     'styled-components',
     '@emotion/react',
-    '@emotion/styled'
+    '@emotion/styled',
   ],
 
   // Graphics library imports for legitimate code detection
@@ -490,16 +476,11 @@ export const DETECTION_PATTERNS = {
     'webgl-utils',
     'gl-matrix',
     'regl',
-    'twgl'
+    'twgl',
   ],
 
   // Suspicious modules that might indicate malicious code
-  SUSPICIOUS_MODULES: [
-    'fs',
-    'child_process',
-    'eval',
-    'vm'
-  ] as string[],
+  SUSPICIOUS_MODULES: ['fs', 'child_process', 'eval', 'vm'] as string[],
 
   // Wallet-related keywords for crypto threat detection
   WALLET_KEYWORDS: [
@@ -518,7 +499,7 @@ export const DETECTION_PATTERNS = {
     'mnemonic',
     'hdwallet',
     'trezor',
-    'ledger'
+    'ledger',
   ] as string[],
 
   // Suspicious file extensions
@@ -530,17 +511,11 @@ export const DETECTION_PATTERNS = {
     '.com',
     '.pif',
     '.vbs',
-    '.js'
+    '.js',
   ] as string[],
 
   // Popular packages for dependency confusion detection
-  POPULAR_PACKAGES: [
-    'react',
-    'lodash',
-    'express',
-    'axios',
-    'moment'
-  ] as string[],
+  POPULAR_PACKAGES: ['react', 'lodash', 'express', 'axios', 'moment'] as string[],
 
   // NullVoid project files to exclude from detection
   NULLVOID_FILES: [
@@ -604,71 +579,71 @@ export const DETECTION_PATTERNS = {
     'index.ts',
     'package-types.ts',
     'threat-types.ts',
-    'jest.config.js'
+    'jest.config.js',
   ] as string[],
 
   // Security patterns
   SECURITY_PATTERNS: {
     // Suspicious code patterns
     SUSPICIOUS_CODE: [
-    /eval\s*\(/gi,
-    /Function\s*\(/gi,
-    /setTimeout\s*\(\s*['"`]/gi,
-    /setInterval\s*\(\s*['"`]/gi,
-    /document\.write\s*\(/gi,
-    /innerHTML\s*=/gi,
-    /outerHTML\s*=/gi,
-    /insertAdjacentHTML\s*\(/gi
-  ],
-  
+      /eval\s*\(/gi,
+      /Function\s*\(/gi,
+      /setTimeout\s*\(\s*['"`]/gi,
+      /setInterval\s*\(\s*['"`]/gi,
+      /document\.write\s*\(/gi,
+      /innerHTML\s*=/gi,
+      /outerHTML\s*=/gi,
+      /insertAdjacentHTML\s*\(/gi,
+    ],
+
     // Dangerous function names
-  DANGEROUS_FUNCTIONS: [
-    'eval',
-    'Function',
-    'setTimeout',
-    'setInterval',
-    'setImmediate',
-    'process.nextTick',
-    'require',
-    'import',
-    'exec',
-    'spawn',
-    'execFile'
-  ],
-  
+    DANGEROUS_FUNCTIONS: [
+      'eval',
+      'Function',
+      'setTimeout',
+      'setInterval',
+      'setImmediate',
+      'process.nextTick',
+      'require',
+      'import',
+      'exec',
+      'spawn',
+      'execFile',
+    ],
+
     // Network-related patterns
-  NETWORK_PATTERNS: [
-    /fetch\s*\(/gi,
-    /XMLHttpRequest/gi,
-    /axios/gi,
-    /request/gi,
-    /http\./gi,
-    /https\./gi,
-    /net\./gi,
-    /tls\./gi
-  ],
-  
+    NETWORK_PATTERNS: [
+      /fetch\s*\(/gi,
+      /XMLHttpRequest/gi,
+      /axios/gi,
+      /request/gi,
+      /http\./gi,
+      /https\./gi,
+      /net\./gi,
+      /tls\./gi,
+    ],
+
     // File system patterns
-  FILE_SYSTEM_PATTERNS: [
-    /fs\./gi,
-    /readFile/gi,
-    /writeFile/gi,
-    /unlink/gi,
-    /mkdir/gi,
-    /rmdir/gi,
-    /chmod/gi,
-    /chown/gi
+    FILE_SYSTEM_PATTERNS: [
+      /fs\./gi,
+      /readFile/gi,
+      /writeFile/gi,
+      /unlink/gi,
+      /mkdir/gi,
+      /rmdir/gi,
+      /chmod/gi,
+      /chown/gi,
     ],
 
     // Malicious patterns (consolidated from VALIDATION_CONFIG)
     MALICIOUS_PATTERNS: [
-    /malware/gi,
-    /virus/gi,
-    /trojan/gi,
-    /backdoor/gi,
-    /keylogger/gi,
-    /spyware/gi,
-    /rootkit/gi,
+      /malware/gi,
+      /virus/gi,
+      /trojan/gi,
+      /backdoor/gi,
+      /keylogger/gi,
+      /spyware/gi,
+      /rootkit/gi,
       /botnet/gi,
       /eval\s*\(/gi,
       /Function\s*\(/gi,
@@ -677,53 +652,54 @@ export const DETECTION_PATTERNS = {
       /outerHTML\s*=/gi,
       /insertAdjacentHTML/gi,
       /setTimeout\s*\(\s*['"`]/gi,
-      /setInterval\s*\(\s*['"`]/gi
+      /setInterval\s*\(\s*['"`]/gi,
     ],
 
     // Dangerous patterns (consolidated from VALIDATION_CONFIG)
-  DANGEROUS_PATTERNS: [
-    /<script/gi,
-    /javascript:/gi,
-    /vbscript:/gi,
-    /data:text\/html/gi,
-    /onload\s*=/gi,
-    /onerror\s*=/gi,
-    /onclick\s*=/gi
-  ],
-  
+    DANGEROUS_PATTERNS: [
+      /<script/gi,
+      /javascript:/gi,
+      /vbscript:/gi,
+      /data:text\/html/gi,
+      /onload\s*=/gi,
+      /onerror\s*=/gi,
+      /onclick\s*=/gi,
+    ],
+
     // Dangerous file names
-  DANGEROUS_FILES: [
-    'malware.js',
-    'virus.js',
-    'trojan.js',
-    'backdoor.js',
-    'keylogger.js',
-    'spyware.js',
-    'rootkit.js',
-    'botnet.js'
-  ],
-  
+    DANGEROUS_FILES: [
+      'malware.js',
+      'virus.js',
+      'trojan.js',
+      'backdoor.js',
+      'keylogger.js',
+      'spyware.js',
+      'rootkit.js',
+      'botnet.js',
+    ],
+
     // Suspicious scripts
-  SUSPICIOUS_SCRIPTS: [
-    'curl http',
-    'wget http',
-    'rm -rf',
-    'chmod 777',
-    'chown root',
-    'sudo',
-    'su -',
-    'passwd',
-    'useradd',
-    'userdel'
-  ]
+    SUSPICIOUS_SCRIPTS: [
+      'curl http',
+      'wget http',
+      'rm -rf',
+      'chmod 777',
+      'chown root',
+      'sudo',
+      'su -',
+      'passwd',
+      'useradd',
+      'userdel',
+    ],
   },
 
   // Validation patterns
   VALIDATION_PATTERNS: {
     PACKAGE_NAME: /^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$/,
     LOCAL_PATH: /^[a-zA-Z0-9._/-]+$/,
-    SEMVER: /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/,
-    
+    SEMVER:
+      /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/,
+
     // Path traversal patterns
     TRAVERSAL_PATTERNS: [
       /\.\.\//g,
@@ -731,8 +707,8 @@ export const DETECTION_PATTERNS = {
       /\.\.%2f/gi,
       /\.\.%5c/gi,
       /\.\.%252f/gi,
-      /\.\.%255c/gi
-    ]
+      /\.\.%255c/gi,
+    ],
   },
 
   // Validation configuration
@@ -741,8 +717,8 @@ export const DETECTION_PATTERNS = {
     PACKAGE_NAME_MIN_LENGTH: 1,
     VALID_FORMATS: ['json', 'table', 'yaml', 'sarif'],
     VALID_OUTPUT_FORMATS: ['json', 'table', 'yaml', 'sarif'],
-    ALLOWED_EXTENSIONS: ['.js', '.mjs', '.ts', '.jsx', '.tsx', '.json']
-  }
+    ALLOWED_EXTENSIONS: ['.js', '.mjs', '.ts', '.jsx', '.tsx', '.json'],
+  },
 } as const;
 
 /**
@@ -754,10 +730,10 @@ export const TEST_PATTERNS_CONFIG = {
     FAILED: /✗ (.+)/g,
     SKIPPED: /○ (.+)/g,
     TOTAL: /Tests:\s*(\d+)\s*(?:passed|failed|skipped)/g,
-    SUMMARY: /Test Suites: (.+)\s*Tests: (.+)\s*Snapshots: (.+)\s*Time: (.+)/
+    SUMMARY: /Test Suites: (.+)\s*Tests: (.+)\s*Snapshots: (.+)\s*Time: (.+)/,
   },
-  
-  BADGE_REGEX: /!\[([^\]]*)\]\(([^)]+)\)/g
+
+  BADGE_REGEX: /!\[([^\]]*)\]\(([^)]+)\)/g,
 } as const;
 
 /**
@@ -770,25 +746,20 @@ export const DEPENDENCY_CONFUSION_CONFIG = {
     VERSION_GAP_DAYS: 30,
     CRITICAL: 1,
     HIGH_RISK: 3,
-    SUSPICIOUS: 7
+    SUSPICIOUS: 7,
   },
-  
+
   SIMILARITY_THRESHOLDS: {
     HIGH_SIMILARITY: 0.8,
     MEDIUM_SIMILARITY: 0.6,
-    LOW_SIMILARITY: 0.4
+    LOW_SIMILARITY: 0.4,
   },
-  
+
   SCOPE_PATTERNS: {
-    PRIVATE_SCOPES: [
-      /^@[a-z0-9-]+\/[a-z0-9._-]+$/,
-      /^@[a-z0-9-]+$/
-    ],
-    PUBLIC_SCOPES: [
-      /^[a-z0-9._-]+$/
-    ]
+    PRIVATE_SCOPES: [/^@[a-z0-9-]+\/[a-z0-9._-]+$/, /^@[a-z0-9-]+$/],
+    PUBLIC_SCOPES: [/^[a-z0-9._-]+$/],
   },
-  
+
   SUSPICIOUS_NAME_PATTERNS: [
     /^[a-z0-9]{32,}$/, // Random-looking names
     /malware/i,
@@ -798,21 +769,21 @@ export const DEPENDENCY_CONFUSION_CONFIG = {
     /keylogger/i,
     /spyware/i,
     /rootkit/i,
-    /botnet/i
+    /botnet/i,
   ],
-  
+
   REGISTRY_ENDPOINTS: {
     npm: 'https://registry.npmjs.org',
     yarn: 'https://registry.yarnpkg.com',
-    github: 'https://npm.pkg.github.com'
+    github: 'https://npm.pkg.github.com',
   },
-  
+
   ANALYSIS_SETTINGS: {
     MAX_GIT_COMMITS: 100,
     MAX_PACKAGE_VERSIONS: 50,
     TIMEOUT_MS: 10000,
-    RETRY_ATTEMPTS: 3
-  }
+    RETRY_ATTEMPTS: 3,
+  },
 } as const;
 
 /**
@@ -840,7 +811,7 @@ export const POPULAR_FRAMEWORKS = [
   'mocha',
   'cypress',
   'playwright',
-  'puppeteer'
+  'puppeteer',
 ] as const;
 
 /**
@@ -853,16 +824,18 @@ export const SCAN_CONFIG: ScanConfig = {
   sandboxTimeout: 100,
   maxMemory: 128 * 1024 * 1024, // 128MB
   enableParallel: true,
-  maxWorkers: PARALLEL_CONFIG.MAX_WORKERS
+  maxWorkers: PARALLEL_CONFIG.MAX_WORKERS,
 };
 
 export const SECURITY_CONFIG: SecurityConfig = {
   allowedExtensions: [...DETECTION_PATTERNS.VALIDATION_CONFIG.ALLOWED_EXTENSIONS],
-  blockedPatterns: DETECTION_PATTERNS.SECURITY_PATTERNS.MALICIOUS_PATTERNS.map(p => p.source),
-  suspiciousPatterns: DETECTION_PATTERNS.SECURITY_PATTERNS.MALICIOUS_PATTERNS.map(p => p.source),
+  blockedPatterns: DETECTION_PATTERNS.SECURITY_PATTERNS.MALICIOUS_PATTERNS.map((p) => p.source),
+  suspiciousPatterns: DETECTION_PATTERNS.SECURITY_PATTERNS.MALICIOUS_PATTERNS.map((p) => p.source),
   dangerousFunctions: [...DETECTION_PATTERNS.SECURITY_PATTERNS.DANGEROUS_FUNCTIONS],
-  networkPatterns: DETECTION_PATTERNS.SECURITY_PATTERNS.NETWORK_PATTERNS.map(p => p.source),
-  fileSystemPatterns: DETECTION_PATTERNS.SECURITY_PATTERNS.FILE_SYSTEM_PATTERNS.map(p => p.source)
+  networkPatterns: DETECTION_PATTERNS.SECURITY_PATTERNS.NETWORK_PATTERNS.map((p) => p.source),
+  fileSystemPatterns: DETECTION_PATTERNS.SECURITY_PATTERNS.FILE_SYSTEM_PATTERNS.map(
+    (p) => p.source
+  ),
 };
 
 export const PERFORMANCE_CONFIG: PerformanceConfig = {
@@ -870,13 +843,13 @@ export const PERFORMANCE_CONFIG: PerformanceConfig = {
   maxCacheSize: CACHE_CONFIG.MAX_SIZE,
   rateLimit: {
     requests: NETWORK_CONFIG.RATE_LIMIT.MAX_REQUESTS,
-    window: NETWORK_CONFIG.RATE_LIMIT.WINDOW_SIZE
+    window: NETWORK_CONFIG.RATE_LIMIT.WINDOW_SIZE,
   },
   timeouts: {
     network: NETWORK_CONFIG.TIMEOUT,
     file: FILE_CONFIG.SCAN_TIMEOUT,
-    analysis: FILE_CONFIG.SCAN_TIMEOUT
-  }
+    analysis: FILE_CONFIG.SCAN_TIMEOUT,
+  },
 };
 
 /**
@@ -892,7 +865,7 @@ export const IOC_CONFIG = {
       cacheTTL: 60 * 60 * 1000, // 1 hour
       timeout: 10000,
       maxRetries: 3,
-      retryDelay: 1000
+      retryDelay: 1000,
     },
     npm: {
       enabled: true, // Public API
@@ -900,7 +873,7 @@ export const IOC_CONFIG = {
       cacheTTL: 60 * 60 * 1000, // 1 hour
       timeout: 10000,
       maxRetries: 3,
-      retryDelay: 1000
+      retryDelay: 1000,
     },
     ghsa: {
       enabled: true, // Public API (better rate limits with token)
@@ -909,7 +882,7 @@ export const IOC_CONFIG = {
       cacheTTL: 60 * 60 * 1000, // 1 hour
       timeout: 15000,
       maxRetries: 3,
-      retryDelay: 1000
+      retryDelay: 1000,
     },
     cve: {
       enabled: true, // Public API
@@ -918,21 +891,21 @@ export const IOC_CONFIG = {
       cacheTTL: 24 * 60 * 60 * 1000, // 24 hours
       timeout: 15000,
       maxRetries: 3,
-      retryDelay: 2000
-    }
+      retryDelay: 2000,
+    },
   },
   // Default query options
   DEFAULT_QUERY_OPTIONS: {
     includeHistory: false,
-    maxResults: 50
+    maxResults: 50,
   },
   // Aggregation settings
   AGGREGATION: {
     // Deduplicate results from multiple providers
     deduplicate: true,
     // Prefer provider order (first provider's result takes precedence)
-    providerPriority: ['snyk', 'npm', 'ghsa', 'cve'] as const
-  }
+    providerPriority: ['snyk', 'npm', 'ghsa', 'cve'] as const,
+  },
 } as const;
 
 /**
@@ -944,7 +917,7 @@ export const CACHE_LAYER_CONFIG = {
     enabled: true,
     maxSize: 1000, // Maximum number of items
     defaultTTL: 5 * 60 * 1000, // 5 minutes
-    cleanupInterval: 60 * 1000 // 1 minute
+    cleanupInterval: 60 * 1000, // 1 minute
   },
   // L2 (File) cache
   L2: {
@@ -953,7 +926,7 @@ export const CACHE_LAYER_CONFIG = {
     maxSize: 100 * 1024 * 1024, // 100MB
     defaultTTL: 60 * 60 * 1000, // 1 hour
     cleanupInterval: 5 * 60 * 1000, // 5 minutes
-    compression: true
+    compression: true,
   },
   // L3 (Redis) cache
   L3: {
@@ -966,21 +939,21 @@ export const CACHE_LAYER_CONFIG = {
     poolSize: 10,
     connectTimeout: 5000,
     defaultTTL: 24 * 60 * 60 * 1000, // 24 hours
-    cleanupInterval: 60 * 60 * 1000 // 1 hour
+    cleanupInterval: 60 * 60 * 1000, // 1 hour
   },
   // Promotion/demotion strategy
   PROMOTION_STRATEGY: {
     promoteAfterAccesses: 3,
     demoteAfterMisses: 5,
-    timeBasedPromotion: true
+    timeBasedPromotion: true,
   },
   // Cache warming
   WARMING: {
     enabled: false,
     warmOnStartup: false,
     preloadPatterns: [] as string[],
-    strategy: 'on-demand' as 'aggressive' | 'conservative' | 'on-demand'
-  }
+    strategy: 'on-demand' as 'aggressive' | 'conservative' | 'on-demand',
+  },
 } as const;
 
 /**
@@ -993,7 +966,7 @@ export const NETWORK_OPTIMIZATION_CONFIG = {
     maxConnectionsPerDomain: 10,
     keepAliveTimeout: 60000, // 60 seconds
     connectTimeout: 5000, // 5 seconds
-    idleTimeout: 30000 // 30 seconds
+    idleTimeout: 30000, // 30 seconds
   },
   // Request batching
   REQUEST_BATCHING: {
@@ -1001,22 +974,22 @@ export const NETWORK_OPTIMIZATION_CONFIG = {
     maxBatchSize: 20,
     maxWaitTime: 100, // 100ms
     batchTimeout: 5000, // 5 seconds
-    priorityLevels: 3
+    priorityLevels: 3,
   },
   // Compression
   COMPRESSION: {
     enabled: true,
     algorithms: ['gzip', 'brotli'] as const,
     minSize: 1024, // 1KB
-    level: 6 // Compression level 1-9
+    level: 6, // Compression level 1-9
   },
   // CDN integration
   CDN: {
     enabled: false,
     baseUrl: undefined,
     fallbackToOrigin: true,
-    respectCacheHeaders: true
-  }
+    respectCacheHeaders: true,
+  },
 } as const;
 
 /**
@@ -1030,7 +1003,7 @@ export function updateConfigFromEnv(): void {
       (CACHE_CONFIG as Record<string, unknown>)['TTL'] = ttl;
     }
   }
-  
+
   // Update network timeout from environment
   if (process.env['NULLVOID_NETWORK_TIMEOUT']) {
     const timeout = parseInt(process.env['NULLVOID_NETWORK_TIMEOUT'], 10);
@@ -1038,7 +1011,7 @@ export function updateConfigFromEnv(): void {
       (NETWORK_CONFIG as Record<string, unknown>)['TIMEOUT'] = timeout;
     }
   }
-  
+
   // Update max workers from environment
   if (process.env['NULLVOID_MAX_WORKERS']) {
     const workers = parseInt(process.env['NULLVOID_MAX_WORKERS'], 10);
@@ -1046,68 +1019,68 @@ export function updateConfigFromEnv(): void {
       (PARALLEL_CONFIG as Record<string, unknown>)['MAX_WORKERS'] = workers;
     }
   }
-  
+
   // Update dependency confusion settings
   if (process.env['NULLVOID_DEP_CONFUSION_ENABLED']) {
     const enabled = process.env['NULLVOID_DEP_CONFUSION_ENABLED'].toLowerCase() === 'true';
     (DEPENDENCY_CONFUSION_CONFIG as Record<string, unknown>)['ENABLED'] = enabled;
   }
-  
+
   // Update IoC provider settings
   if (process.env['NULLVOID_IOC_SNYK_ENABLED']) {
     const enabled = process.env['NULLVOID_IOC_SNYK_ENABLED'].toLowerCase() === 'true';
     (IOC_CONFIG.PROVIDERS as Record<string, unknown>)['snyk'] = {
       ...IOC_CONFIG.PROVIDERS['snyk'],
-      enabled
+      enabled,
     };
   }
-  
+
   if (process.env['NULLVOID_IOC_NPM_ENABLED']) {
     const enabled = process.env['NULLVOID_IOC_NPM_ENABLED'].toLowerCase() === 'true';
     (IOC_CONFIG.PROVIDERS as Record<string, unknown>)['npm'] = {
       ...IOC_CONFIG.PROVIDERS['npm'],
-      enabled
+      enabled,
     };
   }
-  
+
   if (process.env['NULLVOID_IOC_GHSA_ENABLED']) {
     const enabled = process.env['NULLVOID_IOC_GHSA_ENABLED'].toLowerCase() === 'true';
     (IOC_CONFIG.PROVIDERS as Record<string, unknown>)['ghsa'] = {
       ...IOC_CONFIG.PROVIDERS['ghsa'],
-      enabled
+      enabled,
     };
   }
-  
+
   if (process.env['NULLVOID_IOC_CVE_ENABLED']) {
     const enabled = process.env['NULLVOID_IOC_CVE_ENABLED'].toLowerCase() === 'true';
     (IOC_CONFIG.PROVIDERS as Record<string, unknown>)['cve'] = {
       ...IOC_CONFIG.PROVIDERS['cve'],
-      enabled
+      enabled,
     };
   }
-  
+
   // Update cache layer settings
   if (process.env['NULLVOID_CACHE_L2_ENABLED']) {
     const enabled = process.env['NULLVOID_CACHE_L2_ENABLED'].toLowerCase() === 'true';
     (CACHE_LAYER_CONFIG.L2 as Record<string, unknown>)['enabled'] = enabled;
   }
-  
+
   if (process.env['NULLVOID_CACHE_L3_ENABLED']) {
     const enabled = process.env['NULLVOID_CACHE_L3_ENABLED'].toLowerCase() === 'true';
     (CACHE_LAYER_CONFIG.L3 as Record<string, unknown>)['enabled'] = enabled;
   }
-  
+
   // Update network optimization settings
   if (process.env['NULLVOID_CONNECTION_POOL_ENABLED']) {
     const enabled = process.env['NULLVOID_CONNECTION_POOL_ENABLED'].toLowerCase() === 'true';
     (NETWORK_OPTIMIZATION_CONFIG.CONNECTION_POOL as Record<string, unknown>)['enabled'] = enabled;
   }
-  
+
   if (process.env['NULLVOID_REQUEST_BATCHING_ENABLED']) {
     const enabled = process.env['NULLVOID_REQUEST_BATCHING_ENABLED'].toLowerCase() === 'true';
     (NETWORK_OPTIMIZATION_CONFIG.REQUEST_BATCHING as Record<string, unknown>)['enabled'] = enabled;
   }
-  
+
   if (process.env['NULLVOID_COMPRESSION_ENABLED']) {
     const enabled = process.env['NULLVOID_COMPRESSION_ENABLED'].toLowerCase() === 'true';
     (NETWORK_OPTIMIZATION_CONFIG.COMPRESSION as Record<string, unknown>)['enabled'] = enabled;
@@ -1123,21 +1096,20 @@ export const VALIDATION_CONFIG = {
   VALID_OUTPUT_FORMATS: DETECTION_PATTERNS.VALIDATION_CONFIG.VALID_OUTPUT_FORMATS,
   SEMVER_PATTERN: DETECTION_PATTERNS.VALIDATION_PATTERNS.SEMVER,
   ALLOWED_EXTENSIONS: DETECTION_PATTERNS.VALIDATION_CONFIG.ALLOWED_EXTENSIONS,
-  
+
   SUSPICIOUS_PATTERNS: DETECTION_PATTERNS.SECURITY_PATTERNS.MALICIOUS_PATTERNS,
   VALID_PACKAGE_NAME: DETECTION_PATTERNS.VALIDATION_PATTERNS.PACKAGE_NAME,
   VALID_LOCAL_PATH: DETECTION_PATTERNS.VALIDATION_PATTERNS.LOCAL_PATH,
-  
-  TRAVERSAL_PATTERNS: DETECTION_PATTERNS.VALIDATION_PATTERNS.TRAVERSAL_PATTERNS,
-  
-  DANGEROUS_PATTERNS: DETECTION_PATTERNS.SECURITY_PATTERNS.DANGEROUS_PATTERNS,
-  
-  MALICIOUS_PATTERNS: DETECTION_PATTERNS.SECURITY_PATTERNS.MALICIOUS_PATTERNS,
-  
-  DANGEROUS_FILES: DETECTION_PATTERNS.SECURITY_PATTERNS.DANGEROUS_FILES,
-  
-  SUSPICIOUS_SCRIPTS: DETECTION_PATTERNS.SECURITY_PATTERNS.SUSPICIOUS_SCRIPTS,
 
+  TRAVERSAL_PATTERNS: DETECTION_PATTERNS.VALIDATION_PATTERNS.TRAVERSAL_PATTERNS,
+
+  DANGEROUS_PATTERNS: DETECTION_PATTERNS.SECURITY_PATTERNS.DANGEROUS_PATTERNS,
+
+  MALICIOUS_PATTERNS: DETECTION_PATTERNS.SECURITY_PATTERNS.MALICIOUS_PATTERNS,
+
+  DANGEROUS_FILES: DETECTION_PATTERNS.SECURITY_PATTERNS.DANGEROUS_FILES,
+
+  SUSPICIOUS_SCRIPTS: DETECTION_PATTERNS.SECURITY_PATTERNS.SUSPICIOUS_SCRIPTS,
 };
 
 // Display/UI patterns for threat output formatting
@@ -1147,22 +1119,22 @@ export const DISPLAY_PATTERNS = {
     CRITICAL: /CRITICAL/g,
     HIGH: /HIGH/g,
     MEDIUM: /MEDIUM/g,
-    LOW: /LOW/g
+    LOW: /LOW/g,
   },
-  
+
   // Text cleaning patterns for threat details
   DETAILS_CLEANING_PATTERNS: {
     MALICIOUS_PREFIX: /MALICIOUS CODE DETECTED:\s*/g,
     CONFIDENCE: /Confidence: \d+%/g,
     THREAT_COUNT: /\(\d+ threats?\)/g,
-    WHITESPACE: /\s+/g
+    WHITESPACE: /\s+/g,
   },
-  
+
   // Regex patterns for extracting specific information
   EXTRACTION_PATTERNS: {
     CONFIDENCE: /Confidence: \d+%/,
-    THREAT_COUNT: /\(\d+ threats?\)/
-  }
+    THREAT_COUNT: /\(\d+ threats?\)/,
+  },
 };
 
 // Initialize configuration from environment

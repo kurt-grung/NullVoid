@@ -117,7 +117,7 @@ export interface DependencyTree {
 // THREAT TYPES
 // ============================================================================
 
-export type ThreatType = 
+export type ThreatType =
   | 'MALICIOUS_CODE'
   | 'WALLET_HIJACKING'
   | 'NETWORK_MANIPULATION'
@@ -255,6 +255,6 @@ export function createThreat(
     confidence: options.confidence,
     metadata: options.metadata,
     package: options.package,
-    ...options // Spread additional properties
+    ...options, // Spread additional properties
   };
 }

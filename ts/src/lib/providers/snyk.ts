@@ -10,7 +10,7 @@ import type {
   IoCResponse,
   IoCResult,
   VulnerabilitySeverity,
-  CVEInfo
+  CVEInfo,
 } from '../../types/ioc-types';
 import { logger } from '../logger';
 import { fetchWithTimeout } from './fetchWithTimeout';
@@ -54,18 +54,18 @@ export class SnykProvider implements IoCProvider {
   readonly name = 'snyk' as const;
   readonly config: IoCProviderConfig;
   private readonly baseUrl = 'https://api.snyk.io/v1';
-  
+
   constructor(config: IoCProviderConfig) {
     this.config = config;
   }
-  
+
   /**
    * Check if provider is available
    */
   isAvailable(): boolean {
     return this.config.enabled && !!this.config.apiKey;
   }
-  
+
   /**
    * Get provider health status
    */
@@ -73,16 +73,16 @@ export class SnykProvider implements IoCProvider {
     if (!this.isAvailable()) {
       return { healthy: false, message: 'Provider not configured (missing API key)' };
     }
-    
+
     try {
       const response = await fetchWithTimeout(`${this.baseUrl}/user/me`, {
         headers: {
-          'Authorization': `token ${this.config.apiKey}`,
-          'Content-Type': 'application/json'
+          Authorization: `token ${this.config.apiKey}`,
+          'Content-Type': 'application/json',
         },
-        timeout: this.config.timeout
+        timeout: this.config.timeout,
       });
-      
+
       if (response.ok) {
         return { healthy: true };
       } else {
@@ -91,17 +91,17 @@ export class SnykProvider implements IoCProvider {
     } catch (error) {
       return {
         healthy: false,
-        message: error instanceof Error ? error.message : String(error)
+        message: error instanceof Error ? error.message : String(error),
       };
     }
   }
-  
+
   /**
    * Query vulnerabilities for a package
    */
   async query(options: IoCQueryOptions): Promise<IoCResponse> {
     const startTime = Date.now();
-    
+
     if (!this.isAvailable()) {
       return {
         results: [],
@@ -110,23 +110,23 @@ export class SnykProvider implements IoCProvider {
           timestamp: Date.now(),
           responseTime: Date.now() - startTime,
           fromCache: false,
-          error: 'Provider not available (missing API key)'
-        }
+          error: 'Provider not available (missing API key)',
+        },
       };
     }
-    
+
     try {
       // Snyk API endpoint for npm package vulnerabilities
       const url = `${this.baseUrl}/vuln/npm/${options.packageName}`;
-      
+
       const response = await fetchWithTimeout(url, {
         headers: {
-          'Authorization': `token ${this.config.apiKey}`,
-          'Content-Type': 'application/json'
+          Authorization: `token ${this.config.apiKey}`,
+          'Content-Type': 'application/json',
         },
-        timeout: this.config.timeout
+        timeout: this.config.timeout,
       });
-      
+
       if (!response.ok) {
         if (response.status === 404) {
           // Package not found or no vulnerabilities
@@ -136,43 +136,47 @@ export class SnykProvider implements IoCProvider {
               provider: this.name,
               timestamp: Date.now(),
               responseTime: Date.now() - startTime,
-              fromCache: false
-            }
+              fromCache: false,
+            },
           };
         }
-        
+
         throw new Error(`Snyk API returned status ${response.status}: ${response.statusText}`);
       }
-      
-      const data = await response.json() as SnykApiResponse;
+
+      const data = (await response.json()) as SnykApiResponse;
       const vulnerabilities = data.vulnerabilities || data.issues || [];
-      
+
       // Filter by version if specified
       let filteredVulns = vulnerabilities;
       if (options.version) {
         filteredVulns = this.filterByVersion(vulnerabilities, options.version);
       }
-      
+
       // Limit results if specified
       if (options.maxResults) {
         filteredVulns = filteredVulns.slice(0, options.maxResults);
       }
-      
+
       // Convert to IoCResult format
-      const results: IoCResult[] = filteredVulns.map(vuln => this.convertToIoCResult(vuln, options.packageName, options.version));
-      
+      const results: IoCResult[] = filteredVulns.map((vuln) =>
+        this.convertToIoCResult(vuln, options.packageName, options.version)
+      );
+
       return {
         results,
         metadata: {
           provider: this.name,
           timestamp: Date.now(),
           responseTime: Date.now() - startTime,
-          fromCache: false
-        }
+          fromCache: false,
+        },
       };
     } catch (error) {
-      logger.error(`Error querying Snyk for ${options.packageName}`, { error: error instanceof Error ? error.message : String(error) });
-      
+      logger.error(`Error querying Snyk for ${options.packageName}`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+
       return {
         results: [],
         metadata: {
@@ -180,25 +184,28 @@ export class SnykProvider implements IoCProvider {
           timestamp: Date.now(),
           responseTime: Date.now() - startTime,
           fromCache: false,
-          error: error instanceof Error ? error.message : String(error)
-        }
+          error: error instanceof Error ? error.message : String(error),
+        },
       };
     }
   }
-  
+
   /**
    * Filter vulnerabilities by version
    */
-  private filterByVersion(vulnerabilities: SnykVulnerability[], version: string): SnykVulnerability[] {
-    return vulnerabilities.filter(vuln => {
+  private filterByVersion(
+    vulnerabilities: SnykVulnerability[],
+    version: string
+  ): SnykVulnerability[] {
+    return vulnerabilities.filter((vuln) => {
       // Check if version is in vulnerable range
       if (vuln.semver?.vulnerable) {
-        return vuln.semver.vulnerable.some(range => this.isVersionInRange(version, range));
+        return vuln.semver.vulnerable.some((range) => this.isVersionInRange(version, range));
       }
       return true; // Include if no version info
     });
   }
-  
+
   /**
    * Check if version is in semver range
    */
@@ -216,17 +223,20 @@ export class SnykProvider implements IoCProvider {
         return this.compareVersions(version, maxVersion) <= 0;
       }
       if (range.includes(' - ')) {
-        const [min, max] = range.split(' - ').map(v => v.trim());
+        const [min, max] = range.split(' - ').map((v) => v.trim());
         const minVersion = min || '';
         const maxVersion = max || '';
-        return this.compareVersions(version, minVersion) >= 0 && this.compareVersions(version, maxVersion) <= 0;
+        return (
+          this.compareVersions(version, minVersion) >= 0 &&
+          this.compareVersions(version, maxVersion) <= 0
+        );
       }
       return true; // Default to include if we can't parse
     } catch {
       return true;
     }
   }
-  
+
   /**
    * Simple version comparison
    */
@@ -234,7 +244,7 @@ export class SnykProvider implements IoCProvider {
     const parts1 = v1.split('.').map(Number);
     const parts2 = v2.split('.').map(Number);
     const maxLength = Math.max(parts1.length, parts2.length);
-    
+
     for (let i = 0; i < maxLength; i++) {
       const part1 = parts1[i] || 0;
       const part2 = parts2[i] || 0;
@@ -243,7 +253,7 @@ export class SnykProvider implements IoCProvider {
     }
     return 0;
   }
-  
+
   /**
    * Convert Snyk vulnerability to IoCResult
    */
@@ -254,49 +264,52 @@ export class SnykProvider implements IoCProvider {
   ): IoCResult {
     // Map Snyk severity to our severity levels
     const severityMap: Record<string, VulnerabilitySeverity> = {
-      'critical': 'CRITICAL',
-      'high': 'HIGH',
-      'medium': 'MEDIUM',
-      'low': 'LOW'
+      critical: 'CRITICAL',
+      high: 'HIGH',
+      medium: 'MEDIUM',
+      low: 'LOW',
     };
-    
+
     const severity = severityMap[vuln.severity] || 'MEDIUM';
-    
+
     // Extract CVE IDs
     const cveIds = vuln.cveIds || vuln.identifiers?.CVE || [];
     const vulnerabilityId = cveIds[0] || vuln.id;
-    
+
     // Build affected versions string
     const affectedVersions = vuln.semver?.vulnerable?.join(', ') || 'unknown';
-    
+
     // Build references
-    const references: string[] = [
-      `https://snyk.io/vuln/${vuln.id}`
-    ];
-    
+    const references: string[] = [`https://snyk.io/vuln/${vuln.id}`];
+
     if (cveIds.length > 0) {
-      cveIds.forEach(cve => {
+      cveIds.forEach((cve) => {
         references.push(`https://cve.mitre.org/cgi-bin/cvename.cgi?name=${cve}`);
       });
     }
-    
+
     // Build CVSS score if available
-    const cvss = vuln.cvssScore ? {
-      version: '3.1',
-      baseScore: vuln.cvssScore,
-      vector: ''
-    } : undefined;
-    
+    const cvss = vuln.cvssScore
+      ? {
+          version: '3.1',
+          baseScore: vuln.cvssScore,
+          vector: '',
+        }
+      : undefined;
+
     // Build CVE info if available
-    const cve: CVEInfo | undefined = cveIds.length > 0 ? {
-      id: cveIds[0] || '',
-      description: vuln.description,
-      publishedDate: vuln.publicationTime || vuln.disclosureTime || new Date().toISOString(),
-      modifiedDate: vuln.disclosureTime || new Date().toISOString(),
-      ...(cvss ? { cvss } : {}),
-      references
-    } : undefined;
-    
+    const cve: CVEInfo | undefined =
+      cveIds.length > 0
+        ? {
+            id: cveIds[0] || '',
+            description: vuln.description,
+            publishedDate: vuln.publicationTime || vuln.disclosureTime || new Date().toISOString(),
+            modifiedDate: vuln.disclosureTime || new Date().toISOString(),
+            ...(cvss ? { cvss } : {}),
+            references,
+          }
+        : undefined;
+
     return {
       packageName,
       version: version || vuln.packageVersion || 'unknown',
@@ -313,11 +326,11 @@ export class SnykProvider implements IoCProvider {
         snykId: vuln.id,
         language: vuln.language,
         packageManager: vuln.packageManager,
-        credit: vuln.credit
+        credit: vuln.credit,
       },
       publishedDate: vuln.publicationTime || vuln.disclosureTime || new Date().toISOString(),
       modifiedDate: vuln.disclosureTime || new Date().toISOString(),
-      references
+      references,
     };
   }
 }
@@ -331,7 +344,7 @@ export const defaultSnykConfig: IoCProviderConfig = {
   cacheTTL: 60 * 60 * 1000, // 1 hour
   timeout: 10000, // 10 seconds
   maxRetries: 3,
-  retryDelay: 1000 // 1 second
+  retryDelay: 1000, // 1 second
 };
 
 /**
@@ -342,9 +355,8 @@ export function createSnykProvider(config: Partial<IoCProviderConfig> = {}): IoC
   const finalConfig: IoCProviderConfig = {
     ...defaultSnykConfig,
     ...config,
-    ...(apiKey ? { apiKey } : {})
+    ...(apiKey ? { apiKey } : {}),
   };
-  
+
   return new SnykProvider(finalConfig);
 }
-

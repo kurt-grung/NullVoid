@@ -60,26 +60,29 @@ export class RateLimiter {
    */
   isAllowed(identifier: string = 'default'): boolean {
     const now = Date.now();
-    
+
     // Check if we're still blocked
     if (now < this.blockedUntil) {
       return false;
     }
-    
+
     // Clean old requests outside the window
-    this.requests = this.requests.filter(timestamp => now - timestamp < this.windowSize);
-    
+    this.requests = this.requests.filter((timestamp) => now - timestamp < this.windowSize);
+
     // Check if we've exceeded the limit
     if (this.requests.length >= this.maxRequests) {
       this.blockedUntil = now + this.windowSize;
-      logger.warn(`Rate limit exceeded. Blocked until ${new Date(this.blockedUntil).toISOString()}`, {
-        identifier,
-        requests: this.requests.length,
-        maxRequests: this.maxRequests
-      });
+      logger.warn(
+        `Rate limit exceeded. Blocked until ${new Date(this.blockedUntil).toISOString()}`,
+        {
+          identifier,
+          requests: this.requests.length,
+          maxRequests: this.maxRequests,
+        }
+      );
       return false;
     }
-    
+
     // Add current request
     this.requests.push(now);
     return true;
@@ -93,10 +96,10 @@ export class RateLimiter {
   async waitForReset(identifier: string = 'default'): Promise<void> {
     const now = Date.now();
     const waitTime = this.blockedUntil - now;
-    
+
     if (waitTime > 0) {
       logger.info(`Waiting ${waitTime}ms for rate limit to reset`, { identifier });
-      await new Promise<void>(resolve => {
+      await new Promise<void>((resolve) => {
         const timer = setTimeout(() => resolve(), waitTime);
         timer.unref(); // Don't keep process alive
       });
@@ -109,15 +112,15 @@ export class RateLimiter {
    */
   getStatus(): RateLimitStatus {
     const now = Date.now();
-    const activeRequests = this.requests.filter(timestamp => now - timestamp < this.windowSize);
-    
+    const activeRequests = this.requests.filter((timestamp) => now - timestamp < this.windowSize);
+
     return {
       requests: activeRequests.length,
       maxRequests: this.maxRequests,
       windowSize: this.windowSize,
       blockedUntil: this.blockedUntil,
       isBlocked: now < this.blockedUntil,
-      remainingRequests: Math.max(0, this.maxRequests - activeRequests.length)
+      remainingRequests: Math.max(0, this.maxRequests - activeRequests.length),
     };
   }
 
@@ -168,10 +171,13 @@ export class MultiRateLimiter {
    */
   getLimiter(identifier: string): RateLimiter {
     if (!this.limiters.has(identifier)) {
-      this.limiters.set(identifier, new RateLimiter({
-        maxRequests: this.maxRequests,
-        windowSize: this.windowSize
-      }));
+      this.limiters.set(
+        identifier,
+        new RateLimiter({
+          maxRequests: this.maxRequests,
+          windowSize: this.windowSize,
+        })
+      );
     }
     return this.limiters.get(identifier)!;
   }
@@ -289,10 +295,10 @@ export class RequestThrottler {
       return result;
     } catch (error) {
       if (this.retryCount >= this.maxRetries) {
-        logger.error(`Max retries exceeded for ${identifier}`, { 
+        logger.error(`Max retries exceeded for ${identifier}`, {
           error: (error as Error).message,
           retryCount: this.retryCount,
-          maxRetries: this.maxRetries
+          maxRetries: this.maxRetries,
         });
         throw error;
       }
@@ -306,15 +312,15 @@ export class RequestThrottler {
         error: (error as Error).message,
         retryCount: this.retryCount + 1,
         maxRetries: this.maxRetries,
-        delay
+        delay,
       });
 
       this.retryCount++;
-      await new Promise<void>(resolve => {
+      await new Promise<void>((resolve) => {
         const timer = setTimeout(() => resolve(), delay);
         timer.unref(); // Don't keep process alive
       });
-      
+
       return this.execute(requestFn, identifier);
     }
   }
@@ -357,14 +363,14 @@ export interface RateLimitedRequestOptions {
  */
 export const npmRegistryLimiter = new MultiRateLimiter({
   maxRequests: NETWORK_CONFIG.RATE_LIMIT.MAX_REQUESTS,
-  windowSize: NETWORK_CONFIG.RATE_LIMIT.WINDOW_SIZE
+  windowSize: NETWORK_CONFIG.RATE_LIMIT.WINDOW_SIZE,
 });
 
 export const requestThrottler = new RequestThrottler({
   baseDelay: 1000,
   maxDelay: 30000,
   backoffFactor: 2,
-  maxRetries: 3
+  maxRetries: 3,
 });
 
 /**
@@ -375,18 +381,18 @@ export const requestThrottler = new RequestThrottler({
  * @returns Request result
  */
 export async function rateLimitedRequest<T>(
-  requestFn: () => Promise<T>, 
-  identifier: string = 'default', 
+  requestFn: () => Promise<T>,
+  identifier: string = 'default',
   options: RateLimitedRequestOptions = {}
 ): Promise<T> {
   const limiter = options.limiter || npmRegistryLimiter;
-  
+
   // Check if request is allowed
   if (!limiter.isAllowed(identifier)) {
     logger.warn(`Rate limit exceeded for ${identifier}, waiting for reset`);
     await limiter.waitForReset(identifier);
   }
-  
+
   // Execute request with throttling
   return requestThrottler.execute(requestFn, identifier);
 }
@@ -446,10 +452,10 @@ export function shouldThrottleRequest(error: Error): boolean {
     'ECONNREFUSED',
     'rate limit',
     'too many requests',
-    '429'
+    '429',
   ];
-  
-  return throttlableErrors.some(pattern => 
+
+  return throttlableErrors.some((pattern) =>
     error.message.toLowerCase().includes(pattern.toLowerCase())
   );
 }
@@ -464,12 +470,12 @@ export function getRetryDelay(error: Error, attempt: number): number {
   const baseDelay = 1000;
   const maxDelay = 30000;
   const backoffFactor = 2;
-  
+
   // Increase delay for rate limit errors
   if (error.message.includes('rate limit') || error.message.includes('429')) {
     return Math.min(baseDelay * Math.pow(backoffFactor * 2, attempt), maxDelay);
   }
-  
+
   // Standard exponential backoff
   return Math.min(baseDelay * Math.pow(backoffFactor, attempt), maxDelay);
 }

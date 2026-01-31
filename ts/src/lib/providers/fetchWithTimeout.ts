@@ -13,11 +13,11 @@ export async function fetchWithTimeout(
   options: Parameters<typeof fetch>[1] & { timeout?: number } = {}
 ): Promise<ReturnType<typeof fetch>> {
   const { timeout, ...fetchOptions } = options;
-  
+
   if (!timeout) {
     return fetch(url, fetchOptions);
   }
-  
+
   // Create timeout promise with cleanup
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -29,13 +29,10 @@ export async function fetchWithTimeout(
       timeoutId.unref();
     }
   });
-  
+
   try {
     // Race between fetch and timeout
-    const response = await Promise.race([
-      fetch(url, fetchOptions),
-      timeoutPromise
-    ]);
+    const response = await Promise.race([fetch(url, fetchOptions), timeoutPromise]);
     // Clear timeout if fetch completed first
     if (timeoutId) {
       clearTimeout(timeoutId);
@@ -52,4 +49,3 @@ export async function fetchWithTimeout(
     throw error;
   }
 }
-

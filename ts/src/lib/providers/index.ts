@@ -18,32 +18,31 @@ export function registerAllProviders(): void {
   const snykEntry: ProviderRegistryEntry = {
     name: 'snyk',
     factory: (config) => createSnykProvider(config),
-    defaultConfig: defaultSnykConfig
+    defaultConfig: defaultSnykConfig,
   };
   registerIoCProvider(snykEntry);
-  
+
   // Register npm Advisories provider
   const npmEntry: ProviderRegistryEntry = {
     name: 'npm',
     factory: (config) => createNpmAdvisoriesProvider(config),
-    defaultConfig: defaultNpmAdvisoriesConfig
+    defaultConfig: defaultNpmAdvisoriesConfig,
   };
   registerIoCProvider(npmEntry);
-  
+
   // Register GHSA provider
   const ghsaEntry: ProviderRegistryEntry = {
     name: 'ghsa',
     factory: (config) => createGHSAProvider(config),
-    defaultConfig: defaultGHSAConfig
+    defaultConfig: defaultGHSAConfig,
   };
   registerIoCProvider(ghsaEntry);
-  
+
   // Register CVE/NVD provider
   const cveEntry: ProviderRegistryEntry = {
     name: 'cve',
     factory: (config) => createCVEProvider(config),
-    defaultConfig: defaultCVEConfig
+    defaultConfig: defaultCVEConfig,
   };
   registerIoCProvider(cveEntry);
 }
-

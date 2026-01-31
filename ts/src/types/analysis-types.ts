@@ -34,7 +34,7 @@ export interface ObfuscationAnalysis {
   complexity: number;
 }
 
-export type ObfuscationTechnique = 
+export type ObfuscationTechnique =
   | 'VARIABLE_MANGLING'
   | 'FUNCTION_MANGLING'
   | 'STRING_ENCODING'

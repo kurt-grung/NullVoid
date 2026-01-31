@@ -1,7 +1,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { ScanOptions, ScanResult, Threat, ProgressCallback, DirectoryStructure, PerformanceMetrics } from './types/core';
+import {
+  ScanOptions,
+  ScanResult,
+  Threat,
+  ProgressCallback,
+  DirectoryStructure,
+  PerformanceMetrics,
+} from './types/core';
 import { createLogger } from './lib/logger';
 import { validateScanOptions } from './lib/validation';
 import { isNullVoidCode } from './lib/nullvoidDetection';
@@ -23,30 +30,19 @@ const performanceMetrics: PerformanceMetrics = {
 
 // Suspicious patterns
 const SUSPICIOUS_PATTERNS = {
-  postinstall: [
-    'rm -rf',
-    'curl.*|.*sh',
-    'wget.*|.*sh',
-    'bash -c.*rm',
-    'bash -c.*chmod'
-  ],
-  dependencies: [
-    'http://.*',
-    'git://.*',
-    'file://.*'
-  ],
-  keywords: [
-    'malware',
-    'virus',
-    'trojan',
-    'backdoor'
-  ]
+  postinstall: ['rm -rf', 'curl.*|.*sh', 'wget.*|.*sh', 'bash -c.*rm', 'bash -c.*chmod'],
+  dependencies: ['http://.*', 'git://.*', 'file://.*'],
+  keywords: ['malware', 'virus', 'trojan', 'backdoor'],
 };
 
 /**
  * Scan a directory for threats
  */
-async function scanDirectory(dirPath: string, options: ScanOptions, progressCallback?: ProgressCallback): Promise<{
+async function scanDirectory(
+  dirPath: string,
+  options: ScanOptions,
+  progressCallback?: ProgressCallback
+): Promise<{
   threats: Threat[];
   filesScanned: number;
   packagesScanned: number;
@@ -60,19 +56,28 @@ async function scanDirectory(dirPath: string, options: ScanOptions, progressCall
 
   try {
     const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-    
-  for (const entry of entries) {
-    const fullPath = path.resolve(path.join(dirPath, entry.name));
-      
+
+    for (const entry of entries) {
+      const fullPath = path.resolve(path.join(dirPath, entry.name));
+
       // Skip common directories that shouldn't be scanned
       if (entry.isDirectory()) {
-        const skipDirs = ['node_modules', '.git', '.vscode', '.idea', 'dist', 'build', 'coverage', '.nyc_output'];
+        const skipDirs = [
+          'node_modules',
+          '.git',
+          '.vscode',
+          '.idea',
+          'dist',
+          'build',
+          'coverage',
+          '.nyc_output',
+        ];
         if (skipDirs.includes(entry.name)) {
           continue;
         }
-        
+
         directories.push(entry.name);
-        
+
         // Recursively scan subdirectories (with depth limit)
         const depth = (options.depth || 5) - 1;
         if (depth > 0) {
@@ -81,27 +86,34 @@ async function scanDirectory(dirPath: string, options: ScanOptions, progressCall
           filesScanned += subResult.filesScanned;
           packagesScanned += subResult.packagesScanned;
           // Merge subdirectory files and directories
-          files.push(...subResult.directoryStructure.files.map(f => path.join(entry.name, f)));
-          directories.push(...subResult.directoryStructure.directories.map(d => path.join(entry.name, d)));
+          files.push(...subResult.directoryStructure.files.map((f) => path.join(entry.name, f)));
+          directories.push(
+            ...subResult.directoryStructure.directories.map((d) => path.join(entry.name, d))
+          );
         }
       } else if (entry.isFile()) {
         files.push(entry.name);
-        
+
         // Check if it's a JavaScript file
-        if (entry.name.endsWith('.js') || entry.name.endsWith('.ts') || entry.name.endsWith('.jsx') || entry.name.endsWith('.tsx')) {
+        if (
+          entry.name.endsWith('.js') ||
+          entry.name.endsWith('.ts') ||
+          entry.name.endsWith('.jsx') ||
+          entry.name.endsWith('.tsx')
+        ) {
           // Call progress callback for all files (including skipped ones)
           if (progressCallback) {
             progressCallback({
               current: filesScanned + 1,
               total: 0, // We don't know total in advance
               message: `Scanning ${entry.name}`,
-              packageName: fullPath
+              packageName: fullPath,
             });
           }
-          
+
           try {
             const content = fs.readFileSync(fullPath, 'utf8');
-            
+
             // Skip NullVoid's own files
             if (isNullVoidCode(fullPath)) {
               if (options.verbose) {
@@ -109,11 +121,11 @@ async function scanDirectory(dirPath: string, options: ScanOptions, progressCall
               }
               continue;
             }
-            
+
             // Detect threats in the file
             const fileThreats = detectMalware(content, fullPath);
             threats.push(...fileThreats);
-            
+
             filesScanned++;
           } catch (error) {
             if (options.verbose) {
@@ -138,17 +150,21 @@ async function scanDirectory(dirPath: string, options: ScanOptions, progressCall
       files,
       directories,
       totalFiles: files.length,
-      totalDirectories: directories.length
-    }
+      totalDirectories: directories.length,
+    },
   };
 }
 
 /**
  * Main scan function
  */
-export async function scan(target: string, options: ScanOptions = {}, progressCallback?: ProgressCallback): Promise<ScanResult> {
+export async function scan(
+  target: string,
+  options: ScanOptions = {},
+  progressCallback?: ProgressCallback
+): Promise<ScanResult> {
   const startTime = Date.now();
-  
+
   // Validate inputs
   try {
     validateScanOptions(options);
@@ -156,7 +172,7 @@ export async function scan(target: string, options: ScanOptions = {}, progressCa
     logger.error(`Validation error: ${(error as Error).message}`);
     throw error;
   }
-  
+
   const threats: Threat[] = [];
   let packagesScanned = 0;
   let filesScanned = 0;
@@ -175,7 +191,7 @@ export async function scan(target: string, options: ScanOptions = {}, progressCa
     if (!target) {
       target = process.cwd();
     }
-    
+
     // Check if target is a directory
     if (fs.existsSync(target) && fs.statSync(target).isDirectory()) {
       // Scan directory
@@ -184,7 +200,7 @@ export async function scan(target: string, options: ScanOptions = {}, progressCa
       filesScanned = directoryResult.filesScanned;
       packagesScanned = directoryResult.packagesScanned;
       directoryStructure = directoryResult.directoryStructure;
-      
+
       // Also scan package.json if it exists
       const packageJsonPath = path.join(target, 'package.json');
       if (fs.existsSync(packageJsonPath)) {
@@ -192,22 +208,24 @@ export async function scan(target: string, options: ScanOptions = {}, progressCa
           const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
           const dependencies = {
             ...packageJson.dependencies,
-            ...packageJson.devDependencies
+            ...packageJson.devDependencies,
           };
-          
+
           if (Object.keys(dependencies).length > 0) {
             packagesScanned += Object.keys(dependencies).length;
-            
+
             // Check for suspicious dependencies and query IoC providers
             const dependencyThreats: Threat[] = [];
             const iocQueries: Promise<Threat[]>[] = [];
-            
+
             for (const [depName, depVersion] of Object.entries(dependencies)) {
               if (typeof depVersion === 'string') {
                 // Check for suspicious patterns in dependency names
-                if (SUSPICIOUS_PATTERNS.keywords.some(keyword => 
-                  depName.toLowerCase().includes(keyword.toLowerCase())
-                )) {
+                if (
+                  SUSPICIOUS_PATTERNS.keywords.some((keyword) =>
+                    depName.toLowerCase().includes(keyword.toLowerCase())
+                  )
+                ) {
                   dependencyThreats.push({
                     type: 'SUSPICIOUS_DEPENDENCY',
                     message: `Suspicious dependency name: ${depName}`,
@@ -215,14 +233,16 @@ export async function scan(target: string, options: ScanOptions = {}, progressCa
                     filename: 'package.json',
                     severity: 'MEDIUM',
                     details: `Dependency "${depName}" contains suspicious keywords`,
-                    confidence: 0.7
+                    confidence: 0.7,
                   });
                 }
-                
+
                 // Check for suspicious version patterns
-                if (SUSPICIOUS_PATTERNS.dependencies.some(pattern => 
-                  depVersion.match(new RegExp(pattern))
-                )) {
+                if (
+                  SUSPICIOUS_PATTERNS.dependencies.some((pattern) =>
+                    depVersion.match(new RegExp(pattern))
+                  )
+                ) {
                   dependencyThreats.push({
                     type: 'SUSPICIOUS_DEPENDENCY',
                     message: `Suspicious dependency version: ${depName}@${depVersion}`,
@@ -230,29 +250,33 @@ export async function scan(target: string, options: ScanOptions = {}, progressCa
                     filename: 'package.json',
                     severity: 'HIGH',
                     details: `Dependency "${depName}" has suspicious version pattern: ${depVersion}`,
-                    confidence: 0.8
+                    confidence: 0.8,
                   });
                 }
-                
+
                 // Query IoC providers for vulnerabilities (if enabled)
                 if (options.iocEnabled !== false) {
                   // Extract version from semver range (e.g., "^1.0.0" -> "1.0.0")
                   const cleanVersion = depVersion.replace(/^[\^~>=<]+\s*/, '');
-                  
+
                   // Parse provider names from options
                   let providerNames: IoCProviderName[] | undefined;
                   if (options.iocProviders) {
-                    const providerList = options.iocProviders.split(',').map(p => p.trim().toLowerCase());
-                    providerNames = providerList.filter(p => 
-                      p === 'snyk' || p === 'npm' || p === 'ghsa' || p === 'cve'
+                    const providerList = options.iocProviders
+                      .split(',')
+                      .map((p) => p.trim().toLowerCase());
+                    providerNames = providerList.filter(
+                      (p) => p === 'snyk' || p === 'npm' || p === 'ghsa' || p === 'cve'
                     ) as IoCProviderName[];
                   }
-                  
-                  iocQueries.push(queryIoCProviders(depName, cleanVersion, providerNames, packageJsonPath));
+
+                  iocQueries.push(
+                    queryIoCProviders(depName, cleanVersion, providerNames, packageJsonPath)
+                  );
                 }
               }
             }
-            
+
             // Wait for IoC queries and merge results BEFORE adding to threats
             if (iocQueries.length > 0) {
               try {
@@ -300,8 +324,9 @@ export async function scan(target: string, options: ScanOptions = {}, progressCa
           filePath: target,
           filename: path.basename(target),
           severity: 'LOW',
-          details: 'This appears to be a package name, but npm package scanning is not yet implemented in the TypeScript version.',
-          confidence: 0.5
+          details:
+            'This appears to be a package name, but npm package scanning is not yet implemented in the TypeScript version.',
+          confidence: 0.5,
         });
       }
     }
@@ -314,7 +339,7 @@ export async function scan(target: string, options: ScanOptions = {}, progressCa
       filename: path.basename(target),
       severity: 'MEDIUM',
       details: (error as Error).stack || '',
-      confidence: 0.9
+      confidence: 0.9,
     });
   }
 
@@ -322,25 +347,35 @@ export async function scan(target: string, options: ScanOptions = {}, progressCa
   const duration = Date.now() - startTime;
   const memoryUsage = process.memoryUsage().heapUsed / 1024 / 1024; // MB
   const cpuUsage = os.loadavg()[0] || 0;
-  
+
   performanceData = {
     duration,
     memoryUsage,
     cpuUsage,
-    filesPerSecond: filesScanned > 0 && duration > 0 ? Math.round(filesScanned / (duration / 1000)) : 0,
-    packagesPerSecond: packagesScanned > 0 && duration > 0 ? Math.round(packagesScanned / (duration / 1000)) : 0,
+    filesPerSecond:
+      filesScanned > 0 && duration > 0 ? Math.round(filesScanned / (duration / 1000)) : 0,
+    packagesPerSecond:
+      packagesScanned > 0 && duration > 0 ? Math.round(packagesScanned / (duration / 1000)) : 0,
   };
 
   // Filter threats based on options
   const filteredThreats = filterThreatsBySeverity(threats, options.all || false);
 
   // Calculate directory structure totals
-  const totalDirectories = directoryStructure ? 
-    directoryStructure.directories.length + 
-    (directoryStructure.directories.reduce((acc, dir) => acc + (dir.includes('/') ? dir.split('/').length - 1 : 0), 0)) : 0;
-  const totalFiles = directoryStructure ? 
-    directoryStructure.files.length + 
-    (directoryStructure.files.reduce((acc, file) => acc + (file.includes('/') ? file.split('/').length - 1 : 0), 0)) : 0;
+  const totalDirectories = directoryStructure
+    ? directoryStructure.directories.length +
+      directoryStructure.directories.reduce(
+        (acc, dir) => acc + (dir.includes('/') ? dir.split('/').length - 1 : 0),
+        0
+      )
+    : 0;
+  const totalFiles = directoryStructure
+    ? directoryStructure.files.length +
+      directoryStructure.files.reduce(
+        (acc, file) => acc + (file.includes('/') ? file.split('/').length - 1 : 0),
+        0
+      )
+    : 0;
 
   return {
     threats: filteredThreats,
@@ -349,7 +384,7 @@ export async function scan(target: string, options: ScanOptions = {}, progressCa
       totalFiles: filesScanned,
       totalPackages: packagesScanned,
       threatsFound: filteredThreats.length,
-      scanDuration: duration
+      scanDuration: duration,
     },
     packagesScanned,
     filesScanned,
@@ -357,18 +392,20 @@ export async function scan(target: string, options: ScanOptions = {}, progressCa
     metadata: {
       target,
       scanTime: new Date().toISOString(),
-      options
+      options,
     },
-    directoryStructure: directoryStructure ? {
-      ...directoryStructure,
-      totalDirectories,
-      totalFiles
-    } : { path: target, files: [], directories: [], totalDirectories: 0, totalFiles: 0 },
+    directoryStructure: directoryStructure
+      ? {
+          ...directoryStructure,
+          totalDirectories,
+          totalFiles,
+        }
+      : { path: target, files: [], directories: [], totalDirectories: 0, totalFiles: 0 },
     dependencyTree: {
       totalPackages: packagesScanned,
       maxDepth: 5, // Placeholder
       packagesWithThreats: filteredThreats.length > 0 ? 1 : 0,
-      deepDependencies: 0 // Placeholder
-    }
+      deepDependencies: 0, // Placeholder
+    },
   };
 }

@@ -27,12 +27,12 @@ export class MemoryPool<T = unknown> {
   private pool: T[] = [];
   private allocated: Set<T> = new Set();
   private created = 0;
-  
+
   constructor(config: MemoryPoolConfig) {
     this.config = config;
     this.initialize();
   }
-  
+
   /**
    * Initialize pool with initial objects
    */
@@ -43,13 +43,13 @@ export class MemoryPool<T = unknown> {
       this.created++;
     }
   }
-  
+
   /**
    * Acquire object from pool
    */
   acquire(): T {
     let obj: T;
-    
+
     if (this.pool.length > 0) {
       // Reuse from pool
       obj = this.pool.pop()!;
@@ -64,11 +64,11 @@ export class MemoryPool<T = unknown> {
         obj = this.config.factory() as T;
       }
     }
-    
+
     this.allocated.add(obj);
     return obj;
   }
-  
+
   /**
    * Release object back to pool
    */
@@ -77,21 +77,21 @@ export class MemoryPool<T = unknown> {
       logger.warn('Attempted to release object not from this pool');
       return;
     }
-    
+
     this.allocated.delete(obj);
-    
+
     // Reset object if reset function provided
     if (this.config.reset) {
       this.config.reset(obj);
     }
-    
+
     // Return to pool if not at max size
     if (this.pool.length < this.config.maxSize) {
       this.pool.push(obj);
     }
     // Otherwise, let it be garbage collected
   }
-  
+
   /**
    * Get pool statistics
    */
@@ -105,10 +105,10 @@ export class MemoryPool<T = unknown> {
       poolSize: this.pool.length,
       allocated: this.allocated.size,
       totalCreated: this.created,
-      utilization: this.created > 0 ? this.allocated.size / this.created : 0
+      utilization: this.created > 0 ? this.allocated.size / this.created : 0,
     };
   }
-  
+
   /**
    * Clear pool
    */
@@ -125,7 +125,7 @@ export class MemoryPool<T = unknown> {
  */
 export class MemoryPoolManager {
   private pools: Map<string, MemoryPool> = new Map();
-  
+
   /**
    * Register a memory pool
    */
@@ -134,27 +134,27 @@ export class MemoryPoolManager {
     this.pools.set(name, pool);
     return pool;
   }
-  
+
   /**
    * Get pool by name
    */
   getPool<T>(name: string): MemoryPool<T> | undefined {
     return this.pools.get(name) as MemoryPool<T> | undefined;
   }
-  
+
   /**
    * Get all pool statistics
    */
   getAllStats(): Record<string, ReturnType<MemoryPool['getStats']>> {
     const stats: Record<string, ReturnType<MemoryPool['getStats']>> = {};
-    
+
     for (const [name, pool] of this.pools.entries()) {
       stats[name] = pool.getStats();
     }
-    
+
     return stats;
   }
-  
+
   /**
    * Clear all pools
    */
@@ -170,14 +170,14 @@ export class MemoryPoolManager {
  */
 export class CommonObjectPools {
   private manager: MemoryPoolManager;
-  
+
   constructor() {
     this.manager = new MemoryPoolManager();
-    
+
     // Register common pools
     this.initializeCommonPools();
   }
-  
+
   /**
    * Initialize common object pools
    */
@@ -191,9 +191,9 @@ export class CommonObjectPools {
         if (Buffer.isBuffer(buf)) {
           buf.fill(0);
         }
-      }
+      },
     });
-    
+
     // Array pool
     this.manager.registerPool('array', {
       initialSize: 20,
@@ -203,9 +203,9 @@ export class CommonObjectPools {
         if (Array.isArray(arr)) {
           arr.length = 0;
         }
-      }
+      },
     });
-    
+
     // Object pool
     this.manager.registerPool('object', {
       initialSize: 20,
@@ -217,10 +217,10 @@ export class CommonObjectPools {
             delete (obj as Record<string, unknown>)[key];
           }
         }
-      }
+      },
     });
   }
-  
+
   /**
    * Get buffer from pool
    */
@@ -228,7 +228,7 @@ export class CommonObjectPools {
     const pool = this.manager.getPool<Buffer>('buffer');
     return pool ? pool.acquire() : Buffer.alloc(1024);
   }
-  
+
   /**
    * Release buffer to pool
    */
@@ -238,7 +238,7 @@ export class CommonObjectPools {
       pool.release(buffer);
     }
   }
-  
+
   /**
    * Get array from pool
    */
@@ -246,7 +246,7 @@ export class CommonObjectPools {
     const pool = this.manager.getPool<T[]>('array');
     return pool ? pool.acquire() : [];
   }
-  
+
   /**
    * Release array to pool
    */
@@ -256,7 +256,7 @@ export class CommonObjectPools {
       pool.release(arr);
     }
   }
-  
+
   /**
    * Get object from pool
    */
@@ -264,7 +264,7 @@ export class CommonObjectPools {
     const pool = this.manager.getPool<Record<string, unknown>>('object');
     return pool ? pool.acquire() : {};
   }
-  
+
   /**
    * Release object to pool
    */
@@ -274,14 +274,14 @@ export class CommonObjectPools {
       pool.release(obj);
     }
   }
-  
+
   /**
    * Get all statistics
    */
   getStats(): ReturnType<MemoryPoolManager['getAllStats']> {
     return this.manager.getAllStats();
   }
-  
+
   /**
    * Clear all pools
    */
@@ -304,4 +304,3 @@ export function getCommonObjectPools(): CommonObjectPools {
   }
   return globalCommonPools;
 }
-

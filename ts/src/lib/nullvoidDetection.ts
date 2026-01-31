@@ -38,7 +38,7 @@ export function isNullVoidCode(packageName: string): boolean {
 
   // Extract filename for more precise matching
   const fileName = packageName.split('/').pop() || packageName.split('\\').pop() || packageName;
-  
+
   // Check for specific NullVoid project files
   const nullVoidFiles = DETECTION_PATTERNS.NULLVOID_FILES;
 
@@ -48,27 +48,29 @@ export function isNullVoidCode(packageName: string): boolean {
   }
 
   // Check for NullVoid directory structure (more specific)
-  if (packageName.includes('/NullVoid/') && (
-    packageName.includes('/NullVoid/lib/') ||
-    packageName.includes('/NullVoid/bin/') ||
-    packageName.includes('/NullVoid/scripts/') ||
-    packageName.includes('/NullVoid/src/') ||
-    packageName.includes('/NullVoid/scan.js') ||
-    packageName.includes('/NullVoid/scan.ts') ||
-    packageName.includes('/NullVoid/package.json')
-  )) {
+  if (
+    packageName.includes('/NullVoid/') &&
+    (packageName.includes('/NullVoid/lib/') ||
+      packageName.includes('/NullVoid/bin/') ||
+      packageName.includes('/NullVoid/scripts/') ||
+      packageName.includes('/NullVoid/src/') ||
+      packageName.includes('/NullVoid/scan.js') ||
+      packageName.includes('/NullVoid/scan.ts') ||
+      packageName.includes('/NullVoid/package.json'))
+  ) {
     return true;
   }
 
-  if (packageName.includes('\\NullVoid\\') && (
-    packageName.includes('\\NullVoid\\lib\\') ||
-    packageName.includes('\\NullVoid\\bin\\') ||
-    packageName.includes('\\NullVoid\\scripts\\') ||
-    packageName.includes('\\NullVoid\\src\\') ||
-    packageName.includes('\\NullVoid\\scan.js') ||
-    packageName.includes('\\NullVoid\\scan.ts') ||
-    packageName.includes('\\NullVoid\\package.json')
-  )) {
+  if (
+    packageName.includes('\\NullVoid\\') &&
+    (packageName.includes('\\NullVoid\\lib\\') ||
+      packageName.includes('\\NullVoid\\bin\\') ||
+      packageName.includes('\\NullVoid\\scripts\\') ||
+      packageName.includes('\\NullVoid\\src\\') ||
+      packageName.includes('\\NullVoid\\scan.js') ||
+      packageName.includes('\\NullVoid\\scan.ts') ||
+      packageName.includes('\\NullVoid\\package.json'))
+  ) {
     return true;
   }
 
@@ -118,12 +120,15 @@ export function isTestFile(packageName: string): boolean {
  * @param options - Detection options
  * @returns Detailed detection result
  */
-export function detectCodeType(packageName: string, options: DetectionOptions = {}): DetectionResult {
+export function detectCodeType(
+  packageName: string,
+  options: DetectionOptions = {}
+): DetectionResult {
   const result: DetectionResult = {
     isNullVoidCode: false,
     isTestFile: false,
     fileName: '',
-    confidence: 0
+    confidence: 0,
   };
 
   if (!packageName || typeof packageName !== 'string') {
@@ -144,8 +149,9 @@ export function detectCodeType(packageName: string, options: DetectionOptions = 
   result.isTestFile = isTestFile(packageName);
   if (result.isTestFile) {
     result.confidence = Math.max(result.confidence, 90);
-    result.matchedPattern = result.matchedPattern ? 
-      `${result.matchedPattern} + test file` : 'test file';
+    result.matchedPattern = result.matchedPattern
+      ? `${result.matchedPattern} + test file`
+      : 'test file';
   }
 
   // Apply custom patterns if provided
@@ -153,8 +159,9 @@ export function detectCodeType(packageName: string, options: DetectionOptions = 
     for (const pattern of options.customPatterns) {
       if (packageName.includes(pattern)) {
         result.confidence = Math.max(result.confidence, 80);
-        result.matchedPattern = result.matchedPattern ? 
-          `${result.matchedPattern} + custom pattern` : 'custom pattern';
+        result.matchedPattern = result.matchedPattern
+          ? `${result.matchedPattern} + custom pattern`
+          : 'custom pattern';
         break;
       }
     }
@@ -177,9 +184,12 @@ export function detectCodeType(packageName: string, options: DetectionOptions = 
  * @param options - Detection options
  * @returns True if code should be excluded
  */
-export function shouldExcludeFromAnalysis(packageName: string, options: DetectionOptions = {}): boolean {
+export function shouldExcludeFromAnalysis(
+  packageName: string,
+  options: DetectionOptions = {}
+): boolean {
   const detection = detectCodeType(packageName, options);
-  
+
   // Exclude NullVoid's own code
   if (detection.isNullVoidCode) {
     return true;
@@ -201,7 +211,7 @@ export function getNullVoidFiles(): string[] {
   return [
     'scan.js',
     'scan.ts',
-    'rules.js', 
+    'rules.js',
     'rules.ts',
     'benchmarks.js',
     'benchmarks.ts',
@@ -249,7 +259,7 @@ export function getNullVoidFiles(): string[] {
     'SECURITY.md',
     'CODE_OF_CONDUCT.md',
     'TYPESCRIPT_MIGRATION_TODO.md',
-    'TYPESCRIPT_MIGRATION_GUIDE.md'
+    'TYPESCRIPT_MIGRATION_GUIDE.md',
   ];
 }
 
@@ -271,7 +281,7 @@ export function getTestFilePatterns(): string[] {
     'test_',
     '/test/',
     '/tests/',
-    '\\tests\\'
+    '\\tests\\',
   ];
 }
 
@@ -286,7 +296,7 @@ export class NullVoidDetectionManager {
       includeTestFiles: false,
       strictMode: false,
       customPatterns: [],
-      ...options
+      ...options,
     };
   }
 
@@ -364,6 +374,8 @@ export class NullVoidDetectionManager {
  * @param options - Detection options
  * @returns New detection manager instance
  */
-export function createNullVoidDetectionManager(options: DetectionOptions = {}): NullVoidDetectionManager {
+export function createNullVoidDetectionManager(
+  options: DetectionOptions = {}
+): NullVoidDetectionManager {
   return new NullVoidDetectionManager(options);
 }

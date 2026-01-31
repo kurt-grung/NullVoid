@@ -10,7 +10,7 @@ import type {
   IoCResponse,
   IoCResult,
   VulnerabilitySeverity,
-  CVEInfo
+  CVEInfo,
 } from '../../types/ioc-types';
 import { logger } from '../logger';
 import { fetchWithTimeout } from './fetchWithTimeout';
@@ -77,11 +77,11 @@ export class GHSAProvider implements IoCProvider {
   readonly name = 'ghsa' as const;
   readonly config: IoCProviderConfig;
   private readonly graphqlUrl = 'https://api.github.com/graphql';
-  
+
   constructor(config: IoCProviderConfig) {
     this.config = config;
   }
-  
+
   /**
    * Check if provider is available
    */
@@ -89,7 +89,7 @@ export class GHSAProvider implements IoCProvider {
     // GHSA API can work without auth for public data, but rate limits are lower
     return this.config.enabled;
   }
-  
+
   /**
    * Get provider health status
    */
@@ -103,9 +103,9 @@ export class GHSAProvider implements IoCProvider {
           }
         }
       `;
-      
+
       const response = await this.makeGraphQLRequest(query);
-      
+
       if (response.data) {
         return { healthy: true };
       } else {
@@ -114,17 +114,17 @@ export class GHSAProvider implements IoCProvider {
     } catch (error) {
       return {
         healthy: false,
-        message: error instanceof Error ? error.message : String(error)
+        message: error instanceof Error ? error.message : String(error),
       };
     }
   }
-  
+
   /**
    * Query vulnerabilities for a package
    */
   async query(options: IoCQueryOptions): Promise<IoCResponse> {
     const startTime = Date.now();
-    
+
     if (!this.isAvailable()) {
       return {
         results: [],
@@ -133,11 +133,11 @@ export class GHSAProvider implements IoCProvider {
           timestamp: Date.now(),
           responseTime: Date.now() - startTime,
           fromCache: false,
-          error: 'Provider not enabled'
-        }
+          error: 'Provider not enabled',
+        },
       };
     }
-    
+
     try {
       // GraphQL query for security advisories
       const query = `
@@ -190,53 +190,54 @@ export class GHSAProvider implements IoCProvider {
           }
         }
       `;
-      
+
       const variables = {
         packageName: options.packageName,
-        first: options.maxResults || 50
+        first: options.maxResults || 50,
       };
-      
+
       const response = await this.makeGraphQLRequest(query, variables);
-      
+
       if (response.errors) {
-        throw new Error(`GraphQL errors: ${response.errors.map(e => e.message).join(', ')}`);
+        throw new Error(`GraphQL errors: ${response.errors.map((e) => e.message).join(', ')}`);
       }
-      
+
       const advisories = response.data?.securityAdvisories?.nodes || [];
-      
+
       // Filter by version if specified
       let filteredAdvisories = advisories;
       if (options.version) {
         filteredAdvisories = this.filterByVersion(advisories, options.version);
       }
-      
+
       // Convert to IoCResult format
-      const results: IoCResult[] = filteredAdvisories.flatMap(advisory =>
+      const results: IoCResult[] = filteredAdvisories.flatMap((advisory) =>
         this.convertToIoCResults(advisory, options.packageName, options.version)
       );
-      
+
       return {
         results,
         metadata: {
           provider: this.name,
           timestamp: Date.now(),
           responseTime: Date.now() - startTime,
-          fromCache: false
-        }
+          fromCache: false,
+        },
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      const isRateLimitError = errorMessage.includes('403') || 
-                               errorMessage.includes('rate limit') ||
-                               errorMessage.includes('Rate limit');
-      
+      const isRateLimitError =
+        errorMessage.includes('403') ||
+        errorMessage.includes('rate limit') ||
+        errorMessage.includes('Rate limit');
+
       // Log rate limit errors at debug level to reduce noise
       if (isRateLimitError) {
         logger.debug(`Rate limit hit for GHSA:${options.packageName}`, { error: errorMessage });
       } else {
         logger.error(`Error querying GHSA for ${options.packageName}`, { error: errorMessage });
       }
-      
+
       return {
         results: [],
         metadata: {
@@ -244,12 +245,12 @@ export class GHSAProvider implements IoCProvider {
           timestamp: Date.now(),
           responseTime: Date.now() - startTime,
           fromCache: false,
-          error: errorMessage
-        }
+          error: errorMessage,
+        },
       };
     }
   }
-  
+
   /**
    * Make GraphQL request to GitHub API
    */
@@ -258,24 +259,24 @@ export class GHSAProvider implements IoCProvider {
     variables?: Record<string, unknown>
   ): Promise<GHSAGraphQLResponse> {
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     };
-    
+
     // Add auth token if available
     if (this.config.apiKey) {
       headers['Authorization'] = `Bearer ${this.config.apiKey}`;
     }
-    
+
     const response = await fetchWithTimeout(this.graphqlUrl, {
       method: 'POST',
       headers,
       body: JSON.stringify({
         query,
-        variables: variables || {}
+        variables: variables || {},
       }),
-      timeout: this.config.timeout
+      timeout: this.config.timeout,
     });
-    
+
     if (!response.ok) {
       // Handle rate limit errors specifically
       if (response.status === 403) {
@@ -283,21 +284,21 @@ export class GHSAProvider implements IoCProvider {
       }
       throw new Error(`GitHub API returned status ${response.status}: ${response.statusText}`);
     }
-    
-    return await response.json() as GHSAGraphQLResponse;
+
+    return (await response.json()) as GHSAGraphQLResponse;
   }
-  
+
   /**
    * Filter advisories by version
    */
   private filterByVersion(advisories: GHSAVulnerability[], version: string): GHSAVulnerability[] {
-    return advisories.filter(advisory => {
+    return advisories.filter((advisory) => {
       // Check if any vulnerability node matches the package and version
-      return advisory.vulnerabilities.nodes.some(vuln => {
+      return advisory.vulnerabilities.nodes.some((vuln) => {
         if (vuln.package.name !== advisory.vulnerabilities.nodes[0]?.package.name) {
           return false;
         }
-        
+
         // Check if version is in vulnerable range
         if (vuln.vulnerableVersionRange) {
           return this.isVersionInRange(version, vuln.vulnerableVersionRange);
@@ -306,7 +307,7 @@ export class GHSAProvider implements IoCProvider {
       });
     });
   }
-  
+
   /**
    * Check if version is in semver range
    */
@@ -315,7 +316,7 @@ export class GHSAProvider implements IoCProvider {
       // Handle common npm range patterns
       if (range === '*') return true;
       if (range === '<0.0.0') return false;
-      
+
       // Handle ranges like ">=1.0.0 <2.0.0"
       const rangeParts = range.split(/\s+/);
       for (const part of rangeParts) {
@@ -338,7 +339,7 @@ export class GHSAProvider implements IoCProvider {
       return true; // Default to include if we can't parse
     }
   }
-  
+
   /**
    * Simple version comparison
    */
@@ -346,7 +347,7 @@ export class GHSAProvider implements IoCProvider {
     const parts1 = v1.split('.').map(Number);
     const parts2 = v2.split('.').map(Number);
     const maxLength = Math.max(parts1.length, parts2.length);
-    
+
     for (let i = 0; i < maxLength; i++) {
       const part1 = parts1[i] || 0;
       const part2 = parts2[i] || 0;
@@ -355,7 +356,7 @@ export class GHSAProvider implements IoCProvider {
     }
     return 0;
   }
-  
+
   /**
    * Convert GHSA advisory to IoCResults (one per vulnerability node)
    */
@@ -365,59 +366,62 @@ export class GHSAProvider implements IoCProvider {
     version?: string
   ): IoCResult[] {
     const results: IoCResult[] = [];
-    
+
     // Map GHSA severity to our severity levels
     const severityMap: Record<string, VulnerabilitySeverity> = {
-      'CRITICAL': 'CRITICAL',
-      'HIGH': 'HIGH',
-      'MODERATE': 'MEDIUM',
-      'LOW': 'LOW'
+      CRITICAL: 'CRITICAL',
+      HIGH: 'HIGH',
+      MODERATE: 'MEDIUM',
+      LOW: 'LOW',
     };
-    
+
     const severity = severityMap[advisory.severity] || 'MEDIUM';
-    
+
     // Extract CVE IDs
-    const cveIds = advisory.identifiers
-      .filter(id => id.type === 'CVE')
-      .map(id => id.value);
-    
+    const cveIds = advisory.identifiers.filter((id) => id.type === 'CVE').map((id) => id.value);
+
     const vulnerabilityId = cveIds[0] || advisory.ghsaId;
-    
+
     // Build references
     const references: string[] = [advisory.permalink];
-    
+
     if (cveIds.length > 0) {
-      cveIds.forEach(cve => {
+      cveIds.forEach((cve) => {
         references.push(`https://cve.mitre.org/cgi-bin/cvename.cgi?name=${cve}`);
         references.push(`https://nvd.nist.gov/vuln/detail/${cve}`);
       });
     }
-    
+
     // Build CVSS score if available
-    const cvss = advisory.cvss ? {
-      version: '3.1',
-      baseScore: advisory.cvss.score,
-      vector: advisory.cvss.vectorString
-    } : undefined;
-    
+    const cvss = advisory.cvss
+      ? {
+          version: '3.1',
+          baseScore: advisory.cvss.score,
+          vector: advisory.cvss.vectorString,
+        }
+      : undefined;
+
     // Build CVE info if available
-    const cve: CVEInfo | undefined = cveIds.length > 0 ? {
-      id: cveIds[0] || '',
-      description: advisory.description,
-      publishedDate: advisory.publishedAt,
-      modifiedDate: advisory.updatedAt,
-      ...(cvss ? { cvss } : {}),
-      references
-    } : undefined;
-    
+    const cve: CVEInfo | undefined =
+      cveIds.length > 0
+        ? {
+            id: cveIds[0] || '',
+            description: advisory.description,
+            publishedDate: advisory.publishedAt,
+            modifiedDate: advisory.updatedAt,
+            ...(cvss ? { cvss } : {}),
+            references,
+          }
+        : undefined;
+
     // Create one result per vulnerability node (package version)
     for (const vuln of advisory.vulnerabilities.nodes) {
       if (vuln.package.ecosystem !== 'NPM') continue;
-      
+
       const fixedVersions = vuln.firstPatchedVersion
         ? [vuln.firstPatchedVersion.identifier]
         : undefined;
-      
+
       results.push({
         packageName: vuln.package.name,
         version: version || 'unknown',
@@ -432,14 +436,14 @@ export class GHSAProvider implements IoCProvider {
         source: this.name,
         providerData: {
           ghsaId: advisory.ghsaId,
-          cwes: advisory.cwes?.nodes.map(cwe => cwe.cweId)
+          cwes: advisory.cwes?.nodes.map((cwe) => cwe.cweId),
         },
         publishedDate: advisory.publishedAt,
         modifiedDate: advisory.updatedAt,
-        references
+        references,
       });
     }
-    
+
     return results;
   }
 }
@@ -453,7 +457,7 @@ export const defaultGHSAConfig: IoCProviderConfig = {
   cacheTTL: 60 * 60 * 1000, // 1 hour
   timeout: 15000, // 15 seconds (GraphQL can be slower)
   maxRetries: 3,
-  retryDelay: 1000 // 1 second
+  retryDelay: 1000, // 1 second
 };
 
 /**
@@ -464,9 +468,8 @@ export function createGHSAProvider(config: Partial<IoCProviderConfig> = {}): IoC
   const finalConfig: IoCProviderConfig = {
     ...defaultGHSAConfig,
     ...config,
-    ...(apiKey ? { apiKey } : {})
+    ...(apiKey ? { apiKey } : {}),
   };
-  
+
   return new GHSAProvider(finalConfig);
 }
-

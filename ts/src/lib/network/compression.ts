@@ -6,7 +6,7 @@
 import type {
   CompressionConfig,
   CompressionAlgorithm,
-  CompressionResult
+  CompressionResult,
 } from '../../types/network-types';
 import { NETWORK_OPTIMIZATION_CONFIG } from '../config';
 import { logger } from '../logger';
@@ -25,15 +25,15 @@ const inflate = promisify(zlib.inflate);
  */
 export class CompressionManager {
   private config: CompressionConfig;
-  
+
   constructor(config?: Partial<CompressionConfig>) {
     this.config = {
       ...NETWORK_OPTIMIZATION_CONFIG.COMPRESSION,
       ...config,
-      algorithms: config?.algorithms || NETWORK_OPTIMIZATION_CONFIG.COMPRESSION.algorithms
+      algorithms: config?.algorithms || NETWORK_OPTIMIZATION_CONFIG.COMPRESSION.algorithms,
     } as CompressionConfig;
   }
-  
+
   /**
    * Compress data
    */
@@ -48,14 +48,14 @@ export class CompressionManager {
         compressedSize: buffer.length,
         ratio: 1,
         algorithm: 'gzip',
-        compressionTime: 0
+        compressionTime: 0,
       };
     }
-    
+
     const startTime = Date.now();
     const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
     const originalSize = buffer.length;
-    
+
     // Skip compression if data is too small
     if (originalSize < this.config.minSize) {
       return {
@@ -63,13 +63,13 @@ export class CompressionManager {
         compressedSize: originalSize,
         ratio: 1,
         algorithm: 'gzip',
-        compressionTime: Date.now() - startTime
+        compressionTime: Date.now() - startTime,
       };
     }
-    
+
     // Determine algorithm
     const algo = algorithm || this.config.algorithms[0] || 'gzip';
-    
+
     let compressed: Buffer;
     try {
       switch (algo) {
@@ -79,8 +79,8 @@ export class CompressionManager {
         case 'brotli':
           compressed = await brotliCompress(buffer, {
             params: {
-              [zlib.constants.BROTLI_PARAM_QUALITY]: this.config.level
-            }
+              [zlib.constants.BROTLI_PARAM_QUALITY]: this.config.level,
+            },
           });
           break;
         case 'deflate':
@@ -90,34 +90,33 @@ export class CompressionManager {
           compressed = buffer;
       }
     } catch (error) {
-      logger.warn(`Compression failed with ${algo}, using uncompressed`, { error: error instanceof Error ? error.message : String(error) });
+      logger.warn(`Compression failed with ${algo}, using uncompressed`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
       compressed = buffer;
     }
-    
+
     const compressionTime = Date.now() - startTime;
     const compressedSize = compressed.length;
     const ratio = originalSize > 0 ? compressedSize / originalSize : 1;
-    
+
     return {
       originalSize,
       compressedSize,
       ratio,
       algorithm: algo,
-      compressionTime
+      compressionTime,
     };
   }
-  
+
   /**
    * Decompress data
    */
-  async decompress(
-    data: Buffer,
-    algorithm: CompressionAlgorithm
-  ): Promise<Buffer> {
+  async decompress(data: Buffer, algorithm: CompressionAlgorithm): Promise<Buffer> {
     if (!this.config.enabled) {
       return data;
     }
-    
+
     try {
       switch (algorithm) {
         case 'gzip':
@@ -130,11 +129,13 @@ export class CompressionManager {
           return data;
       }
     } catch (error) {
-      logger.warn(`Decompression failed with ${algorithm}`, { error: error instanceof Error ? error.message : String(error) });
+      logger.warn(`Decompression failed with ${algorithm}`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw error;
     }
   }
-  
+
   /**
    * Get Accept-Encoding header value
    */
@@ -142,9 +143,9 @@ export class CompressionManager {
     if (!this.config.enabled) {
       return 'identity';
     }
-    
+
     const encodings: string[] = [];
-    
+
     if (this.config.algorithms.includes('brotli')) {
       encodings.push('br');
     }
@@ -154,10 +155,10 @@ export class CompressionManager {
     if (this.config.algorithms.includes('deflate')) {
       encodings.push('deflate');
     }
-    
+
     return encodings.length > 0 ? encodings.join(', ') : 'identity';
   }
-  
+
   /**
    * Parse Content-Encoding header and determine algorithm
    */
@@ -165,9 +166,9 @@ export class CompressionManager {
     if (!header) {
       return null;
     }
-    
+
     const encoding = header.toLowerCase().trim();
-    
+
     if (encoding.includes('br') || encoding.includes('brotli')) {
       return 'brotli';
     }
@@ -177,10 +178,10 @@ export class CompressionManager {
     if (encoding.includes('deflate')) {
       return 'deflate';
     }
-    
+
     return null;
   }
-  
+
   /**
    * Check if compression is beneficial
    */
@@ -204,4 +205,3 @@ export function getCompressionManager(config?: Partial<CompressionConfig>): Comp
   }
   return globalCompressionManager;
 }
-

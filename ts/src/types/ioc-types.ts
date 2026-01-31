@@ -140,17 +140,17 @@ export interface IoCProvider {
   readonly name: IoCProviderName;
   /** Provider configuration */
   readonly config: IoCProviderConfig;
-  
+
   /**
    * Query vulnerabilities for a package
    */
   query(options: IoCQueryOptions): Promise<IoCResponse>;
-  
+
   /**
    * Check if provider is available/configured
    */
   isAvailable(): boolean;
-  
+
   /**
    * Get provider health status
    */
@@ -181,16 +181,18 @@ export interface AggregatedIoCResults {
   /** All results grouped by package */
   byPackage: Record<string, IoCResult[]>;
   /** Provider statistics */
-  providerStats: Record<IoCProviderName, {
-    queried: boolean;
-    success: boolean;
-    resultCount: number;
-    responseTime: number;
-    error?: string;
-  }>;
+  providerStats: Record<
+    IoCProviderName,
+    {
+      queried: boolean;
+      success: boolean;
+      resultCount: number;
+      responseTime: number;
+      error?: string;
+    }
+  >;
   /** Total results count */
   totalResults: number;
   /** Unique vulnerability IDs */
   uniqueVulnerabilities: string[];
 }
-

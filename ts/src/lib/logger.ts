@@ -14,11 +14,11 @@ export const LOG_LEVELS = {
   WARN: 1,
   INFO: 2,
   DEBUG: 3,
-  VERBOSE: 4
+  VERBOSE: 4,
 } as const;
 
 export type LogLevel = keyof typeof LOG_LEVELS;
-export type LogLevelValue = typeof LOG_LEVELS[LogLevel];
+export type LogLevelValue = (typeof LOG_LEVELS)[LogLevel];
 
 /**
  * Logger configuration options
@@ -69,7 +69,8 @@ export class Logger {
   private timestamp: boolean;
 
   constructor(options: LoggerOptions = {}) {
-    this.level = this.parseLogLevel(options.level) || 
+    this.level =
+      this.parseLogLevel(options.level) ||
       (process.env['NODE_ENV'] === 'test' ? LOG_LEVELS.ERROR : LOG_LEVELS.INFO);
     this.enableColors = options.enableColors !== false;
     this.prefix = options.prefix || 'NullVoid';
@@ -123,19 +124,19 @@ export class Logger {
    */
   private formatMessage(level: string, message: string, meta: LogMetadata = {}): string {
     const parts: string[] = [];
-    
+
     if (this.timestamp) {
       parts.push(`[${new Date().toISOString()}]`);
     }
-    
+
     parts.push(`[${this.prefix}]`);
     parts.push(`[${level}]`);
     parts.push(message);
-    
+
     if (Object.keys(meta).length > 0) {
       parts.push(JSON.stringify(meta));
     }
-    
+
     return parts.join(' ');
   }
 
@@ -246,7 +247,7 @@ export class Logger {
       enableColors: this.enableColors,
       timestamp: this.timestamp,
       prefix: `${this.prefix}:${childPrefix}`,
-      ...options
+      ...options,
     });
   }
 
@@ -258,7 +259,7 @@ export class Logger {
       level: this.level,
       enableColors: this.enableColors,
       prefix: this.prefix,
-      timestamp: this.timestamp
+      timestamp: this.timestamp,
     };
   }
 }
@@ -267,9 +268,9 @@ export class Logger {
  * Default logger instance
  */
 export const logger = new Logger({
-  level: process.env['NULLVOID_LOG_LEVEL'] as LogLevel || LOG_LEVELS.INFO,
+  level: (process.env['NULLVOID_LOG_LEVEL'] as LogLevel) || LOG_LEVELS.INFO,
   enableColors: process.env['NULLVOID_NO_COLOR'] !== 'true',
-  timestamp: process.env['NULLVOID_TIMESTAMP'] === 'true'
+  timestamp: process.env['NULLVOID_TIMESTAMP'] === 'true',
 });
 
 /**
@@ -285,7 +286,7 @@ export function createLogger(prefix: string, options: Partial<LoggerOptions> = {
     prefix: `${config.prefix}:${prefix}`,
     level: config.level as LogLevel | LogLevelValue,
     enableColors: config.enableColors ?? true,
-    timestamp: config.timestamp ?? true
+    timestamp: config.timestamp ?? true,
   });
 }
 

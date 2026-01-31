@@ -10,7 +10,7 @@ import type {
   IoCResponse,
   IoCResult,
   VulnerabilitySeverity,
-  CVEInfo
+  CVEInfo,
 } from '../../types/ioc-types';
 import { logger } from '../logger';
 import { fetchWithTimeout } from './fetchWithTimeout';
@@ -51,27 +51,27 @@ export class NpmAdvisoriesProvider implements IoCProvider {
   readonly name = 'npm' as const;
   readonly config: IoCProviderConfig;
   private readonly baseUrl = 'https://registry.npmjs.org/-/npm/v1/security/advisories';
-  
+
   constructor(config: IoCProviderConfig) {
     this.config = config;
   }
-  
+
   /**
    * Check if provider is available
    */
   isAvailable(): boolean {
     return this.config.enabled;
   }
-  
+
   /**
    * Get provider health status
    */
   async getHealth(): Promise<{ healthy: boolean; message?: string }> {
     try {
       const response = await fetchWithTimeout(`${this.baseUrl}?per_page=1`, {
-        timeout: this.config.timeout
+        timeout: this.config.timeout,
       });
-      
+
       if (response.ok) {
         return { healthy: true };
       } else {
@@ -80,17 +80,17 @@ export class NpmAdvisoriesProvider implements IoCProvider {
     } catch (error) {
       return {
         healthy: false,
-        message: error instanceof Error ? error.message : String(error)
+        message: error instanceof Error ? error.message : String(error),
       };
     }
   }
-  
+
   /**
    * Query vulnerabilities for a package
    */
   async query(options: IoCQueryOptions): Promise<IoCResponse> {
     const startTime = Date.now();
-    
+
     if (!this.isAvailable()) {
       return {
         results: [],
@@ -99,23 +99,23 @@ export class NpmAdvisoriesProvider implements IoCProvider {
           timestamp: Date.now(),
           responseTime: Date.now() - startTime,
           fromCache: false,
-          error: 'Provider not enabled'
-        }
+          error: 'Provider not enabled',
+        },
       };
     }
-    
+
     try {
       // Query npm advisories API
       // Note: npm API doesn't have a direct package endpoint, so we query all and filter
       const url = `${this.baseUrl}?package=${encodeURIComponent(options.packageName)}`;
-      
+
       const response = await fetchWithTimeout(url, {
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        timeout: this.config.timeout
+        timeout: this.config.timeout,
       });
-      
+
       if (!response.ok) {
         if (response.status === 404) {
           return {
@@ -124,45 +124,49 @@ export class NpmAdvisoriesProvider implements IoCProvider {
               provider: this.name,
               timestamp: Date.now(),
               responseTime: Date.now() - startTime,
-              fromCache: false
-            }
+              fromCache: false,
+            },
           };
         }
-        
-        throw new Error(`npm Advisories API returned status ${response.status}: ${response.statusText}`);
+
+        throw new Error(
+          `npm Advisories API returned status ${response.status}: ${response.statusText}`
+        );
       }
-      
-      const data = await response.json() as NpmAdvisoriesResponse;
+
+      const data = (await response.json()) as NpmAdvisoriesResponse;
       const advisories = data.results || [];
-      
+
       // Filter by version if specified
       let filteredAdvisories = advisories;
       if (options.version) {
         filteredAdvisories = this.filterByVersion(advisories, options.version);
       }
-      
+
       // Limit results if specified
       if (options.maxResults) {
         filteredAdvisories = filteredAdvisories.slice(0, options.maxResults);
       }
-      
+
       // Convert to IoCResult format
-      const results: IoCResult[] = filteredAdvisories.map(advisory => 
+      const results: IoCResult[] = filteredAdvisories.map((advisory) =>
         this.convertToIoCResult(advisory, options.packageName, options.version)
       );
-      
+
       return {
         results,
         metadata: {
           provider: this.name,
           timestamp: Date.now(),
           responseTime: Date.now() - startTime,
-          fromCache: false
-        }
+          fromCache: false,
+        },
       };
     } catch (error) {
-      logger.error(`Error querying npm Advisories for ${options.packageName}`, { error: error instanceof Error ? error.message : String(error) });
-      
+      logger.error(`Error querying npm Advisories for ${options.packageName}`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+
       return {
         results: [],
         metadata: {
@@ -170,17 +174,17 @@ export class NpmAdvisoriesProvider implements IoCProvider {
           timestamp: Date.now(),
           responseTime: Date.now() - startTime,
           fromCache: false,
-          error: error instanceof Error ? error.message : String(error)
-        }
+          error: error instanceof Error ? error.message : String(error),
+        },
       };
     }
   }
-  
+
   /**
    * Filter advisories by version
    */
   private filterByVersion(advisories: NpmAdvisory[], version: string): NpmAdvisory[] {
-    return advisories.filter(advisory => {
+    return advisories.filter((advisory) => {
       // Check if version is in vulnerable range
       if (advisory.vulnerable_versions) {
         return this.isVersionInRange(version, advisory.vulnerable_versions);
@@ -188,7 +192,7 @@ export class NpmAdvisoriesProvider implements IoCProvider {
       return true; // Include if no version info
     });
   }
-  
+
   /**
    * Check if version is in semver range
    */
@@ -197,7 +201,7 @@ export class NpmAdvisoriesProvider implements IoCProvider {
       // Handle common npm range patterns
       if (range === '*') return true;
       if (range === '<0.0.0') return false;
-      
+
       // Handle ranges like ">=1.0.0 <2.0.0"
       const rangeParts = range.split(/\s+/);
       for (const part of rangeParts) {
@@ -220,7 +224,7 @@ export class NpmAdvisoriesProvider implements IoCProvider {
       return true; // Default to include if we can't parse
     }
   }
-  
+
   /**
    * Simple version comparison
    */
@@ -228,7 +232,7 @@ export class NpmAdvisoriesProvider implements IoCProvider {
     const parts1 = v1.split('.').map(Number);
     const parts2 = v2.split('.').map(Number);
     const maxLength = Math.max(parts1.length, parts2.length);
-    
+
     for (let i = 0; i < maxLength; i++) {
       const part1 = parts1[i] || 0;
       const part2 = parts2[i] || 0;
@@ -237,7 +241,7 @@ export class NpmAdvisoriesProvider implements IoCProvider {
     }
     return 0;
   }
-  
+
   /**
    * Convert npm advisory to IoCResult
    */
@@ -248,47 +252,58 @@ export class NpmAdvisoriesProvider implements IoCProvider {
   ): IoCResult {
     // Map npm severity to our severity levels
     const severityMap: Record<string, VulnerabilitySeverity> = {
-      'critical': 'CRITICAL',
-      'high': 'HIGH',
-      'moderate': 'MEDIUM',
-      'low': 'LOW'
+      critical: 'CRITICAL',
+      high: 'HIGH',
+      moderate: 'MEDIUM',
+      low: 'LOW',
     };
-    
+
     const severity = severityMap[advisory.severity] || 'MEDIUM';
-    
+
     // Extract CVE IDs
     const cveIds = advisory.cves || [];
     const vulnerabilityId = cveIds[0] || `npm-${advisory.id}`;
-    
+
     // Build references
     const references: string[] = [advisory.url];
-    
+
     if (advisory.references) {
       // Parse references (can be comma-separated or newline-separated)
-      const refs = advisory.references.split(/[,\n]/).map(r => r.trim()).filter(Boolean);
+      const refs = advisory.references
+        .split(/[,\n]/)
+        .map((r) => r.trim())
+        .filter(Boolean);
       references.push(...refs);
     }
-    
+
     if (cveIds.length > 0) {
-      cveIds.forEach(cve => {
+      cveIds.forEach((cve) => {
         references.push(`https://cve.mitre.org/cgi-bin/cvename.cgi?name=${cve}`);
       });
     }
-    
+
     // Build CVE info if available
-    const cve: CVEInfo | undefined = cveIds.length > 0 ? {
-      id: cveIds[0] || '',
-      description: advisory.overview || advisory.recommendation || '',
-      publishedDate: advisory.published_date || advisory.reported_date || new Date().toISOString(),
-      modifiedDate: advisory.updated_date || advisory.published_date || new Date().toISOString(),
-      references
-    } : undefined;
-    
+    const cve: CVEInfo | undefined =
+      cveIds.length > 0
+        ? {
+            id: cveIds[0] || '',
+            description: advisory.overview || advisory.recommendation || '',
+            publishedDate:
+              advisory.published_date || advisory.reported_date || new Date().toISOString(),
+            modifiedDate:
+              advisory.updated_date || advisory.published_date || new Date().toISOString(),
+            references,
+          }
+        : undefined;
+
     // Parse fixed versions
     const fixedVersions = advisory.patched_versions
-      ? advisory.patched_versions.split(',').map(v => v.trim()).filter(Boolean)
+      ? advisory.patched_versions
+          .split(',')
+          .map((v) => v.trim())
+          .filter(Boolean)
       : undefined;
-    
+
     return {
       packageName,
       version: version || 'unknown',
@@ -303,11 +318,11 @@ export class NpmAdvisoriesProvider implements IoCProvider {
       providerData: {
         advisoryId: advisory.id,
         cwe: advisory.cwe,
-        foundBy: advisory.found_by
+        foundBy: advisory.found_by,
       },
       publishedDate: advisory.published_date || advisory.reported_date || new Date().toISOString(),
       modifiedDate: advisory.updated_date || advisory.published_date || new Date().toISOString(),
-      references
+      references,
     };
   }
 }
@@ -321,7 +336,7 @@ export const defaultNpmAdvisoriesConfig: IoCProviderConfig = {
   cacheTTL: 60 * 60 * 1000, // 1 hour
   timeout: 10000, // 10 seconds
   maxRetries: 3,
-  retryDelay: 1000 // 1 second
+  retryDelay: 1000, // 1 second
 };
 
 /**
@@ -330,9 +345,8 @@ export const defaultNpmAdvisoriesConfig: IoCProviderConfig = {
 export function createNpmAdvisoriesProvider(config: Partial<IoCProviderConfig> = {}): IoCProvider {
   const finalConfig: IoCProviderConfig = {
     ...defaultNpmAdvisoriesConfig,
-    ...config
+    ...config,
   };
-  
+
   return new NpmAdvisoriesProvider(finalConfig);
 }
-

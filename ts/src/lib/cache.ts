@@ -86,18 +86,18 @@ export class LRUCache<T = unknown> {
     this.maxSize = options.maxSize || CACHE_CONFIG.MAX_SIZE;
     this.defaultTTL = options.defaultTTL || CACHE_CONFIG.TTL;
     this.cleanupInterval = options.cleanupInterval || CACHE_CONFIG.CLEANUP_INTERVAL;
-    
+
     this.cache = new Map();
     this.head = new CacheNode<T>('', null as T);
     this.tail = new CacheNode<T>('', null as T);
     this.head.next = this.tail;
     this.tail.prev = this.head;
-    
+
     this.hits = 0;
     this.misses = 0;
     this.evictions = 0;
     this.cleanupTimer = null;
-    
+
     // Start cleanup interval
     this.startCleanup();
   }
@@ -109,18 +109,18 @@ export class LRUCache<T = unknown> {
    */
   get(key: string): T | null {
     const node = this.cache.get(key);
-    
+
     if (!node) {
       this.misses++;
       return null;
     }
-    
+
     if (node.isExpired()) {
       this.delete(key);
       this.misses++;
       return null;
     }
-    
+
     // Move to head (most recently used)
     this.moveToHead(node);
     this.hits++;
@@ -144,17 +144,17 @@ export class LRUCache<T = unknown> {
       this.moveToHead(node);
       return true;
     }
-    
+
     // If cache is full, remove least recently used item
     if (this.cache.size >= this.maxSize) {
       this.evictLRU();
     }
-    
+
     // Create new node and add to cache
     const newNode = new CacheNode<T>(key, value, ttl);
     this.cache.set(key, newNode);
     this.addToHead(newNode);
-    
+
     return true;
   }
 
@@ -168,7 +168,7 @@ export class LRUCache<T = unknown> {
     if (!node) {
       return false;
     }
-    
+
     this.cache.delete(key);
     this.removeNode(node);
     return true;
@@ -184,12 +184,12 @@ export class LRUCache<T = unknown> {
     if (!node) {
       return false;
     }
-    
+
     if (node.isExpired()) {
       this.delete(key);
       return false;
     }
-    
+
     return true;
   }
 
@@ -218,7 +218,7 @@ export class LRUCache<T = unknown> {
       misses: this.misses,
       evictions: this.evictions,
       hitRate: total > 0 ? this.hits / total : 0,
-      missRate: total > 0 ? this.misses / total : 0
+      missRate: total > 0 ? this.misses / total : 0,
     };
   }
 
@@ -235,7 +235,7 @@ export class LRUCache<T = unknown> {
    * @returns Array of cache values
    */
   values(): T[] {
-    return Array.from(this.cache.values()).map(node => node.value);
+    return Array.from(this.cache.values()).map((node) => node.value);
   }
 
   /**
@@ -303,7 +303,7 @@ export class LRUCache<T = unknown> {
       this.cleanupTimer = setInterval(() => {
         this.cleanup();
       }, this.cleanupInterval);
-      
+
       // Unref the timer so it doesn't keep the process alive
       if (this.cleanupTimer && this.cleanupTimer.unref) {
         this.cleanupTimer.unref();
@@ -326,14 +326,14 @@ export class LRUCache<T = unknown> {
    */
   private cleanup(): void {
     const expiredKeys: string[] = [];
-    
+
     for (const [key, node] of this.cache.entries()) {
       if (node.isExpired()) {
         expiredKeys.push(key);
       }
     }
-    
-    expiredKeys.forEach(key => this.delete(key));
+
+    expiredKeys.forEach((key) => this.delete(key));
   }
 
   /**
@@ -353,7 +353,7 @@ export class PackageCache<T = unknown> extends LRUCache<T> {
     super({
       maxSize: options.maxSize || CACHE_CONFIG.MAX_SIZE,
       defaultTTL: options.defaultTTL || CACHE_CONFIG.TTL,
-      cleanupInterval: options.cleanupInterval || CACHE_CONFIG.CLEANUP_INTERVAL
+      cleanupInterval: options.cleanupInterval || CACHE_CONFIG.CLEANUP_INTERVAL,
     });
   }
 
@@ -393,8 +393,8 @@ export class PackageCache<T = unknown> extends LRUCache<T> {
       return this.delete(key);
     } else {
       // Invalidate all versions of the package
-      const keysToDelete = this.keys().filter(key => key.startsWith(`${packageName}@`));
-      keysToDelete.forEach(key => this.delete(key));
+      const keysToDelete = this.keys().filter((key) => key.startsWith(`${packageName}@`));
+      keysToDelete.forEach((key) => this.delete(key));
       return keysToDelete.length > 0;
     }
   }
@@ -406,8 +406,8 @@ export class PackageCache<T = unknown> extends LRUCache<T> {
    */
   getPackageVersions(packageName: string): string[] {
     return this.keys()
-      .filter(key => key.startsWith(`${packageName}@`))
-      .map(key => key.split('@')[1])
+      .filter((key) => key.startsWith(`${packageName}@`))
+      .map((key) => key.split('@')[1])
       .filter((version): version is string => version !== undefined);
   }
 
@@ -443,7 +443,7 @@ export class PackageCache<T = unknown> extends LRUCache<T> {
     return {
       ...stats,
       packages: packages.size,
-      versions
+      versions,
     };
   }
 }

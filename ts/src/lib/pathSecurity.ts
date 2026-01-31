@@ -32,7 +32,7 @@ export interface PathValidationResult {
 export class PathTraversalError extends Error {
   public originalPath: string;
   public resolvedPath: string;
-  
+
   constructor(message: string, originalPath: string, resolvedPath: string) {
     super(message);
     this.name = 'PathTraversalError';
@@ -47,7 +47,7 @@ export class PathTraversalError extends Error {
 export class CommandInjectionError extends Error {
   public suspiciousPattern: string;
   public inputPath: string;
-  
+
   constructor(message: string, inputPath: string, suspiciousPattern: string) {
     super(message);
     this.name = 'CommandInjectionError';
@@ -62,7 +62,7 @@ export class CommandInjectionError extends Error {
 export class PathValidationError extends Error {
   public validationType: string;
   public inputPath: string;
-  
+
   constructor(message: string, inputPath: string, validationType: string) {
     super(message);
     this.name = 'PathValidationError';
@@ -81,22 +81,10 @@ const PATH_SECURITY_CONFIG: PathSecurityConfig = {
     '/proc/',
     '/sys/',
     'C:\\Windows\\System32',
-    'C:\\Windows\\SysWOW64'
+    'C:\\Windows\\SysWOW64',
   ],
-  traversalPatterns: [
-    /\.\.\//g,
-    /\.\.\\/g,
-    /\.\.%2f/gi,
-    /\.\.%5c/gi,
-    /\.\.%252f/gi,
-    /\.\.%255c/gi
-  ],
-  injectionPatterns: [
-    /[;&|`$(){}[\]]/g,
-    /\$\(/g,
-    /`[^`]*`/g,
-    /\$\{[^}]*\}/g
-  ]
+  traversalPatterns: [/\.\.\//g, /\.\.\\/g, /\.\.%2f/gi, /\.\.%5c/gi, /\.\.%252f/gi, /\.\.%255c/gi],
+  injectionPatterns: [/[;&|`$(){}[\]]/g, /\$\(/g, /`[^`]*`/g, /\$\{[^}]*\}/g],
 };
 
 /**
@@ -107,7 +95,7 @@ export function validatePath(inputPath: string): PathValidationResult {
     isValid: true,
     errors: [],
     warnings: [],
-    threats: []
+    threats: [],
   };
 
   if (!inputPath || typeof inputPath !== 'string') {
@@ -119,16 +107,20 @@ export function validatePath(inputPath: string): PathValidationResult {
   // Check path length
   if (inputPath.length > PATH_SECURITY_CONFIG.maxPathLength) {
     result.isValid = false;
-    result.errors.push(`Path exceeds maximum length of ${PATH_SECURITY_CONFIG.maxPathLength} characters`);
-    result.threats.push(createThreat(
-      'PATH_VALIDATION_ERROR',
-      'Path length exceeds security limits',
-      inputPath,
-      path.basename(inputPath),
-      'MEDIUM',
-      'Extremely long paths may indicate path traversal attempts',
-      { pathLength: inputPath.length, confidence: 0.7 }
-    ));
+    result.errors.push(
+      `Path exceeds maximum length of ${PATH_SECURITY_CONFIG.maxPathLength} characters`
+    );
+    result.threats.push(
+      createThreat(
+        'PATH_VALIDATION_ERROR',
+        'Path length exceeds security limits',
+        inputPath,
+        path.basename(inputPath),
+        'MEDIUM',
+        'Extremely long paths may indicate path traversal attempts',
+        { pathLength: inputPath.length, confidence: 0.7 }
+      )
+    );
   }
 
   // Check for path traversal patterns
@@ -136,15 +128,17 @@ export function validatePath(inputPath: string): PathValidationResult {
     if (pattern.test(inputPath)) {
       result.isValid = false;
       result.errors.push('Path contains traversal patterns');
-      result.threats.push(createThreat(
-        'PATH_TRAVERSAL',
-        'Path traversal attempt detected',
-        inputPath,
-        path.basename(inputPath),
-        'HIGH',
-        'Path contains patterns commonly used in directory traversal attacks',
-        { pattern: pattern.source, confidence: 0.9 }
-      ));
+      result.threats.push(
+        createThreat(
+          'PATH_TRAVERSAL',
+          'Path traversal attempt detected',
+          inputPath,
+          path.basename(inputPath),
+          'HIGH',
+          'Path contains patterns commonly used in directory traversal attacks',
+          { pattern: pattern.source, confidence: 0.9 }
+        )
+      );
       break;
     }
   }
@@ -154,15 +148,17 @@ export function validatePath(inputPath: string): PathValidationResult {
     if (pattern.test(inputPath)) {
       result.isValid = false;
       result.errors.push('Path contains potentially dangerous characters');
-      result.threats.push(createThreat(
-        'COMMAND_INJECTION',
-        'Command injection attempt detected in path',
-        inputPath,
-        path.basename(inputPath),
-        'CRITICAL',
-        'Path contains characters that could be used for command injection',
-        { pattern: pattern.source, confidence: 0.8 }
-      ));
+      result.threats.push(
+        createThreat(
+          'COMMAND_INJECTION',
+          'Command injection attempt detected in path',
+          inputPath,
+          path.basename(inputPath),
+          'CRITICAL',
+          'Path contains characters that could be used for command injection',
+          { pattern: pattern.source, confidence: 0.8 }
+        )
+      );
       break;
     }
   }
@@ -172,15 +168,17 @@ export function validatePath(inputPath: string): PathValidationResult {
     if (inputPath.includes(blockedPath)) {
       result.isValid = false;
       result.errors.push(`Access to path '${blockedPath}' is not allowed`);
-      result.threats.push(createThreat(
-        'PATH_VALIDATION_ERROR',
-        'Attempt to access restricted system path',
-        inputPath,
-        path.basename(inputPath),
-        'HIGH',
-        'Attempted access to sensitive system directories',
-        { blockedPath, confidence: 0.9 }
-      ));
+      result.threats.push(
+        createThreat(
+          'PATH_VALIDATION_ERROR',
+          'Attempt to access restricted system path',
+          inputPath,
+          path.basename(inputPath),
+          'HIGH',
+          'Attempted access to sensitive system directories',
+          { blockedPath, confidence: 0.9 }
+        )
+      );
     }
   }
 
@@ -190,7 +188,9 @@ export function validatePath(inputPath: string): PathValidationResult {
       result.sanitizedPath = path.normalize(inputPath);
     } catch (error: unknown) {
       result.isValid = false;
-      result.errors.push(`Path normalization failed: ${error instanceof Error ? error.message : String(error)}`);
+      result.errors.push(
+        `Path normalization failed: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -202,7 +202,7 @@ export function validatePath(inputPath: string): PathValidationResult {
  */
 export async function safeReadFile(filePath: string): Promise<string> {
   const validation = validatePath(filePath);
-  
+
   if (!validation.isValid) {
     throw new PathValidationError(
       `Invalid file path: ${validation.errors.join(', ')}`,
@@ -212,21 +212,25 @@ export async function safeReadFile(filePath: string): Promise<string> {
   }
 
   const safePath = validation.sanitizedPath!;
-  
+
   try {
     const resolvedPath = path.resolve(safePath);
     const stats = await fs.promises.stat(resolvedPath);
-    
+
     if (!stats.isFile()) {
       throw new PathValidationError('Path is not a file', filePath, 'FILE_TYPE');
     }
-    
+
     return await fs.promises.readFile(resolvedPath, 'utf8');
   } catch (error: unknown) {
     if (error instanceof PathValidationError) {
       throw error;
     }
-    throw new PathValidationError(`Failed to read file: ${error instanceof Error ? error.message : String(error)}`, filePath, 'FILE_ACCESS');
+    throw new PathValidationError(
+      `Failed to read file: ${error instanceof Error ? error.message : String(error)}`,
+      filePath,
+      'FILE_ACCESS'
+    );
   }
 }
 
@@ -235,7 +239,7 @@ export async function safeReadFile(filePath: string): Promise<string> {
  */
 export async function safeReadDir(dirPath: string): Promise<string[]> {
   const validation = validatePath(dirPath);
-  
+
   if (!validation.isValid) {
     throw new PathValidationError(
       `Invalid directory path: ${validation.errors.join(', ')}`,
@@ -245,21 +249,25 @@ export async function safeReadDir(dirPath: string): Promise<string[]> {
   }
 
   const safePath = validation.sanitizedPath!;
-  
+
   try {
     const resolvedPath = path.resolve(safePath);
     const stats = await fs.promises.stat(resolvedPath);
-    
+
     if (!stats.isDirectory()) {
       throw new PathValidationError('Path is not a directory', dirPath, 'DIR_TYPE');
     }
-    
+
     return await fs.promises.readdir(resolvedPath);
   } catch (error: unknown) {
     if (error instanceof PathValidationError) {
       throw error;
     }
-    throw new PathValidationError(`Failed to read directory: ${error instanceof Error ? error.message : String(error)}`, dirPath, 'DIR_ACCESS');
+    throw new PathValidationError(
+      `Failed to read directory: ${error instanceof Error ? error.message : String(error)}`,
+      dirPath,
+      'DIR_ACCESS'
+    );
   }
 }
 
@@ -285,7 +293,7 @@ export function safePathJoin(...segments: string[]): string {
 
   const joinedPath = path.join(...segments);
   const finalValidation = validatePath(joinedPath);
-  
+
   if (!finalValidation.isValid) {
     throw new PathValidationError(
       `Invalid joined path: ${finalValidation.errors.join(', ')}`,
@@ -308,9 +316,12 @@ export function isAllowedFileType(filePath: string): boolean {
 /**
  * Get safe file paths from a directory
  */
-export async function getSafeFilePaths(dirPath: string, recursive: boolean = false): Promise<string[]> {
+export async function getSafeFilePaths(
+  dirPath: string,
+  recursive: boolean = false
+): Promise<string[]> {
   const validation = validatePath(dirPath);
-  
+
   if (!validation.isValid) {
     throw new PathValidationError(
       `Invalid directory path: ${validation.errors.join(', ')}`,
@@ -324,13 +335,13 @@ export async function getSafeFilePaths(dirPath: string, recursive: boolean = fal
 
   try {
     const entries = await safeReadDir(safeDirPath);
-    
+
     for (const entry of entries) {
       const entryPath = safePathJoin(safeDirPath, entry);
-      
+
       try {
         const stats = await fs.promises.stat(entryPath);
-        
+
         if (stats.isFile() && isAllowedFileType(entryPath)) {
           safePaths.push(entryPath);
         } else if (stats.isDirectory() && recursive) {
@@ -343,7 +354,11 @@ export async function getSafeFilePaths(dirPath: string, recursive: boolean = fal
       }
     }
   } catch (error: unknown) {
-    throw new PathValidationError(`Failed to scan directory: ${error instanceof Error ? error.message : String(error)}`, dirPath, 'DIR_SCAN');
+    throw new PathValidationError(
+      `Failed to scan directory: ${error instanceof Error ? error.message : String(error)}`,
+      dirPath,
+      'DIR_SCAN'
+    );
   }
 
   return safePaths;
@@ -384,7 +399,7 @@ export class PathSecurityManager {
   constructor(config: Partial<PathSecurityConfig> = {}) {
     this.config = {
       ...PATH_SECURITY_CONFIG,
-      ...config
+      ...config,
     };
   }
 

@@ -10,7 +10,7 @@ export class NullVoidError extends Error {
   public code: string;
   public details: unknown;
   public timestamp: string;
-  
+
   constructor(message: string, code: string, details: unknown = {}) {
     super(message);
     this.name = 'NullVoidError';
@@ -22,7 +22,7 @@ export class NullVoidError extends Error {
 
 export class SecurityError extends NullVoidError {
   public severity: string;
-  
+
   constructor(message: string, code: string, details: unknown = {}) {
     super(message, code, details);
     this.name = 'SecurityError';
@@ -32,7 +32,7 @@ export class SecurityError extends NullVoidError {
 
 export class ValidationError extends NullVoidError {
   public severity: string;
-  
+
   constructor(message: string, code: string, details: unknown = {}) {
     super(message, code, details);
     this.name = 'ValidationError';
@@ -103,26 +103,29 @@ export class InputValidator {
     if (!packageName || typeof packageName !== 'string') {
       throw new ValidationError('Package name must be a non-empty string', 'INVALID_INPUT');
     }
-    
+
     // Check for command injection patterns
     for (const pattern of VALIDATION_CONFIG.DANGEROUS_PATTERNS) {
       if (pattern.test(packageName)) {
-        throw new CommandInjectionError(
-          'Potentially malicious input detected in package name',
-          { packageName, pattern: pattern.toString() }
-        );
+        throw new CommandInjectionError('Potentially malicious input detected in package name', {
+          packageName,
+          pattern: pattern.toString(),
+        });
       }
     }
-    
+
     // Validate npm package name format OR local path
-    if (!VALIDATION_CONFIG.VALID_PACKAGE_NAME.test(packageName) && !VALIDATION_CONFIG.VALID_LOCAL_PATH.test(packageName)) {
+    if (
+      !VALIDATION_CONFIG.VALID_PACKAGE_NAME.test(packageName) &&
+      !VALIDATION_CONFIG.VALID_LOCAL_PATH.test(packageName)
+    ) {
       throw new ValidationError(
         `Invalid package name format: ${packageName}`,
         'INVALID_PACKAGE_FORMAT',
         { packageName }
       );
     }
-    
+
     // Check for suspicious patterns
     for (const pattern of VALIDATION_CONFIG.SUSPICIOUS_PATTERNS) {
       if (pattern.test(packageName)) {
@@ -133,10 +136,10 @@ export class InputValidator {
         );
       }
     }
-    
+
     return packageName.trim();
   }
-  
+
   /**
    * Validate file path for security
    */
@@ -144,37 +147,34 @@ export class InputValidator {
     if (!filePath || typeof filePath !== 'string') {
       throw new ValidationError('File path must be a non-empty string', 'INVALID_INPUT');
     }
-    
+
     // Check for path traversal patterns
     for (const pattern of VALIDATION_CONFIG.TRAVERSAL_PATTERNS) {
       if (pattern.test(filePath)) {
-        throw new PathTraversalError(
-          'Path traversal attempt detected',
-          { filePath, pattern: pattern.toString() }
-        );
+        throw new PathTraversalError('Path traversal attempt detected', {
+          filePath,
+          pattern: pattern.toString(),
+        });
       }
     }
-    
+
     // Normalize and resolve path
     const normalizedPath = path.normalize(filePath);
     const absolutePath = path.resolve(basePath, normalizedPath);
-    
+
     // Ensure path is within allowed boundaries
     const baseAbsolute = path.resolve(basePath);
     if (!absolutePath.startsWith(baseAbsolute)) {
-      throw new PathTraversalError(
-        'Path traversal attempt detected',
-        { 
-          inputPath: filePath,
-          resolvedPath: absolutePath,
-          basePath: baseAbsolute
-        }
-      );
+      throw new PathTraversalError('Path traversal attempt detected', {
+        inputPath: filePath,
+        resolvedPath: absolutePath,
+        basePath: baseAbsolute,
+      });
     }
-    
+
     return absolutePath;
   }
-  
+
   /**
    * Validate scan options
    */
@@ -182,9 +182,9 @@ export class InputValidator {
     if (!options || typeof options !== 'object') {
       throw new ValidationError('Scan options must be an object', 'INVALID_INPUT');
     }
-    
+
     const validatedOptions = { ...options } as Record<string, unknown>;
-    
+
     // Check for command injection in string values
     // Validate all string values for command injection
     for (const [key, value] of Object.entries(validatedOptions)) {
@@ -199,20 +199,18 @@ export class InputValidator {
         }
       }
     }
-    
+
     // Validate depth
     if (validatedOptions['depth'] !== undefined) {
       const depth = parseInt(String(validatedOptions['depth']));
       if (isNaN(depth) || depth < 0 || depth > 10) {
-        throw new ValidationError(
-          'Scan depth must be a number between 0 and 10',
-          'INVALID_DEPTH',
-          { depth: validatedOptions['depth'] }
-        );
+        throw new ValidationError('Scan depth must be a number between 0 and 10', 'INVALID_DEPTH', {
+          depth: validatedOptions['depth'],
+        });
       }
       validatedOptions['depth'] = depth;
     }
-    
+
     // Validate workers
     if (validatedOptions['workers'] !== undefined) {
       if (validatedOptions['workers'] !== 'auto') {
@@ -227,10 +225,14 @@ export class InputValidator {
         validatedOptions['workers'] = workers;
       }
     }
-    
+
     // Validate output format
     if (validatedOptions['output'] !== undefined) {
-      if (!VALIDATION_CONFIG.VALID_OUTPUT_FORMATS.includes(validatedOptions['output'] as 'json' | 'sarif' | 'table' | 'yaml')) {
+      if (
+        !VALIDATION_CONFIG.VALID_OUTPUT_FORMATS.includes(
+          validatedOptions['output'] as 'json' | 'sarif' | 'table' | 'yaml'
+        )
+      ) {
         throw new ValidationError(
           `Output format must be one of: ${VALIDATION_CONFIG.VALID_OUTPUT_FORMATS.join(', ')}`,
           'INVALID_OUTPUT_FORMAT',
@@ -238,10 +240,10 @@ export class InputValidator {
         );
       }
     }
-    
+
     return validatedOptions;
   }
-  
+
   /**
    * Validate file content for malicious patterns
    */
@@ -249,21 +251,18 @@ export class InputValidator {
     if (!content || typeof content !== 'string') {
       throw new ValidationError('File content must be a non-empty string', 'INVALID_INPUT');
     }
-    
+
     // Check for malicious patterns
     for (const pattern of VALIDATION_CONFIG.MALICIOUS_PATTERNS) {
       if (pattern.test(content)) {
-        throw new MaliciousCodeError(
-          'Potentially malicious code detected',
-          { 
-            filename, 
-            pattern: pattern.toString(),
-            match: content.match(pattern)?.[0]
-          }
-        );
+        throw new MaliciousCodeError('Potentially malicious code detected', {
+          filename,
+          pattern: pattern.toString(),
+          match: content.match(pattern)?.[0],
+        });
       }
     }
-    
+
     return true;
   }
 }
@@ -273,12 +272,12 @@ export class InputValidator {
  */
 export class ErrorHandler {
   private errorLog: ErrorEntry[];
-  
+
   constructor() {
     this.errorLog = [];
     this.setupGlobalHandlers();
   }
-  
+
   /**
    * Setup global error handlers
    */
@@ -287,26 +286,23 @@ export class ErrorHandler {
     process.on('uncaughtException', (error) => {
       this.handleError(error, 'UNCAUGHT_EXCEPTION');
     });
-    
+
     // Handle unhandled promise rejections
     process.on('unhandledRejection', (reason, promise) => {
-      this.handleError(
-        new Error(`Unhandled Promise Rejection: ${reason}`),
-        'UNHANDLED_REJECTION',
-        { reason, promise }
-      );
+      this.handleError(new Error(`Unhandled Promise Rejection: ${reason}`), 'UNHANDLED_REJECTION', {
+        reason,
+        promise,
+      });
     });
-    
+
     // Handle warnings
     process.on('warning', (warning) => {
-      this.handleError(
-        new Error(`Process Warning: ${warning.message}`),
-        'PROCESS_WARNING',
-        { warning }
-      );
+      this.handleError(new Error(`Process Warning: ${warning.message}`), 'PROCESS_WARNING', {
+        warning,
+      });
     });
   }
-  
+
   /**
    * Handle errors with appropriate logging and response
    */
@@ -318,20 +314,20 @@ export class ErrorHandler {
         name: error instanceof Error ? error.name : 'Unknown',
         message: error.message,
         code: (error as Error & { code?: string }).code || '',
-        stack: error instanceof Error ? (error.stack || '') : '',
-        details: (error as Error & { details?: unknown }).details
+        stack: error instanceof Error ? error.stack || '' : '',
+        details: (error as Error & { details?: unknown }).details,
       },
-      context
+      context,
     };
-    
+
     // Add to error log with size limit to prevent memory leaks
     this.errorLog.push(errorEntry);
-    
+
     // Keep only the last 1000 errors to prevent memory leaks
     if (this.errorLog.length > 1000) {
       this.errorLog = this.errorLog.slice(-1000);
     }
-    
+
     // Log based on error severity
     if (error instanceof SecurityError) {
       console.error('🔴 SECURITY ERROR:', error.message);
@@ -343,17 +339,20 @@ export class ErrorHandler {
     } else {
       console.error('💀 CRITICAL ERROR:', error.message);
     }
-    
+
     // Log to file for analysis
     this.logErrorToFile(errorEntry);
-    
+
     // Exit on critical errors
-    if (error instanceof SecurityError && (error as SecurityError & { severity?: string }).severity === 'CRITICAL') {
+    if (
+      error instanceof SecurityError &&
+      (error as SecurityError & { severity?: string }).severity === 'CRITICAL'
+    ) {
       console.error('🚨 Critical security error detected. Exiting...');
       process.exit(1);
     }
   }
-  
+
   /**
    * Log error to file for analysis
    */
@@ -363,10 +362,13 @@ export class ErrorHandler {
       const logEntry = JSON.stringify(errorEntry) + '\n';
       fs.appendFileSync(logFile, logEntry);
     } catch (error: unknown) {
-      console.error('Failed to log error to file:', error instanceof Error ? error.message : String(error));
+      console.error(
+        'Failed to log error to file:',
+        error instanceof Error ? error.message : String(error)
+      );
     }
   }
-  
+
   /**
    * Get error statistics
    */
@@ -375,79 +377,93 @@ export class ErrorHandler {
       total: this.errorLog.length,
       byType: {},
       bySeverity: {},
-      recent: this.errorLog.slice(-10)
+      recent: this.errorLog.slice(-10),
     };
-    
+
     for (const entry of this.errorLog) {
       // Count by type
       stats.byType[entry.type] = (stats.byType[entry.type] || 0) + 1;
-      
+
       // Count by severity
-      const severity = (entry.error.details as Record<string, unknown>)?.['severity'] as string || 'UNKNOWN';
+      const severity =
+        ((entry.error.details as Record<string, unknown>)?.['severity'] as string) || 'UNKNOWN';
       stats.bySeverity[severity] = (stats.bySeverity[severity] || 0) + 1;
     }
-    
+
     return stats;
   }
-  
+
   /**
    * Clear error log
    */
   clearErrorLog(): void {
     this.errorLog = [];
   }
-  
+
   /**
    * Handle error and return threats
    */
   handle(error: Error): Threat[] {
     const threats: Threat[] = [];
-    
+
     // Convert error to threat based on type
     if (error instanceof SecurityError) {
-      const severity = (error as Error & { severity?: string }).severity === 'CRITICAL' ? 'CRITICAL' : 'HIGH';
-      threats.push(createThreat(
-        'SECURITY_ERROR',
-        error instanceof Error ? error.message : String(error),
-        'unknown',
-        'unknown',
-        severity,
-        error instanceof Error ? (error.stack || 'No stack trace available') : 'No stack trace available',
-        { 
-          errorType: error instanceof Error ? error.name : 'Unknown',
-          timestamp: (error as Error & { timestamp?: string }).timestamp,
-          details: (error as Error & { details?: unknown }).details
-        }
-      ));
+      const severity =
+        (error as Error & { severity?: string }).severity === 'CRITICAL' ? 'CRITICAL' : 'HIGH';
+      threats.push(
+        createThreat(
+          'SECURITY_ERROR',
+          error instanceof Error ? error.message : String(error),
+          'unknown',
+          'unknown',
+          severity,
+          error instanceof Error
+            ? error.stack || 'No stack trace available'
+            : 'No stack trace available',
+          {
+            errorType: error instanceof Error ? error.name : 'Unknown',
+            timestamp: (error as Error & { timestamp?: string }).timestamp,
+            details: (error as Error & { details?: unknown }).details,
+          }
+        )
+      );
     } else if (error instanceof ValidationError) {
-      threats.push(createThreat(
-        'VALIDATION_ERROR',
-        error instanceof Error ? error.message : String(error),
-        'unknown',
-        'unknown',
-        'MEDIUM',
-        error instanceof Error ? (error.stack || 'No stack trace available') : 'No stack trace available',
-        { 
-          errorType: error instanceof Error ? error.name : 'Unknown',
-          timestamp: (error as Error & { timestamp?: string }).timestamp,
-          details: (error as Error & { details?: unknown }).details
-        }
-      ));
+      threats.push(
+        createThreat(
+          'VALIDATION_ERROR',
+          error instanceof Error ? error.message : String(error),
+          'unknown',
+          'unknown',
+          'MEDIUM',
+          error instanceof Error
+            ? error.stack || 'No stack trace available'
+            : 'No stack trace available',
+          {
+            errorType: error instanceof Error ? error.name : 'Unknown',
+            timestamp: (error as Error & { timestamp?: string }).timestamp,
+            details: (error as Error & { details?: unknown }).details,
+          }
+        )
+      );
     } else {
-      threats.push(createThreat(
-        'UNKNOWN_ERROR',
-        error instanceof Error ? error.message : String(error),
-        'unknown',
-        'unknown',
-        'LOW',
-        error instanceof Error ? (error.stack || 'No stack trace available') : 'No stack trace available',
-        { 
-          errorType: error instanceof Error ? error.name : 'Unknown',
-          timestamp: new Date().toISOString()
-        }
-      ));
+      threats.push(
+        createThreat(
+          'UNKNOWN_ERROR',
+          error instanceof Error ? error.message : String(error),
+          'unknown',
+          'unknown',
+          'LOW',
+          error instanceof Error
+            ? error.stack || 'No stack trace available'
+            : 'No stack trace available',
+          {
+            errorType: error instanceof Error ? error.name : 'Unknown',
+            timestamp: new Date().toISOString(),
+          }
+        )
+      );
     }
-    
+
     return threats;
   }
 }
@@ -458,16 +474,24 @@ export const globalErrorHandler = new ErrorHandler();
 /**
  * Safe execution wrapper with error handling
  */
-export async function safeExecute<T>(fn: () => Promise<T>, context: string = 'unknown', options: ExecutionOptions = {}): Promise<T | null> {
+export async function safeExecute<T>(
+  fn: () => Promise<T>,
+  context: string = 'unknown',
+  options: ExecutionOptions = {}
+): Promise<T | null> {
   try {
     return await fn();
   } catch (error: unknown) {
-    globalErrorHandler.handleError(error instanceof Error ? error : new Error(String(error)), 'SAFE_EXECUTION', { context, options });
-    
+    globalErrorHandler.handleError(
+      error instanceof Error ? error : new Error(String(error)),
+      'SAFE_EXECUTION',
+      { context, options }
+    );
+
     if (options.throwOnError !== false) {
       throw error;
     }
-    
+
     return null;
   }
 }
@@ -479,35 +503,35 @@ export class RateLimitedLogger {
   private maxErrorsPerMinute: number;
   private errorCounts: Map<string, number>;
   private lastReset: number;
-  
+
   constructor(maxErrorsPerMinute: number = 100) {
     this.maxErrorsPerMinute = maxErrorsPerMinute;
     this.errorCounts = new Map();
     this.lastReset = Date.now();
   }
-  
+
   /**
    * Log error with rate limiting
    */
   logError(error: Error, context: string = 'unknown'): void {
     const now = Date.now();
     const minute = Math.floor(now / 60000);
-    
+
     // Reset counters every minute
     if (minute !== this.lastReset) {
       this.errorCounts.clear();
       this.lastReset = minute;
     }
-    
+
     // Check rate limit
     const errorKey = `${context}:${error instanceof Error ? error.name : 'Unknown'}`;
     const count = this.errorCounts.get(errorKey) || 0;
-    
+
     if (count >= this.maxErrorsPerMinute) {
       console.warn(`Rate limit exceeded for ${errorKey}. Suppressing further errors.`);
       return;
     }
-    
+
     // Log error
     this.errorCounts.set(errorKey, count + 1);
     globalErrorHandler.handleError(error, 'RATE_LIMITED_LOG', { context });

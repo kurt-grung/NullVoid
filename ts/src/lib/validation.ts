@@ -8,7 +8,7 @@ import { VALIDATION_CONFIG } from './config';
 export class ValidationError extends Error {
   public field: string;
   public value: unknown;
-  
+
   constructor(message: string, field: string, value: unknown) {
     super(message);
     this.name = 'ValidationError';
@@ -61,18 +61,18 @@ export interface OutputFormat {
  */
 export class InputValidator {
   private rules: ValidationRule[];
-  
+
   constructor(rules: ValidationRule[] = []) {
     this.rules = rules;
   }
-  
+
   /**
    * Add validation rule
    */
   addRule(rule: ValidationRule): void {
     this.rules.push(rule);
   }
-  
+
   /**
    * Validate input against rules
    */
@@ -80,9 +80,9 @@ export class InputValidator {
     const result: ValidationResult = {
       isValid: true,
       errors: [],
-      warnings: []
+      warnings: [],
     };
-    
+
     for (const rule of this.rules) {
       try {
         this.validateField(input, rule);
@@ -91,53 +91,77 @@ export class InputValidator {
         result.errors.push(error instanceof Error ? error.message : 'Validation error');
       }
     }
-    
+
     return result;
   }
-  
+
   private validateField(input: unknown, rule: ValidationRule): void {
     const inputObj = input as Record<string, unknown>;
     const value = inputObj[rule.field];
-    
+
     // Check required
     if (rule.required && (value === undefined || value === null || value === '')) {
       throw new ValidationError(`Field '${rule.field}' is required`, rule.field, value);
     }
-    
+
     // Skip validation if field is not provided and not required
     if (value === undefined || value === null) {
       return;
     }
-    
+
     // Check type
     if (rule.type && typeof value !== rule.type) {
-      throw new ValidationError(`Field '${rule.field}' must be of type ${rule.type}`, rule.field, value);
+      throw new ValidationError(
+        `Field '${rule.field}' must be of type ${rule.type}`,
+        rule.field,
+        value
+      );
     }
-    
+
     // Check string length
     if (typeof value === 'string') {
       if (rule.minLength && value.length < rule.minLength) {
-        throw new ValidationError(`Field '${rule.field}' must be at least ${rule.minLength} characters long`, rule.field, value);
+        throw new ValidationError(
+          `Field '${rule.field}' must be at least ${rule.minLength} characters long`,
+          rule.field,
+          value
+        );
       }
-      
+
       if (rule.maxLength && value.length > rule.maxLength) {
-        throw new ValidationError(`Field '${rule.field}' must be no more than ${rule.maxLength} characters long`, rule.field, value);
+        throw new ValidationError(
+          `Field '${rule.field}' must be no more than ${rule.maxLength} characters long`,
+          rule.field,
+          value
+        );
       }
-      
+
       // Check pattern
       if (rule.pattern && typeof value === 'string' && !rule.pattern.test(value)) {
-        throw new ValidationError(`Field '${rule.field}' does not match required pattern`, rule.field, value);
+        throw new ValidationError(
+          `Field '${rule.field}' does not match required pattern`,
+          rule.field,
+          value
+        );
       }
     }
-    
+
     // Check allowed values
     if (rule.allowedValues && typeof value === 'string' && !rule.allowedValues.includes(value)) {
-      throw new ValidationError(`Field '${rule.field}' must be one of: ${rule.allowedValues.join(', ')}`, rule.field, value);
+      throw new ValidationError(
+        `Field '${rule.field}' must be one of: ${rule.allowedValues.join(', ')}`,
+        rule.field,
+        value
+      );
     }
-    
+
     // Custom validator
     if (rule.customValidator && !rule.customValidator(value)) {
-      throw new ValidationError(`Field '${rule.field}' failed custom validation`, rule.field, value);
+      throw new ValidationError(
+        `Field '${rule.field}' failed custom validation`,
+        rule.field,
+        value
+      );
     }
   }
 }
@@ -151,20 +175,36 @@ export function validatePackageName(name: string): boolean {
   }
 
   if (name.length < VALIDATION_CONFIG.PACKAGE_NAME_MIN_LENGTH) {
-    throw new ValidationError(`Package name must be at least ${VALIDATION_CONFIG.PACKAGE_NAME_MIN_LENGTH} character long`, 'packageName', name);
+    throw new ValidationError(
+      `Package name must be at least ${VALIDATION_CONFIG.PACKAGE_NAME_MIN_LENGTH} character long`,
+      'packageName',
+      name
+    );
   }
 
   if (name.length > VALIDATION_CONFIG.PACKAGE_NAME_MAX_LENGTH) {
-    throw new ValidationError(`Package name must be no more than ${VALIDATION_CONFIG.PACKAGE_NAME_MAX_LENGTH} characters long`, 'packageName', name);
+    throw new ValidationError(
+      `Package name must be no more than ${VALIDATION_CONFIG.PACKAGE_NAME_MAX_LENGTH} characters long`,
+      'packageName',
+      name
+    );
   }
 
   if (!VALIDATION_CONFIG.PACKAGE_NAME_PATTERN.test(name)) {
-    throw new ValidationError('Package name contains invalid characters. Only letters, numbers, dots, underscores, and hyphens are allowed', 'packageName', name);
+    throw new ValidationError(
+      'Package name contains invalid characters. Only letters, numbers, dots, underscores, and hyphens are allowed',
+      'packageName',
+      name
+    );
   }
 
   // Additional npm-specific rules
   if (name.startsWith('.') || name.startsWith('_')) {
-    throw new ValidationError('Package name cannot start with a dot or underscore', 'packageName', name);
+    throw new ValidationError(
+      'Package name cannot start with a dot or underscore',
+      'packageName',
+      name
+    );
   }
 
   if (name.includes('..')) {
@@ -179,12 +219,20 @@ export function validatePackageName(name: string): boolean {
  */
 export function validatePackageVersion(version: string): boolean {
   if (!version || typeof version !== 'string') {
-    throw new ValidationError('Package version must be a non-empty string', 'packageVersion', version);
+    throw new ValidationError(
+      'Package version must be a non-empty string',
+      'packageVersion',
+      version
+    );
   }
 
   // Basic semver pattern (simplified)
   if (!VALIDATION_CONFIG.SEMVER_PATTERN.test(version)) {
-    throw new ValidationError('Package version must be a valid semver string', 'packageVersion', version);
+    throw new ValidationError(
+      'Package version must be a valid semver string',
+      'packageVersion',
+      version
+    );
   }
 
   return true;
@@ -195,19 +243,27 @@ export function validatePackageVersion(version: string): boolean {
  */
 export function validateDirectoryPath(dirPath: string): boolean {
   if (!dirPath || typeof dirPath !== 'string') {
-    throw new ValidationError('Directory path must be a non-empty string', 'directoryPath', dirPath);
+    throw new ValidationError(
+      'Directory path must be a non-empty string',
+      'directoryPath',
+      dirPath
+    );
   }
 
   // Check for path traversal attempts
   if (dirPath.includes('..') || dirPath.includes('~')) {
-    throw new ValidationError('Directory path contains potentially dangerous characters', 'directoryPath', dirPath);
+    throw new ValidationError(
+      'Directory path contains potentially dangerous characters',
+      'directoryPath',
+      dirPath
+    );
   }
 
   // Check if path exists and is a directory
   try {
     const resolvedPath = path.resolve(dirPath);
     const stats = fs.statSync(resolvedPath);
-    
+
     if (!stats.isDirectory()) {
       throw new ValidationError('Path exists but is not a directory', 'directoryPath', dirPath);
     }
@@ -215,7 +271,11 @@ export function validateDirectoryPath(dirPath: string): boolean {
     if (error instanceof ValidationError) {
       throw error;
     }
-    throw new ValidationError(`Directory path does not exist or is not accessible: ${error instanceof Error ? error.message : 'Unknown error'}`, 'directoryPath', dirPath);
+    throw new ValidationError(
+      `Directory path does not exist or is not accessible: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      'directoryPath',
+      dirPath
+    );
   }
 
   return true;
@@ -231,22 +291,48 @@ export function validateScanOptions(options: ScanOptions): boolean {
 
   // Validate maxDepth
   if (options.maxDepth !== undefined) {
-    if (typeof options.maxDepth !== 'number' || !Number.isInteger(options.maxDepth) || options.maxDepth < 0 || options.maxDepth > 10) {
-      throw new ValidationError('maxDepth must be an integer between 0 and 10', 'maxDepth', options.maxDepth);
+    if (
+      typeof options.maxDepth !== 'number' ||
+      !Number.isInteger(options.maxDepth) ||
+      options.maxDepth < 0 ||
+      options.maxDepth > 10
+    ) {
+      throw new ValidationError(
+        'maxDepth must be an integer between 0 and 10',
+        'maxDepth',
+        options.maxDepth
+      );
     }
   }
 
   // Validate workers count
   if (options.workers !== undefined) {
-    if (typeof options.workers !== 'number' || !Number.isInteger(options.workers) || options.workers < 1 || options.workers > 16) {
-      throw new ValidationError('workers must be an integer between 1 and 16', 'workers', options.workers);
+    if (
+      typeof options.workers !== 'number' ||
+      !Number.isInteger(options.workers) ||
+      options.workers < 1 ||
+      options.workers > 16
+    ) {
+      throw new ValidationError(
+        'workers must be an integer between 1 and 16',
+        'workers',
+        options.workers
+      );
     }
   }
 
   // Validate output format
   if (options.output !== undefined) {
-    if (!VALIDATION_CONFIG.VALID_OUTPUT_FORMATS.includes(options.output as 'json' | 'table' | 'yaml' | 'sarif')) {
-      throw new ValidationError(`output must be one of: ${VALIDATION_CONFIG.VALID_OUTPUT_FORMATS.join(', ')}`, 'output', options.output);
+    if (
+      !VALIDATION_CONFIG.VALID_OUTPUT_FORMATS.includes(
+        options.output as 'json' | 'table' | 'yaml' | 'sarif'
+      )
+    ) {
+      throw new ValidationError(
+        `output must be one of: ${VALIDATION_CONFIG.VALID_OUTPUT_FORMATS.join(', ')}`,
+        'output',
+        options.output
+      );
     }
   }
 
@@ -263,14 +349,27 @@ export function validateFilePath(filePath: string): boolean {
 
   // Check for path traversal attempts
   if (filePath.includes('..') || filePath.includes('~')) {
-    throw new ValidationError('File path contains potentially dangerous characters', 'filePath', filePath);
+    throw new ValidationError(
+      'File path contains potentially dangerous characters',
+      'filePath',
+      filePath
+    );
   }
 
   // Check file extension
   const ext = path.extname(filePath).toLowerCase();
-  
-  if (ext && !VALIDATION_CONFIG.ALLOWED_EXTENSIONS.includes(ext as '.js' | '.mjs' | '.ts' | '.jsx' | '.tsx' | '.json')) {
-    throw new ValidationError(`File extension '${ext}' is not allowed. Allowed extensions: ${VALIDATION_CONFIG.ALLOWED_EXTENSIONS.join(', ')}`, 'filePath', filePath);
+
+  if (
+    ext &&
+    !VALIDATION_CONFIG.ALLOWED_EXTENSIONS.includes(
+      ext as '.js' | '.mjs' | '.ts' | '.jsx' | '.tsx' | '.json'
+    )
+  ) {
+    throw new ValidationError(
+      `File extension '${ext}' is not allowed. Allowed extensions: ${VALIDATION_CONFIG.ALLOWED_EXTENSIONS.join(', ')}`,
+      'filePath',
+      filePath
+    );
   }
 
   return true;
@@ -287,7 +386,7 @@ export function sanitizeInput(input: string, maxLength: number = 1000): string {
   // Remove control characters and limit length
   return input
     .split('')
-    .filter(char => {
+    .filter((char) => {
       const code = char.charCodeAt(0);
       return code >= 32 && code !== 127 && (code < 128 || code > 159);
     })
@@ -351,10 +450,10 @@ export function isSuspiciousPattern(input: string): boolean {
     /outerHTML\s*=/i,
     /\.replace\s*\(/i,
     /\.substring\s*\(/i,
-    /\.slice\s*\(/i
+    /\.slice\s*\(/i,
   ];
 
-  return suspiciousPatterns.some(pattern => pattern.test(input));
+  return suspiciousPatterns.some((pattern) => pattern.test(input));
 }
 
 /**
@@ -371,10 +470,10 @@ export function isDangerousPattern(input: string): boolean {
     /fs\.rmdir/i,
     /fs\.rm/i,
     /exec\s*\(/i,
-    /spawn\s*\(/i
+    /spawn\s*\(/i,
   ];
 
-  return dangerousPatterns.some(pattern => pattern.test(input));
+  return dangerousPatterns.some((pattern) => pattern.test(input));
 }
 
 /**
@@ -391,8 +490,8 @@ export function containsMaliciousPatterns(input: string): boolean {
     /unescape\s*\(/i,
     /escape\s*\(/i,
     /_0x[a-f0-9]+/i,
-    /\\x[0-9a-f]{2}/i
+    /\\x[0-9a-f]{2}/i,
   ];
 
-  return maliciousPatterns.some(pattern => pattern.test(input));
+  return maliciousPatterns.some((pattern) => pattern.test(input));
 }

@@ -9,16 +9,18 @@ import { DETECTION_PATTERNS } from './config';
  */
 export function isConfigFile(filePath: string): boolean {
   if (!filePath) return false;
-  
+
   const fileName = filePath.split('/').pop() || filePath.split('\\').pop() || filePath;
-  
+
   // Check against centralized config patterns
-  return DETECTION_PATTERNS.CONFIG_FILE_PATTERNS.includes(fileName) || 
-         DETECTION_PATTERNS.DOT_FILE_PATTERNS.includes(fileName) ||
-         fileName.startsWith('.') ||
-         DETECTION_PATTERNS.CONFIG_EXTENSIONS.some(ext => fileName.endsWith(ext)) ||
-         DETECTION_PATTERNS.EXCLUDED_DIRECTORIES.some(dir => filePath.includes(dir)) ||
-         DETECTION_PATTERNS.GRAPHICS_FILE_PATTERNS.some(pattern => fileName.includes(pattern));
+  return (
+    DETECTION_PATTERNS.CONFIG_FILE_PATTERNS.includes(fileName) ||
+    DETECTION_PATTERNS.DOT_FILE_PATTERNS.includes(fileName) ||
+    fileName.startsWith('.') ||
+    DETECTION_PATTERNS.CONFIG_EXTENSIONS.some((ext) => fileName.endsWith(ext)) ||
+    DETECTION_PATTERNS.EXCLUDED_DIRECTORIES.some((dir) => filePath.includes(dir)) ||
+    DETECTION_PATTERNS.GRAPHICS_FILE_PATTERNS.some((pattern) => fileName.includes(pattern))
+  );
 }
 
 /**
@@ -30,14 +32,14 @@ export function isConfigFile(filePath: string): boolean {
 function isUtilityFunction(content: string): boolean {
   const utilityPatterns = DETECTION_PATTERNS.UTILITY_FUNCTION_PATTERNS;
   let utilityPatternCount = 0;
-  
+
   for (const pattern of utilityPatterns) {
     const matches = content.match(pattern);
     if (matches) {
       utilityPatternCount += matches.length;
     }
   }
-  
+
   // If we find multiple utility function patterns, it's likely legitimate utility code
   return utilityPatternCount >= 3;
 }
@@ -45,14 +47,14 @@ function isUtilityFunction(content: string): boolean {
 function isServerCode(content: string): boolean {
   const serverPatterns = DETECTION_PATTERNS.SERVER_PATTERNS;
   let serverPatternCount = 0;
-  
+
   for (const pattern of serverPatterns) {
     const matches = content.match(pattern);
     if (matches) {
       serverPatternCount += matches.length;
     }
   }
-  
+
   // If we find multiple server patterns, it's likely legitimate server code
   return serverPatternCount >= 5;
 }
@@ -60,14 +62,14 @@ function isServerCode(content: string): boolean {
 function isReactTestingCode(content: string): boolean {
   const testingPatterns = DETECTION_PATTERNS.REACT_TESTING_PATTERNS;
   let testingPatternCount = 0;
-  
+
   for (const pattern of testingPatterns) {
     const matches = content.match(pattern);
     if (matches) {
       testingPatternCount += matches.length;
     }
   }
-  
+
   // If we find testing patterns, it's likely legitimate testing code
   return testingPatternCount >= 2;
 }
@@ -75,14 +77,14 @@ function isReactTestingCode(content: string): boolean {
 function isBlockchainCode(content: string): boolean {
   const blockchainPatterns = DETECTION_PATTERNS.BLOCKCHAIN_PATTERNS;
   let blockchainPatternCount = 0;
-  
+
   for (const pattern of blockchainPatterns) {
     const matches = content.match(pattern);
     if (matches) {
       blockchainPatternCount += matches.length;
     }
   }
-  
+
   // If we find blockchain patterns, it's likely legitimate blockchain code
   return blockchainPatternCount >= 2;
 }
@@ -90,14 +92,14 @@ function isBlockchainCode(content: string): boolean {
 function isSocketEventMapping(content: string): boolean {
   const socketPatterns = DETECTION_PATTERNS.SOCKET_EVENT_PATTERNS;
   let socketPatternCount = 0;
-  
+
   for (const pattern of socketPatterns) {
     const matches = content.match(pattern);
     if (matches) {
       socketPatternCount += matches.length;
     }
   }
-  
+
   // If we find multiple socket event patterns, it's likely a legitimate mapping
   return socketPatternCount >= 3;
 }
@@ -107,22 +109,22 @@ function isGraphicsLibraryCode(content: string): boolean {
   if (isShaderCode(content)) {
     return true;
   }
-  
+
   // Check for Three.js/webgl framework usage patterns
   if (isWebGLFrameworkCode(content)) {
     return true;
   }
-  
+
   // Check for legitimate graphics library imports
   if (hasLegitimateGraphicsImports(content)) {
     return true;
   }
-  
+
   // Check for React/JSX framework code
   if (isReactFrameworkCode(content)) {
     return true;
   }
-  
+
   return false;
 }
 
@@ -134,7 +136,7 @@ function isGraphicsLibraryCode(content: string): boolean {
 function isShaderCode(content: string): boolean {
   // Look for GLSL shader patterns
   const shaderPatterns = DETECTION_PATTERNS.SHADER_PATTERNS;
-  
+
   let shaderPatternCount = 0;
   for (const pattern of shaderPatterns) {
     const matches = content.match(pattern);
@@ -142,19 +144,19 @@ function isShaderCode(content: string): boolean {
       shaderPatternCount += matches.length;
     }
   }
-  
+
   // If we find multiple shader patterns, likely legitimate shader code
   if (shaderPatternCount >= 3) {
     return true;
   }
-  
+
   // Check for shader code blocks (strings containing GLSL)
   const shaderStringPattern = DETECTION_PATTERNS.SHADER_STRING_PATTERN;
   const shaderStrings = content.match(shaderStringPattern);
   if (shaderStrings && shaderStrings.length >= 2) {
     return true;
   }
-  
+
   return false;
 }
 
@@ -166,7 +168,7 @@ function isShaderCode(content: string): boolean {
 function isWebGLFrameworkCode(content: string): boolean {
   // Check for Three.js specific patterns that indicate legitimate usage
   const threeJSPatterns = DETECTION_PATTERNS.THREE_JS_PATTERNS;
-  
+
   let threeJSPatternCount = 0;
   for (const pattern of threeJSPatterns) {
     const matches = content.match(pattern);
@@ -174,21 +176,21 @@ function isWebGLFrameworkCode(content: string): boolean {
       threeJSPatternCount += matches.length;
     }
   }
-  
+
   // If we find multiple Three.js patterns, likely legitimate
   if (threeJSPatternCount >= 5) {
     return true;
   }
-  
+
   // Check for other graphics frameworks
   const otherFrameworkPatterns = DETECTION_PATTERNS.OTHER_FRAMEWORK_PATTERNS;
-  
+
   for (const pattern of otherFrameworkPatterns) {
     if (pattern.test(content)) {
       return true;
     }
   }
-  
+
   return false;
 }
 
@@ -200,7 +202,7 @@ function isWebGLFrameworkCode(content: string): boolean {
 function isReactFrameworkCode(content: string): boolean {
   // Check for React imports and usage patterns
   const reactPatterns = DETECTION_PATTERNS.REACT_PATTERNS;
-  
+
   let reactPatternCount = 0;
   for (const pattern of reactPatterns) {
     const matches = content.match(pattern);
@@ -208,24 +210,27 @@ function isReactFrameworkCode(content: string): boolean {
       reactPatternCount += matches.length;
     }
   }
-  
+
   // If we find multiple React patterns, likely legitimate React code
-  if (reactPatternCount >= 3) { // Lowered threshold for simple React components
+  if (reactPatternCount >= 3) {
+    // Lowered threshold for simple React components
     return true;
   }
-  
+
   // Check for React-specific imports
   const reactImports = DETECTION_PATTERNS.REACT_IMPORTS;
-  
+
   for (const lib of reactImports) {
-    if (content.includes(`from "${lib}"`) || 
-        content.includes(`from '${lib}'`) ||
-        content.includes(`require('${lib}')`) ||
-        content.includes(`require("${lib}")`)) {
+    if (
+      content.includes(`from "${lib}"`) ||
+      content.includes(`from '${lib}'`) ||
+      content.includes(`require('${lib}')`) ||
+      content.includes(`require("${lib}")`)
+    ) {
       return true;
     }
   }
-  
+
   return false;
 }
 
@@ -236,16 +241,18 @@ function isReactFrameworkCode(content: string): boolean {
  */
 function hasLegitimateGraphicsImports(content: string): boolean {
   const legitimateImports = DETECTION_PATTERNS.GRAPHICS_IMPORTS;
-  
+
   for (const lib of legitimateImports) {
-    if (content.includes(`from "${lib}"`) || 
-        content.includes(`from '${lib}'`) ||
-        content.includes(`require('${lib}')`) ||
-        content.includes(`require("${lib}")`)) {
+    if (
+      content.includes(`from "${lib}"`) ||
+      content.includes(`from '${lib}'`) ||
+      content.includes(`require('${lib}')`) ||
+      content.includes(`require("${lib}")`)
+    ) {
       return true;
     }
   }
-  
+
   return false;
 }
 
@@ -255,7 +262,10 @@ function hasLegitimateGraphicsImports(content: string): boolean {
  * @param patterns - Array of regex patterns to check
  * @returns Object with malwareStart index and legitimateEnd index
  */
-function detectMalwareStart(cleanLine: string, patterns: RegExp[]): { malwareStart: number; legitimateEnd: number } {
+function detectMalwareStart(
+  cleanLine: string,
+  patterns: RegExp[]
+): { malwareStart: number; legitimateEnd: number } {
   // First, find where malware patterns start
   let malwareStart = -1;
   for (const pattern of patterns) {
@@ -265,17 +275,17 @@ function detectMalwareStart(cleanLine: string, patterns: RegExp[]): { malwareSta
       break;
     }
   }
-  
+
   if (malwareStart === -1) {
     return { malwareStart: -1, legitimateEnd: -1 };
   }
-  
+
   // Now intelligently find where legitimate code ends
   let legitimateEnd = 0;
-  
+
   // Look for specific legitimate code patterns that end before malware
   const legitimatePatterns = DETECTION_PATTERNS.LEGITIMATE_PATTERNS;
-  
+
   // Find the last legitimate pattern before malware starts
   for (const pattern of legitimatePatterns) {
     const match = cleanLine.match(pattern);
@@ -286,15 +296,19 @@ function detectMalwareStart(cleanLine: string, patterns: RegExp[]): { malwareSta
       }
     }
   }
-  
+
   // If we found a legitimate ending, trim whitespace
   if (legitimateEnd > 0) {
     // Skip any whitespace after legitimate code
-    while (legitimateEnd < malwareStart && legitimateEnd < cleanLine.length && /\s/.test(cleanLine[legitimateEnd] || '')) {
+    while (
+      legitimateEnd < malwareStart &&
+      legitimateEnd < cleanLine.length &&
+      /\s/.test(cleanLine[legitimateEnd] || '')
+    ) {
       legitimateEnd++;
     }
   }
-  
+
   return { malwareStart, legitimateEnd };
 }
 
@@ -306,12 +320,12 @@ function detectMalwareStart(cleanLine: string, patterns: RegExp[]): { malwareSta
  */
 export function detectMalware(content: string, filePath?: string): Threat[] {
   const threats: Threat[] = [];
-  
+
   // Skip NullVoid's own code
   if (filePath && isNullVoidCode(filePath)) {
     return threats;
   }
-  
+
   // Skip legitimate graphics libraries and Three.js code
   if (isGraphicsLibraryCode(content)) {
     return threats;
@@ -341,10 +355,14 @@ export function detectMalware(content: string, filePath?: string): Threat[] {
   if (isBlockchainCode(content)) {
     return threats;
   }
-  
+
   // Analyze code structure for malicious patterns
   const structureAnalysis = analyzeCodeStructure(content, filePath);
-  if (structureAnalysis.isMalicious && !isTestFile(filePath || '') && !isConfigFile(filePath || '')) {
+  if (
+    structureAnalysis.isMalicious &&
+    !isTestFile(filePath || '') &&
+    !isConfigFile(filePath || '')
+  ) {
     let severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' = 'CRITICAL';
     let message = 'Code structure indicates malicious obfuscated content';
     let details = structureAnalysis.reason;
@@ -356,21 +374,23 @@ export function detectMalware(content: string, filePath?: string): Threat[] {
       details = `${structureAnalysis.reason} - This appears to be a configuration file, not malicious`;
     }
 
-    threats.push(createThreat(
-      'MALICIOUS_CODE_STRUCTURE',
-      message,
-      filePath || 'unknown',
-      filePath ? filePath.split('/').pop() || 'unknown' : 'unknown',
-      severity,
-      details,
-      {
-        confidence: structureAnalysis.confidence / 100,
-        ...(structureAnalysis.lineNumber && { lineNumber: structureAnalysis.lineNumber }),
-        sampleCode: structureAnalysis.sampleCode
-      }
-    ));
+    threats.push(
+      createThreat(
+        'MALICIOUS_CODE_STRUCTURE',
+        message,
+        filePath || 'unknown',
+        filePath ? filePath.split('/').pop() || 'unknown' : 'unknown',
+        severity,
+        details,
+        {
+          confidence: structureAnalysis.confidence / 100,
+          ...(structureAnalysis.lineNumber && { lineNumber: structureAnalysis.lineNumber }),
+          sampleCode: structureAnalysis.sampleCode,
+        }
+      )
+    );
   }
-  
+
   // Check for suspicious module requires
   const suspiciousModules = DETECTION_PATTERNS.SUSPICIOUS_MODULES;
   for (const module of suspiciousModules) {
@@ -378,7 +398,7 @@ export function detectMalware(content: string, filePath?: string): Threat[] {
       let severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
       let message: string;
       let details: string;
-      
+
       if (isNullVoidCode(filePath || '')) {
         // For NullVoid's own code, these are legitimate security tools
         severity = 'LOW';
@@ -400,19 +420,21 @@ export function detectMalware(content: string, filePath?: string): Threat[] {
         message = `Suspicious module require: ${module}`;
         details = `Code requires suspicious module: ${module}`;
       }
-      
-      threats.push(createThreat(
-        'SUSPICIOUS_MODULE',
-        message,
-        filePath || 'unknown',
-        filePath ? filePath.split('/').pop() || 'unknown' : 'unknown',
-        severity,
-        details,
-        { confidence: 0.9 }
-      ));
+
+      threats.push(
+        createThreat(
+          'SUSPICIOUS_MODULE',
+          message,
+          filePath || 'unknown',
+          filePath ? filePath.split('/').pop() || 'unknown' : 'unknown',
+          severity,
+          details,
+          { confidence: 0.9 }
+        )
+      );
     }
   }
-  
+
   return threats;
 }
 
@@ -422,7 +444,10 @@ export function detectMalware(content: string, filePath?: string): Threat[] {
  * @param packageName - Package name for context
  * @returns Analysis result with malicious indicators
  */
-function analyzeCodeStructure(code: string, packageName?: string): {
+function analyzeCodeStructure(
+  code: string,
+  packageName?: string
+): {
   isMalicious: boolean;
   reason: string;
   confidence: number;
@@ -434,18 +459,18 @@ function analyzeCodeStructure(code: string, packageName?: string): {
     reason: '',
     confidence: 0,
     lineNumber: null as number | null,
-    sampleCode: ''
+    sampleCode: '',
   };
-  
+
   // Skip NullVoid's own code
   if (packageName && isNullVoidCode(packageName)) {
     return analysis;
   }
-  
+
   const lines = code.split('\n');
   let threatCount = 0;
   let totalConfidence = 0;
-  
+
   // Pattern 1: Variable name mangling
   const variableManglingPattern = DETECTION_PATTERNS.MALWARE_PATTERNS.VARIABLE_MANGLING;
   const manglingMatches = code.match(new RegExp(variableManglingPattern.source, 'g'));
@@ -454,15 +479,17 @@ function analyzeCodeStructure(code: string, packageName?: string): {
     analysis.reason += `Variable name mangling detected (${manglingMatches.length} instances). `;
     threatCount++;
     totalConfidence += 30;
-    
+
     // Find line number and sample
     if (!analysis.lineNumber) {
       for (let i = 0; i < lines.length; i++) {
         if (lines[i]?.match(variableManglingPattern)) {
           analysis.lineNumber = i + 1;
           const cleanLine = lines[i]?.trim() || '';
-          const { malwareStart, legitimateEnd } = detectMalwareStart(cleanLine, [variableManglingPattern]);
-          
+          const { malwareStart, legitimateEnd } = detectMalwareStart(cleanLine, [
+            variableManglingPattern,
+          ]);
+
           if (malwareStart !== -1) {
             // Show only the malicious part, intelligently removing legitimate code
             if (legitimateEnd > 0 && legitimateEnd <= malwareStart) {
@@ -471,7 +498,8 @@ function analyzeCodeStructure(code: string, packageName?: string): {
               analysis.sampleCode = '... ' + attackPart + '...';
             } else {
               // Fallback: show the line without excessive whitespace
-              analysis.sampleCode = cleanLine.substring(0, 80) + (cleanLine.length > 80 ? '...' : '');
+              analysis.sampleCode =
+                cleanLine.substring(0, 80) + (cleanLine.length > 80 ? '...' : '');
             }
           } else {
             analysis.sampleCode = cleanLine.substring(0, 80) + (cleanLine.length > 80 ? '...' : '');
@@ -481,14 +509,14 @@ function analyzeCodeStructure(code: string, packageName?: string): {
       }
     }
   }
-  
+
   // Pattern 2: Massive obfuscated code blob
   if (code.length > 5000) {
     analysis.isMalicious = true;
     analysis.reason += `Massive obfuscated code blob detected (${code.length} characters). `;
     threatCount++;
     totalConfidence += 25;
-    
+
     // Find line number and sample for massive code blob
     if (!analysis.lineNumber) {
       // Look for the largest line in the code as likely obfuscated content
@@ -501,13 +529,16 @@ function analyzeCodeStructure(code: string, packageName?: string): {
           maxLineIndex = i;
         }
       }
-      if (maxLineLength > 200) { // Only if line is suspiciously long
+      if (maxLineLength > 200) {
+        // Only if line is suspiciously long
         analysis.lineNumber = maxLineIndex + 1;
         const cleanLine = lines[maxLineIndex]?.trim() || '';
-        
+
         // Try to extract malicious part using detectMalwareStart
-        const { malwareStart, legitimateEnd } = detectMalwareStart(cleanLine, [variableManglingPattern]);
-        
+        const { malwareStart, legitimateEnd } = detectMalwareStart(cleanLine, [
+          variableManglingPattern,
+        ]);
+
         if (malwareStart !== -1) {
           // Show only the malicious part, intelligently removing legitimate code
           if (legitimateEnd > 0 && legitimateEnd <= malwareStart) {
@@ -524,7 +555,7 @@ function analyzeCodeStructure(code: string, packageName?: string): {
       }
     }
   }
-  
+
   // Pattern 3: Hex encoding arrays
   const hexArrayPattern = DETECTION_PATTERNS.MALWARE_PATTERNS.HEX_ARRAYS;
   const hexMatches = code.match(hexArrayPattern);
@@ -533,7 +564,7 @@ function analyzeCodeStructure(code: string, packageName?: string): {
     analysis.reason += `Hex encoding arrays detected (${hexMatches.length} instances). `;
     threatCount++;
     totalConfidence += 20;
-    
+
     // Find line number and sample for hex arrays
     if (!analysis.lineNumber) {
       for (let i = 0; i < lines.length; i++) {
@@ -546,7 +577,7 @@ function analyzeCodeStructure(code: string, packageName?: string): {
       }
     }
   }
-  
+
   // Pattern 4: Code appended to legitimate module.exports
   const moduleExportPattern = DETECTION_PATTERNS.MALWARE_PATTERNS.MODULE_EXPORT_MALICIOUS;
   const moduleExportMatches = code.match(moduleExportPattern);
@@ -555,26 +586,29 @@ function analyzeCodeStructure(code: string, packageName?: string): {
     analysis.reason += `Code appended to legitimate module.exports detected. `;
     threatCount++;
     totalConfidence += 35;
-    
+
     // Find line number and sample
     if (!analysis.lineNumber) {
       for (let i = 0; i < lines.length; i++) {
         if (lines[i]?.match(moduleExportPattern)) {
           analysis.lineNumber = i + 1;
           const cleanLine = lines[i]?.trim() || '';
-          
+
           // Find where module.exports ends and malicious code begins
           const moduleExportMatch = cleanLine.match(/module\.exports\s*=\s*[^;]+;\s*/);
           if (moduleExportMatch && moduleExportMatch.index !== undefined) {
             const moduleExportEnd = moduleExportMatch.index + moduleExportMatch[0].length;
             const afterModuleExport = cleanLine.substring(moduleExportEnd);
-            const { malwareStart: relativeMalwareStart } = detectMalwareStart(afterModuleExport, [variableManglingPattern]);
+            const { malwareStart: relativeMalwareStart } = detectMalwareStart(afterModuleExport, [
+              variableManglingPattern,
+            ]);
             if (relativeMalwareStart !== -1) {
               const malwareStart = moduleExportEnd + relativeMalwareStart;
               const attackPart = cleanLine.substring(malwareStart, malwareStart + 60);
               analysis.sampleCode = '... ' + attackPart + '...';
             } else {
-              analysis.sampleCode = cleanLine.substring(0, 80) + (cleanLine.length > 80 ? '...' : '');
+              analysis.sampleCode =
+                cleanLine.substring(0, 80) + (cleanLine.length > 80 ? '...' : '');
             }
           } else {
             analysis.sampleCode = cleanLine.substring(0, 80) + (cleanLine.length > 80 ? '...' : '');
@@ -584,17 +618,17 @@ function analyzeCodeStructure(code: string, packageName?: string): {
       }
     }
   }
-  
+
   // Pattern 5: High entropy detection
   const entropy = calculateShannonEntropy(code);
   const entropyThreshold = isReactFrameworkCode(code) ? 5.0 : 4.5; // Higher threshold for React files
-  
+
   if (entropy > entropyThreshold) {
     analysis.isMalicious = true;
     analysis.reason += `High entropy detected (${entropy.toFixed(2)}). `;
     threatCount++;
     totalConfidence += 15;
-    
+
     // Find line number and sample for high entropy content
     if (!analysis.lineNumber) {
       // Look for lines with high entropy (likely obfuscated)
@@ -614,13 +648,13 @@ function analyzeCodeStructure(code: string, packageName?: string): {
       }
     }
   }
-  
+
   // Calculate final confidence
   if (analysis.isMalicious) {
     analysis.confidence = Math.min(totalConfidence, 150); // Cap at 150%
     analysis.reason = `MALICIOUS CODE DETECTED: ${analysis.reason}Confidence: ${analysis.confidence}% (${threatCount} threats)`;
   }
-  
+
   return analysis;
 }
 
@@ -634,10 +668,8 @@ export function filterThreatsBySeverity(threats: Threat[], showAll: boolean = fa
   if (showAll) {
     return threats;
   }
-  
-  return threats.filter(threat => 
-    threat.severity === 'CRITICAL' || threat.severity === 'HIGH'
-  );
+
+  return threats.filter((threat) => threat.severity === 'CRITICAL' || threat.severity === 'HIGH');
 }
 
 /**
@@ -647,19 +679,19 @@ export function filterThreatsBySeverity(threats: Threat[], showAll: boolean = fa
  */
 function calculateShannonEntropy(text: string): number {
   if (!text || text.length === 0) return 0;
-  
+
   const frequencies: Record<string, number> = {};
   for (const char of text) {
     frequencies[char] = (frequencies[char] || 0) + 1;
   }
-  
+
   let entropy = 0;
   const length = text.length;
-  
+
   for (const count of Object.values(frequencies)) {
     const probability = count / length;
     entropy -= probability * Math.log2(probability);
   }
-  
+
   return entropy;
 }

@@ -62,18 +62,18 @@ export const ENHANCED_RULES: EnhancedRules = {
       'Object\\.defineProperty\\s*\\(\\s*window\\s*,\\s*[\'"`]ethereum',
       'window\\.__defineGetter__\\s*\\(\\s*[\'"`]ethereum',
       'window\\.ethereum\\s*=\\s*.*?proxy',
-      
+
       // Transaction manipulation
       'eth_sendTransaction.*?params.*?to\\s*[:=]',
       'params\\[0\\]\\.to\\s*=\\s*[\'"`]0x[a-fA-F0-9]{40}',
       'transaction\\.to\\s*=.*?attacker',
       'sendTransaction.*?replace.*?address',
-      
+
       // Address replacement
       'replace\\s*\\(\\s*/0x[a-fA-F0-9]{40}/.*?,\\s*[\'"`]0x',
       '0x[a-fA-F0-9]{40}.*?//.*?(attacker|wallet|address)',
       '\\.replace\\s*\\(\\s*[\'"`]0x[a-fA-F0-9]{40}',
-      
+
       // Multi-chain targeting
       'bitcoin.*?address.*?replace',
       'litecoin.*?L[a-km-zA-HJ-NP-Z1-9]{26,33}',
@@ -81,20 +81,20 @@ export const ENHANCED_RULES: EnhancedRules = {
       'solana.*?[1-9A-HJ-NP-Za-km-z]{32,44}',
       'polygon.*?0x[a-fA-F0-9]{40}',
       'bsc.*?0x[a-fA-F0-9]{40}',
-      
+
       // Legacy patterns (kept for backward compatibility)
       '_0x112fa8',
       'stealthProxyControl',
       'runmask',
       'newdlocal',
       'window.ethereum',
-      'ethereum.request'
+      'ethereum.request',
     ],
     severity: 'CRITICAL',
     description: 'Detects sophisticated wallet hijacking and transaction manipulation',
-    confidence_threshold: 0.7
+    confidence_threshold: 0.7,
   },
-  
+
   network_manipulation: {
     patterns: [
       // Network interception
@@ -102,24 +102,24 @@ export const ENHANCED_RULES: EnhancedRules = {
       'fetch\\s*=\\s*.*?function',
       'Response\\.prototype\\.json\\s*=',
       'axios\\.interceptors',
-      
+
       // Response manipulation
       'fetch.*override',
       'XMLHttpRequest.*intercept',
       'response\\.json.*replace',
       'blockchain.*address.*replace',
-      
+
       // API hijacking
       'api\\.binance\\.com.*replace',
       'api\\.coinbase\\.com.*replace',
       'api\\.kraken\\.com.*replace',
-      'api\\.bitfinex\\.com.*replace'
+      'api\\.bitfinex\\.com.*replace',
     ],
     severity: 'HIGH',
     description: 'Detects network response manipulation and API hijacking',
-    confidence_threshold: 0.6
+    confidence_threshold: 0.6,
   },
-  
+
   obfuscated_code: {
     patterns: [
       // Advanced obfuscation patterns
@@ -128,24 +128,24 @@ export const ENHANCED_RULES: EnhancedRules = {
       '_0x[a-f0-9]{4,6}\\s*\\(',
       '\\[\\s*[\'"`]\\\\x[0-9a-f]{2}',
       'atob\\s*\\(\\s*[\'"`][A-Za-z0-9+/=]+[\'"`]',
-      
+
       // Legacy patterns
       'eval\\s*\\(',
       'new\\s+Function\\s*\\(',
       'fromCharCode',
-      
+
       // Additional obfuscation techniques
       '\\[\\s*[\'"`][a-zA-Z0-9+/=]{50,}[\'"`]\\s*\\]',
       'String\\.fromCharCode\\(.*?\\d+.*?\\)',
       '\\w+\\s*=\\s*\\w+\\s*\\+\\s*\\w+\\s*\\+\\s*\\w+',
-      '\\[\\s*[\'"`]\\\\u[0-9a-f]{4}[\'"`]\\s*\\]'
+      '\\[\\s*[\'"`]\\\\u[0-9a-f]{4}[\'"`]\\s*\\]',
     ],
     entropy_threshold: 5.0,
     severity: 'HIGH',
     description: 'Detects obfuscated or suspicious code patterns',
-    confidence_threshold: 0.8
+    confidence_threshold: 0.8,
   },
-  
+
   suspicious_scripts: {
     patterns: [
       // Package lifecycle script attacks
@@ -157,25 +157,25 @@ export const ENHANCED_RULES: EnhancedRules = {
       'postinstall.*eval',
       'install.*bash.*-c',
       'postinstall.*node.*-e',
-      
+
       // Command injection patterns
       'postinstall.*\\$\\(',
       'postinstall.*`',
       'postinstall.*exec',
       'postinstall.*spawn',
       'postinstall.*fork',
-      
+
       // Network requests in scripts
       'postinstall.*http',
       'postinstall.*https',
       'postinstall.*fetch',
-      'postinstall.*axios'
+      'postinstall.*axios',
     ],
     severity: 'CRITICAL',
     description: 'Detects suspicious package lifecycle scripts and command injection',
-    confidence_threshold: 0.9
+    confidence_threshold: 0.9,
   },
-  
+
   crypto_mining: {
     patterns: [
       // Cryptocurrency mining patterns
@@ -187,52 +187,52 @@ export const ENHANCED_RULES: EnhancedRules = {
       'mining.*rig',
       'gpu.*mining',
       'cpu.*mining',
-      
+
       // Mining pool connections
       'stratum\\+tcp://',
       'mining.*pool.*connect',
       'hash.*rate.*calculation',
       'proof.*of.*work',
       'mining.*algorithm',
-      
+
       // Browser mining
       'coinhive',
       'cryptonight',
       'web.*mining',
-      'browser.*mining'
+      'browser.*mining',
     ],
     severity: 'HIGH',
     description: 'Detects cryptocurrency mining code and browser mining',
-    confidence_threshold: 0.7
+    confidence_threshold: 0.7,
   },
-  
+
   supply_chain_attack: {
     patterns: [
       // Dependency confusion
       'package.*name.*confusion',
       'private.*registry.*bypass',
       'npm.*registry.*spoof',
-      
+
       // Typosquatting patterns
       'package.*name.*typo',
       'similar.*package.*name',
       'confusing.*package.*name',
-      
+
       // Malicious updates
       'package.*update.*malicious',
       'version.*bump.*attack',
       'semantic.*versioning.*abuse',
-      
+
       // Package hijacking
       'package.*hijacking',
       'npm.*account.*compromise',
-      'package.*maintainer.*attack'
+      'package.*maintainer.*attack',
     ],
     severity: 'CRITICAL',
     description: 'Detects supply chain attack patterns and dependency confusion',
-    confidence_threshold: 0.8
+    confidence_threshold: 0.8,
   },
-  
+
   data_exfiltration: {
     patterns: [
       // Data collection patterns
@@ -240,29 +240,29 @@ export const ENHANCED_RULES: EnhancedRules = {
       'localStorage.*collect',
       'sessionStorage.*collect',
       'cookie.*collect',
-      
+
       // Network exfiltration
       'fetch.*data.*send',
       'XMLHttpRequest.*data.*send',
       'axios.*data.*send',
       'websocket.*data.*send',
-      
+
       // File system access
       'fs\\.readFile.*sensitive',
       'fs\\.readdir.*sensitive',
       'fs\\.stat.*sensitive',
-      
+
       // Process information
       'process\\.env',
       'process\\.argv',
       'process\\.cwd',
       'process\\.platform',
-      'process\\.version'
+      'process\\.version',
     ],
     severity: 'HIGH',
     description: 'Detects data exfiltration and sensitive information collection',
-    confidence_threshold: 0.6
-  }
+    confidence_threshold: 0.6,
+  },
 };
 
 /**
@@ -275,13 +275,13 @@ export function loadRules(rulesPath: string, options: RulesLoadingOptions = {}):
   if (!rulesPath || !fs.existsSync(rulesPath)) {
     return ENHANCED_RULES;
   }
-  
+
   try {
     const fileContent = fs.readFileSync(rulesPath, 'utf8');
     const ext = path.extname(rulesPath).toLowerCase();
-    
+
     let parsedRules: Record<string, unknown>;
-    
+
     if (ext === '.yaml' || ext === '.yml' || options.format === 'yaml') {
       parsedRules = (yaml.load(fileContent) as Record<string, unknown>) || {};
     } else if (ext === '.json' || options.format === 'json') {
@@ -289,17 +289,17 @@ export function loadRules(rulesPath: string, options: RulesLoadingOptions = {}):
     } else {
       throw new Error(`Unsupported file format: ${ext}`);
     }
-    
+
     // Extract rules from nested structure if present
     if (parsedRules['detection_rules']) {
       parsedRules = parsedRules['detection_rules'] as Record<string, unknown>;
     }
-    
+
     // Merge with defaults if requested
     if (options.mergeWithDefaults !== false) {
       return mergeRules(parsedRules as EnhancedRules);
     }
-    
+
     return parsedRules as EnhancedRules;
   } catch (error) {
     console.warn(`Warning: Could not load rules from ${rulesPath}: ${(error as Error).message}`);
@@ -313,20 +313,23 @@ export function loadRules(rulesPath: string, options: RulesLoadingOptions = {}):
  * @param defaultRules - Default rules
  * @returns Merged rules
  */
-export function mergeRules(customRules: EnhancedRules, defaultRules: EnhancedRules = ENHANCED_RULES): EnhancedRules {
+export function mergeRules(
+  customRules: EnhancedRules,
+  defaultRules: EnhancedRules = ENHANCED_RULES
+): EnhancedRules {
   const merged = { ...defaultRules };
-  
+
   if (customRules && typeof customRules === 'object') {
     for (const [ruleName, ruleConfig] of Object.entries(customRules)) {
       if (ruleConfig && typeof ruleConfig === 'object') {
         merged[ruleName] = {
           ...merged[ruleName],
-          ...ruleConfig
+          ...ruleConfig,
         };
       }
     }
   }
-  
+
   return merged;
 }
 
@@ -337,29 +340,33 @@ export function mergeRules(customRules: EnhancedRules, defaultRules: EnhancedRul
  * @param rules - Rules configuration
  * @returns Array of detected threats
  */
-export function applyRules(content: string, packageName: string, rules: EnhancedRules): ThreatDetectionResult[] {
+export function applyRules(
+  content: string,
+  packageName: string,
+  rules: EnhancedRules
+): ThreatDetectionResult[] {
   const threats: ThreatDetectionResult[] = [];
-  
+
   for (const [ruleName, ruleConfig] of Object.entries(rules)) {
     if (!ruleConfig.patterns || !Array.isArray(ruleConfig.patterns)) {
       continue;
     }
-    
+
     let patternMatches = 0;
     let totalPatterns = ruleConfig.patterns.length;
-    
+
     for (const pattern of ruleConfig.patterns) {
       try {
         const regex = new RegExp(pattern, 'gi');
         const matches = content.match(regex);
-        
+
         if (matches) {
           patternMatches++;
-          
+
           // Calculate confidence based on pattern matches and rule configuration
           const baseConfidence = ruleConfig.confidence_threshold || 0.5;
-          const patternConfidence = Math.min(0.95, baseConfidence + (matches.length * 0.1));
-          
+          const patternConfidence = Math.min(0.95, baseConfidence + matches.length * 0.1);
+
           threats.push({
             type: `ENHANCED_RULE_${ruleName.toUpperCase()}`,
             message: ruleConfig.description || `Detected pattern: ${pattern}`,
@@ -369,7 +376,7 @@ export function applyRules(content: string, packageName: string, rules: Enhanced
             rule: ruleName,
             pattern: pattern,
             confidence: patternConfidence,
-            matches: matches.length
+            matches: matches.length,
           });
         }
       } catch {
@@ -377,7 +384,7 @@ export function applyRules(content: string, packageName: string, rules: Enhanced
         console.warn(`Warning: Invalid regex pattern in rule ${ruleName}: ${pattern}`);
       }
     }
-    
+
     // Add aggregate threat if multiple patterns match
     if (patternMatches > 1) {
       const aggregateConfidence = Math.min(0.95, (patternMatches / totalPatterns) * 0.8);
@@ -391,11 +398,11 @@ export function applyRules(content: string, packageName: string, rules: Enhanced
         pattern: '',
         confidence: aggregateConfidence,
         matches: 0,
-        patternMatches: patternMatches
+        patternMatches: patternMatches,
       });
     }
   }
-  
+
   return threats;
 }
 
@@ -408,50 +415,42 @@ export function createExampleRules(outputPath: string, format: 'json' | 'yaml' =
   const exampleRules = {
     detection_rules: {
       ...ENHANCED_RULES,
-      
+
       // Custom enterprise rules
       enterprise_threats: {
-        patterns: [
-          'company-internal-api',
-          'staging-environment',
-          'dev-secrets'
-        ],
+        patterns: ['company-internal-api', 'staging-environment', 'dev-secrets'],
         severity: 'LOW' as const,
         description: 'Enterprise-specific threat patterns',
-        confidence_threshold: 0.3
+        confidence_threshold: 0.3,
       },
-      
+
       competitor_analysis: {
-        patterns: [
-          'competitor-data-scraper',
-          'market-analysis-tool',
-          'price-monitoring'
-        ],
+        patterns: ['competitor-data-scraper', 'market-analysis-tool', 'price-monitoring'],
         severity: 'HIGH' as const,
         description: 'Detects competitor analysis tools',
-        confidence_threshold: 0.8
-      }
+        confidence_threshold: 0.8,
+      },
     },
-    
+
     // Global configuration
     global_config: {
       entropy_threshold: 5.0,
       max_file_size: '10MB',
       scan_timeout: 30000,
       enable_verbose: false,
-      confidence_threshold: 0.5
+      confidence_threshold: 0.5,
     },
-    
+
     // Severity overrides
     severity_overrides: {
-      'wallet_hijacking': 'CRITICAL' as const,
-      'network_manipulation': 'HIGH' as const,
-      'obfuscated_code': 'HIGH' as const,
-      'supply_chain_attack': 'CRITICAL' as const,
-      'data_exfiltration': 'HIGH' as const
-    }
+      wallet_hijacking: 'CRITICAL' as const,
+      network_manipulation: 'HIGH' as const,
+      obfuscated_code: 'HIGH' as const,
+      supply_chain_attack: 'CRITICAL' as const,
+      data_exfiltration: 'HIGH' as const,
+    },
   };
-  
+
   try {
     let content: string;
     if (format === 'json') {
@@ -459,7 +458,7 @@ export function createExampleRules(outputPath: string, format: 'json' | 'yaml' =
     } else {
       content = yaml.dump(exampleRules, { indent: 2 });
     }
-    
+
     fs.writeFileSync(outputPath, content);
     console.log(`Enhanced example rules file created: ${outputPath}`);
   } catch (error) {
@@ -474,25 +473,34 @@ export function createExampleRules(outputPath: string, format: 'json' | 'yaml' =
  */
 export function validateRules(rules: EnhancedRules): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
-  
+
   for (const [ruleName, ruleConfig] of Object.entries(rules)) {
     if (!ruleConfig) {
       errors.push(`Rule ${ruleName} is null or undefined`);
       continue;
     }
-    
+
     if (!ruleConfig.patterns || !Array.isArray(ruleConfig.patterns)) {
       errors.push(`Rule ${ruleName} missing or invalid patterns array`);
     }
-    
-    if (!ruleConfig.severity || !['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].includes(ruleConfig.severity)) {
+
+    if (
+      !ruleConfig.severity ||
+      !['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].includes(ruleConfig.severity)
+    ) {
       errors.push(`Rule ${ruleName} has invalid severity: ${ruleConfig.severity}`);
     }
-    
-    if (typeof ruleConfig.confidence_threshold !== 'number' || ruleConfig.confidence_threshold < 0 || ruleConfig.confidence_threshold > 1) {
-      errors.push(`Rule ${ruleName} has invalid confidence_threshold: ${ruleConfig.confidence_threshold}`);
+
+    if (
+      typeof ruleConfig.confidence_threshold !== 'number' ||
+      ruleConfig.confidence_threshold < 0 ||
+      ruleConfig.confidence_threshold > 1
+    ) {
+      errors.push(
+        `Rule ${ruleName} has invalid confidence_threshold: ${ruleConfig.confidence_threshold}`
+      );
     }
-    
+
     // Validate regex patterns
     if (ruleConfig.patterns) {
       for (const pattern of ruleConfig.patterns) {
@@ -504,10 +512,10 @@ export function validateRules(rules: EnhancedRules): { valid: boolean; errors: s
       }
     }
   }
-  
+
   return {
     valid: errors.length === 0,
-    errors
+    errors,
   };
 }
 
@@ -625,7 +633,9 @@ export class RulesEngine {
  * @param options - Loading options
  * @returns New rules engine instance
  */
-export function createRulesEngine(rules: EnhancedRules = ENHANCED_RULES, options: RulesLoadingOptions = {}): RulesEngine {
+export function createRulesEngine(
+  rules: EnhancedRules = ENHANCED_RULES,
+  options: RulesLoadingOptions = {}
+): RulesEngine {
   return new RulesEngine(rules, options);
 }
-

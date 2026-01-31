@@ -67,7 +67,7 @@ export class NullVoidError extends Error {
     this.code = code;
     this.details = details;
     this.timestamp = new Date().toISOString();
-    
+
     // Ensure proper prototype chain
     Object.setPrototypeOf(this, NullVoidError.prototype);
   }
@@ -83,7 +83,7 @@ export class NullVoidError extends Error {
       code: this.code,
       details: this.details,
       timestamp: this.timestamp,
-      stack: this.stack
+      stack: this.stack,
     };
   }
 
@@ -241,7 +241,7 @@ export class ErrorHandler {
     if (this.logErrors) {
       this.logError(error, context);
     }
-    
+
     return this.formatError(error, context);
   }
 
@@ -255,7 +255,7 @@ export class ErrorHandler {
       error: error.message,
       code: (error as Error & { code?: string }).code || 'UNKNOWN',
       stack: this.includeStack ? error.stack : undefined,
-      ...context
+      ...context,
     };
 
     if (error instanceof ValidationError) {
@@ -285,7 +285,7 @@ export class ErrorHandler {
       message: error.message,
       code: (error as Error & { code?: string }).code || 'UNKNOWN',
       timestamp: new Date().toISOString(),
-      ...context
+      ...context,
     };
   }
 
@@ -295,44 +295,41 @@ export class ErrorHandler {
    * @param options - Retry options
    * @returns Operation result
    */
-  async retry<T>(
-    operation: () => Promise<T>, 
-    options: RetryOptions = {}
-  ): Promise<T> {
+  async retry<T>(operation: () => Promise<T>, options: RetryOptions = {}): Promise<T> {
     const maxRetries = options.maxRetries || this.maxRetries;
     const retryDelay = options.retryDelay || this.retryDelay;
     const backoffFactor = options.backoffFactor || 2;
-    
+
     let lastError: Error;
-    
+
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         return await operation();
       } catch (error) {
         lastError = error as Error;
-        
+
         if (attempt === maxRetries) {
           break;
         }
-        
+
         // Don't retry certain types of errors
         if (this.isNonRetryableError(error as Error)) {
           break;
         }
-        
+
         const delay = retryDelay * Math.pow(backoffFactor, attempt);
         errorLogger.warn(`Retry attempt ${attempt + 1}/${maxRetries} after ${delay}ms`, {
           error: (error as Error).message,
-          attempt: attempt + 1
+          attempt: attempt + 1,
         });
-        
-        await new Promise<void>(resolve => {
+
+        await new Promise<void>((resolve) => {
           const timer = setTimeout(() => resolve(), delay);
           timer.unref(); // Don't keep process alive
         });
       }
     }
-    
+
     throw lastError!;
   }
 
@@ -345,8 +342,9 @@ export class ErrorHandler {
     if (error instanceof ValidationError) return true;
     if (error instanceof ConfigurationError) return true;
     if (error instanceof SecurityError) return true;
-    if (error instanceof FileSystemError && error.message.includes('permission denied')) return true;
-    
+    if (error instanceof FileSystemError && error.message.includes('permission denied'))
+      return true;
+
     return false;
   }
 
@@ -363,9 +361,9 @@ export class ErrorHandler {
       try {
         return await fn(...args);
       } catch (error) {
-        return this.handle(error as Error, { 
-          function: fn.name, 
-          args: args.length 
+        return this.handle(error as Error, {
+          function: fn.name,
+          args: args.length,
         });
       }
     };
@@ -383,9 +381,9 @@ export class ErrorHandler {
       try {
         return fn(...args);
       } catch (error) {
-        return this.handle(error as Error, { 
-          function: fn.name, 
-          args: args.length 
+        return this.handle(error as Error, {
+          function: fn.name,
+          args: args.length,
         });
       }
     };
@@ -406,13 +404,13 @@ export class ErrorRecovery {
       // Increase timeout and retry
       return true;
     }
-    
+
     if (error.message.includes('ECONNRESET')) {
       // Wait and retry
-      await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
+      await new Promise<void>((resolve) => setTimeout(() => resolve(), 2000));
       return true;
     }
-    
+
     return false;
   }
 
@@ -424,7 +422,7 @@ export class ErrorRecovery {
   static async recoverFromRateLimitError(error: RateLimitError): Promise<boolean> {
     const retryAfter = error.retryAfter || 60;
     errorLogger.info(`Rate limited, waiting ${retryAfter} seconds`);
-    await new Promise<void>(resolve => setTimeout(() => resolve(), retryAfter * 1000));
+    await new Promise<void>((resolve) => setTimeout(() => resolve(), retryAfter * 1000));
     return true;
   }
 
@@ -448,12 +446,12 @@ export class ErrorRecovery {
       // Try with different permissions or skip file
       return false;
     }
-    
+
     if (error.message.includes('no such file')) {
       // Skip missing files
       return true;
     }
-    
+
     return false;
   }
 }
@@ -478,15 +476,15 @@ export class ErrorMetrics {
    */
   record(error: Error): void {
     this.totalErrors++;
-    
+
     const errorKey = error.name || 'UnknownError';
     const count = this.errors.get(errorKey) || 0;
     this.errors.set(errorKey, count + 1);
-    
+
     errorLogger.debug('Error recorded', {
       error: errorKey,
       count: count + 1,
-      total: this.totalErrors
+      total: this.totalErrors,
     });
   }
 
@@ -497,13 +495,13 @@ export class ErrorMetrics {
   getStats(): ErrorStats {
     const duration = Date.now() - this.startTime;
     const errorRate = this.totalErrors / (duration / 1000);
-    
+
     return {
       totalErrors: this.totalErrors,
       errorRate: errorRate,
       duration: duration,
       errorsByType: Object.fromEntries(this.errors),
-      mostCommonError: this.getMostCommonError()
+      mostCommonError: this.getMostCommonError(),
     };
   }
 
@@ -514,14 +512,14 @@ export class ErrorMetrics {
   private getMostCommonError(): string {
     let maxCount = 0;
     let mostCommon = 'None';
-    
+
     for (const [errorType, count] of this.errors.entries()) {
       if (count > maxCount) {
         maxCount = count;
         mostCommon = errorType;
       }
     }
-    
+
     return mostCommon;
   }
 
@@ -539,7 +537,7 @@ export class ErrorMetrics {
 export const globalErrorHandler = new ErrorHandler({
   logErrors: true,
   logLevel: 'error',
-  includeStack: process.env['NODE_ENV'] !== 'production'
+  includeStack: process.env['NODE_ENV'] !== 'production',
 });
 
 // Global error metrics
@@ -551,7 +549,7 @@ export const globalErrorMetrics = new ErrorMetrics();
 process.on('uncaughtException', (error: Error) => {
   globalErrorHandler.handle(error, { type: 'uncaughtException' });
   globalErrorMetrics.record(error);
-  
+
   // Exit process for uncaught exceptions
   process.exit(1);
 });

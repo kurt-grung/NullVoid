@@ -16,7 +16,7 @@ const colors = {
   italic: (text: string) => `\x1b[3m${text}\x1b[0m`,
   underline: (text: string) => `\x1b[4m${text}\x1b[0m`,
   strikethrough: (text: string) => `\x1b[9m${text}\x1b[0m`,
-  whiteOnBlack: (text: string) => `\x1b[37m\x1b[40m${text}\x1b[0m`
+  whiteOnBlack: (text: string) => `\x1b[37m\x1b[40m${text}\x1b[0m`,
 };
 
 export default colors;

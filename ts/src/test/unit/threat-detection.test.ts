@@ -13,9 +13,9 @@ describe('Threat Detection', () => {
         const _0x112fa8 = "malicious";
         const _0x180f = "code";
       `;
-      
+
       const result = detectMalware(maliciousContent);
-      
+
       // Just check that the function runs without error
       expect(result).toBeDefined();
       expect(Array.isArray(result)).toBe(true);
@@ -24,14 +24,14 @@ describe('Threat Detection', () => {
     it('should not detect threats in clean content', () => {
       const cleanContent = 'function hello() { return "world"; }';
       const result = detectMalware(cleanContent);
-      
+
       expect(Array.isArray(result)).toBe(true);
     });
 
     it('should calculate entropy correctly', () => {
       const highEntropyContent = 'a'.repeat(1000) + 'b'.repeat(1000) + 'c'.repeat(1000);
       const result = detectMalware(highEntropyContent);
-      
+
       expect(Array.isArray(result)).toBe(true);
     });
   });
