@@ -89,7 +89,7 @@ NullVoid aims to be the most comprehensive and accurate static analysis security
 - **Machine Learning Models**: ML-based timeline analysis for better accuracy — *scaffold + configurable weights + pluggable model* (`lib/mlDetection.js`): rule-based + anomaly + commit-pattern scoring; `PHASE2_DETECTION.ML_WEIGHTS`; optional `ML_MODEL_URL` (POST features → score) or `ML_MODEL_PATH` (Node module exporting `score(features)`) to replace rule-based scoring
 - **Pattern Recognition**: Advanced pattern recognition in git history — *implemented* (`lib/commitPatternAnalysis.js`: `analyzeCommitMessagePatterns()`, `analyzeDiffPatterns()`; commit message and diff patterns feed into ML features)
 - **Anomaly Detection**: Statistical anomaly detection in package timelines — *implemented* (`lib/timelineAnalysis.js`: `timelineAnomalyScore`, `analyzeTimeline`)
-- **Predictive Analysis**: Predicting potential security issues based on patterns
+- **Predictive Analysis**: Predicting potential security issues based on patterns — *implemented* (`lib/mlDetection.js`: `computePredictiveScore()`, `predictiveScore` / `predictiveRisk` in `runMLDetection()`; `DEPENDENCY_CONFUSION_PREDICTIVE_RISK` threat when below threshold but predictive score ≥ 0.4)
 
 #### **Commit Pattern Analysis** ✅ **Implemented**
 - **Author Behavior Analysis**: Analysis of commit author patterns and behavior — *implemented* (`lib/commitPatternAnalysis.js`: `analyzeCommitPatterns()`, author count, dominant author share)
@@ -116,7 +116,7 @@ NullVoid aims to be the most comprehensive and accurate static analysis security
 - **Integration with Git Hooks**: Seamless integration with existing git workflows
 
 #### **CI/CD Platform Expansion** ✅ **CircleCI + GitLab + Travis + Azure**
-- **Jenkins Integration**: Comprehensive Jenkins pipeline integration
+- **Jenkins Integration**: Declarative pipeline example ([Jenkinsfile.example](../Jenkinsfile.example)); copy to `Jenkinsfile` or add as a stage
 - **CircleCI Support**: Native CircleCI orb for easy integration — *implemented* ([.circleci/config.yml](.circleci/config.yml))
 - **Travis CI Integration**: Travis CI configuration templates and examples — *example added* ([.travis.example.yml](.travis.example.yml))
 - **Azure DevOps**: Azure DevOps pipeline integration — *example added* ([azure-pipelines.example.yml](azure-pipelines.example.yml))
@@ -126,7 +126,7 @@ NullVoid aims to be the most comprehensive and accurate static analysis security
 - **Web-based Interface**: Browser-based configuration interface — *deferred*
 - **Visual Rule Builder**: Drag-and-drop rule configuration — *deferred*
 - **Template Library**: Pre-built configuration templates for common scenarios
-- **Configuration Validation**: Real-time configuration validation and suggestions
+- **Configuration Validation**: Real-time configuration validation and suggestions — *CLI validation added* ([scripts/validate-config.js](../scripts/validate-config.js); see [CONFIGURATION.md](CONFIGURATION.md#configuration-validation))
 - *Scope: web UI / rule builder to be prioritized after IDE and CI/CD polish.*
 
 ---

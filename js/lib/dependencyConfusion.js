@@ -295,7 +295,25 @@ async function detectDependencyConfusion(packageName, packagePath) {
         }
       });
     }
-    
+
+    // Phase 2: Predictive risk (below threat threshold but pattern suggests potential future risk)
+    if (timelineRisk === 'LOW' && mlResult.enabled && mlResult.predictiveRisk && !mlResult.aboveThreshold) {
+      threats.push({
+        type: 'DEPENDENCY_CONFUSION_PREDICTIVE_RISK',
+        message: 'Predictive risk: patterns suggest potential dependency confusion risk',
+        severity: 'LOW',
+        package: packageName,
+        details: `Predictive score: ${(mlResult.predictiveScore * 100).toFixed(0)}% (anomaly: ${(mlResult.anomalyScore * 100).toFixed(0)}%)`,
+        confidence: Math.round(mlResult.predictiveScore * 60),
+        properties: {
+          predictiveScore: mlResult.predictiveScore,
+          mlAnomalyScore: mlResult.anomalyScore,
+          registryName,
+          ...(mlResult.features?.commitPatternAnomaly != null && { commitPatternAnomaly: mlResult.features.commitPatternAnomaly })
+        }
+      });
+    }
+
     // Check for suspicious package name patterns
     if (nameAnalysis.suspiciousPatterns.length > 0) {
       threats.push({

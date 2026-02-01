@@ -5,6 +5,7 @@
 const {
   buildFeatureVector,
   computeThreatScore,
+  computePredictiveScore,
   runMLDetection
 } = require('../../lib/mlDetection');
 
@@ -71,8 +72,29 @@ describe('ML Detection (Phase 2)', () => {
     });
   });
 
+  describe('computePredictiveScore', () => {
+    test('should return 0–1 from features', () => {
+      const low = computePredictiveScore({
+        timelineAnomaly: 0,
+        commitPatternAnomaly: 0,
+        recentCommitCount: 20,
+        daysDifference: 200
+      });
+      const high = computePredictiveScore({
+        timelineAnomaly: 0.8,
+        commitPatternAnomaly: 0.6,
+        recentCommitCount: 2,
+        daysDifference: 30
+      });
+      expect(low).toBeGreaterThanOrEqual(0);
+      expect(low).toBeLessThanOrEqual(1);
+      expect(high).toBeGreaterThan(low);
+      expect(high).toBeLessThanOrEqual(1);
+    });
+  });
+
   describe('runMLDetection', () => {
-    test('should return enabled, anomalyScore, threatScore, aboveThreshold, features', async () => {
+    test('should return enabled, anomalyScore, threatScore, aboveThreshold, predictiveScore, predictiveRisk, features', async () => {
       const result = await runMLDetection({
         creationDate: new Date('2024-01-01'),
         firstCommitDate: new Date('2024-01-02'),
@@ -85,12 +107,16 @@ describe('ML Detection (Phase 2)', () => {
       expect(result).toHaveProperty('anomalyScore');
       expect(result).toHaveProperty('threatScore');
       expect(result).toHaveProperty('aboveThreshold');
+      expect(result).toHaveProperty('predictiveScore');
+      expect(result).toHaveProperty('predictiveRisk');
       expect(result).toHaveProperty('features');
       expect(result).toHaveProperty('modelUsed');
       expect(result.anomalyScore).toBeGreaterThanOrEqual(0);
       expect(result.anomalyScore).toBeLessThanOrEqual(1);
       expect(result.threatScore).toBeGreaterThanOrEqual(0);
       expect(result.threatScore).toBeLessThanOrEqual(1);
+      expect(result.predictiveScore).toBeGreaterThanOrEqual(0);
+      expect(result.predictiveScore).toBeLessThanOrEqual(1);
     });
 
     test('should include commit pattern features when packagePath provided', async () => {

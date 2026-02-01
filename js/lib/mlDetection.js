@@ -174,9 +174,23 @@ async function computeThreatScoreFromModel(features) {
 }
 
 /**
+ * Compute a predictive risk score (0–1) from features: potential future risk based on patterns
+ * even when below threat threshold. Used to flag "watch" or "potential risk" separately.
+ * @param {Object} features - From buildFeatureVector
+ * @returns {number} Score 0–1
+ */
+function computePredictiveScore(features) {
+  let s = 0;
+  if (features.timelineAnomaly != null) s += 0.5 * features.timelineAnomaly;
+  if (features.commitPatternAnomaly != null) s += 0.3 * features.commitPatternAnomaly;
+  if (features.recentCommitCount < 5 && (features.daysDifference ?? 365) < 90) s += 0.2;
+  return Math.min(1, s);
+}
+
+/**
  * Run Phase 2 ML-style detection: anomaly score + threat score (rule-based or model)
  * @param {Object} params - Same as dependency confusion + optional packagePath, commitPatterns
- * @returns {Promise<Object>} { enabled, anomalyScore, threatScore, aboveThreshold, features, modelUsed }
+ * @returns {Promise<Object>} { enabled, anomalyScore, threatScore, aboveThreshold, predictiveScore, predictiveRisk, features, modelUsed }
  */
 async function runMLDetection(params) {
   const enabled = ML_ENABLED;
@@ -211,11 +225,15 @@ async function runMLDetection(params) {
 
   const anomalyScore = timeline.anomalyScore;
   const aboveThreshold = enabled && (threatScore >= ANOMALY_THRESHOLD || anomalyScore >= ANOMALY_THRESHOLD);
+  const predictiveScore = computePredictiveScore(features);
+  const predictiveRisk = enabled && !aboveThreshold && predictiveScore >= 0.4;
   return {
     enabled,
     anomalyScore,
     threatScore,
     aboveThreshold,
+    predictiveScore,
+    predictiveRisk,
     features,
     modelUsed
   };
@@ -224,6 +242,7 @@ async function runMLDetection(params) {
 module.exports = {
   buildFeatureVector,
   computeThreatScore,
+  computePredictiveScore,
   computeThreatScoreFromModel,
   runMLDetection
 };

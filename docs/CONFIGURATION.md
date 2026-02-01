@@ -12,6 +12,7 @@ Complete guide to configuring NullVoid for optimal performance and security scan
 6. [CLI Configuration](#cli-configuration)
 7. [Programmatic Configuration](#programmatic-configuration)
 8. [Pre-commit Integration](#pre-commit-integration)
+9. [Configuration Validation](#configuration-validation)
 
 ## Environment Variables
 
@@ -424,22 +425,13 @@ export NULLVOID_WORKERS=8
 
 ## Configuration Validation
 
-Validate your configuration:
+You can validate NullVoid configuration (e.g. after editing `js/lib/config.js` or overriding via env) by running the validation script from the repo root:
 
 ```bash
-nullvoid --config-check
+node scripts/validate-config.js
 ```
 
-Or programmatically:
-
-```typescript
-import { validateConfig } from 'nullvoid/lib/config';
-
-const errors = validateConfig();
-if (errors.length > 0) {
-  console.error('Configuration errors:', errors);
-}
-```
+The script checks that required config objects and keys exist (e.g. `DEPENDENCY_CONFUSION_CONFIG.TIMELINE_THRESHOLDS`, `REGISTRY_ENDPOINTS`, `PHASE2_DETECTION.ML_WEIGHTS` sum in a reasonable range). Exit code 0 means valid; 1 means one or more validation errors (printed to stderr).
 
 ## Pre-commit Integration
 

@@ -772,7 +772,7 @@ NullVoid has a comprehensive roadmap for 2025 focusing on advanced threat detect
 - **Advanced Timeline Analysis**: ML-based timeline analysis and commit pattern analysis
 - **IDE Integration**: [VS Code extension](packages/vscode-extension) (run scan from Command Palette); IntelliJ plugins planned
 - **Pre-commit Hooks**: Optional scan before commit—set `NULLVOID_PRE_COMMIT=1` to enable; commit is **blocked** if threats are found. See [Pre-commit Integration](docs/PRE_COMMIT.md).
-- **More CI/CD Platforms**: Jenkins, CircleCI, Travis CI integration
+- **More CI/CD Platforms**: [Jenkins](Jenkinsfile.example), [CircleCI](.circleci/config.yml), [Travis CI](.travis.example.yml), [GitLab CI](.gitlab-ci.example.yml), [Azure DevOps](azure-pipelines.example.yml)
 
 #### **Q3 2025 - Enterprise Features & Advanced Analytics**
 - **Multi-tenant Support**: Organization-level scanning and reporting
@@ -879,6 +879,23 @@ steps:
   inputs:
     pathToPublish: 'nullvoid-results.sarif'
     artifactName: 'sarif-results'
+```
+
+### **Jenkins Integration**
+A declarative pipeline example is in [Jenkinsfile.example](Jenkinsfile.example). Copy to `Jenkinsfile` or add as a stage to your pipeline.
+
+```groovy
+// Jenkinsfile (excerpt)
+stage('NullVoid Security Scan') {
+  steps {
+    sh 'npx nullvoid . --output json --sarif-file nullvoid-results.sarif'
+  }
+  post {
+    always {
+      archiveArtifacts artifacts: 'nullvoid-results.sarif', allowEmptyArchive: true
+    }
+  }
+}
 ```
 
 ### **SARIF Output Example**
