@@ -12,6 +12,7 @@ import { DISPLAY_PATTERNS } from '../lib/config';
 import { getIoCManager } from '../lib/iocIntegration';
 import { getCacheAnalytics } from '../lib/cache/cacheAnalytics';
 import { getConnectionPool } from '../lib/network/connectionPool';
+import { checkAllRegistriesHealth } from '../lib/registries';
 import colors from '../colors';
 import * as packageJson from '../../package.json';
 
@@ -38,6 +39,38 @@ interface CliOptions {
 }
 
 program.name('nullvoid').description('NullVoid Security Scanner').version(packageJson.version);
+
+// Phase 2: Registry health command (must be before default to match "nullvoid registry-health")
+program
+  .command('registry-health')
+  .description('Check health and availability of configured package registries (Phase 2)')
+  .option('-j, --json', 'Output as JSON')
+  .option('-t, --timeout <ms>', 'Health check timeout in ms', '5000')
+  .action(async function (this: { opts: () => { json?: boolean; timeout?: string } }) {
+    const options = this.opts();
+    try {
+      const timeout = parseInt(options.timeout ?? '5000', 10) || 5000;
+      const results = await checkAllRegistriesHealth({ timeout });
+      const outputJson = options.json === true;
+      if (outputJson) {
+        console.log(JSON.stringify(results, null, 2));
+      } else {
+        console.log(colors.bold('\n📡 Registry Health\n'));
+        results.forEach((r) => {
+          const status = r.ok ? colors.green('✓') : colors.red('✗');
+          const latency = r.latencyMs != null ? ` ${r.latencyMs}ms` : '';
+          const extra =
+            r.statusCode != null ? ` (${r.statusCode})` : r.error ? ` (${r.error})` : '';
+          console.log(`  ${status} ${r.registryName}${latency}${extra}`);
+        });
+        console.log('');
+      }
+      process.exit(0);
+    } catch (error) {
+      console.error(colors.red('Error:'), (error as Error).message);
+      process.exit(1);
+    }
+  });
 
 // Main scan command (default action)
 program

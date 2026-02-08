@@ -188,6 +188,18 @@ nullvoid --network-stats
 nullvoid . --network-stats
 ```
 
+### Registry Health (Phase 2)
+```bash
+# Check health of configured package registries (npm, yarn, github)
+nullvoid registry-health
+
+# JSON output
+nullvoid registry-health --json
+
+# Custom timeout (ms)
+nullvoid registry-health -t 10000
+```
+
 ### Combined Options
 ```bash
 # Show all threats with verbose output and parallel processing
@@ -605,6 +617,7 @@ Scanned 15 package(s) in 234ms
 | `--cache-stats` | Show cache statistics | `false` |
 | `--enable-redis` | Enable Redis distributed cache | `false` |
 | `--network-stats` | Show network performance metrics | `false` |
+| `nullvoid registry-health` | Check health of configured package registries (Phase 2) | - |
 | `--version` | Show version information | - |
 | `--help` | Show help information | - |
 

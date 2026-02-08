@@ -778,6 +778,11 @@ export const DEPENDENCY_CONFUSION_CONFIG = {
     github: 'https://npm.pkg.github.com',
   },
 
+  REGISTRIES: {
+    DEFAULT_ORDER: ['npm', 'yarn', 'github'],
+    CUSTOM: [] as Array<{ name: string; url: string; auth?: string }>,
+  },
+
   ANALYSIS_SETTINGS: {
     MAX_GIT_COMMITS: 100,
     MAX_PACKAGE_VERSIONS: 50,
