@@ -774,9 +774,9 @@ NULLVOID_REGISTRY_TIMEOUT=10000
 
 ## 🗺️ **Roadmap**
 
-NullVoid has a comprehensive roadmap for 2025 focusing on advanced threat detection, enterprise features, and AI/ML integration.
+NullVoid has a comprehensive roadmap focusing on advanced threat detection, enterprise features, and AI/ML integration.
 
-### **🎯 2025 Roadmap Highlights**
+### **🎯 Roadmap Highlights**
 
 #### **Public IoC Integration & Performance**
 - ✅ **TypeScript Migration**: Complete migration to TypeScript for enhanced type safety and developer experience
@@ -787,19 +787,19 @@ NullVoid has a comprehensive roadmap for 2025 focusing on advanced threat detect
 - ✅ **Multi-Layer Cache**: L1 (memory), L2 (file), L3 (Redis) caching system
 - ✅ **Network Optimizations**: Connection pooling, request batching, compression
 
-#### **Q2 2025 - Enhanced Detection & Developer Experience**
+#### **Enhanced Detection & Developer Experience**
 - **Advanced Timeline Analysis**: ML-based timeline analysis and commit pattern analysis
 - **IDE Integration**: [VS Code extension](packages/vscode-extension) (run scan from Command Palette); IntelliJ plugins planned
 - **Pre-commit Hooks**: Optional scan before commit—set `NULLVOID_PRE_COMMIT=1` to enable; commit is **blocked** if threats are found. See [Pre-commit Integration](docs/PRE_COMMIT.md).
 - **More CI/CD Platforms**: [Jenkins](Jenkinsfile.example), [CircleCI](.circleci/config.yml), [Travis CI](.travis.example.yml), [GitLab CI](.gitlab-ci.example.yml), [Azure DevOps](azure-pipelines.example.yml)
 
-#### **Q3 2025 - Enterprise Features & Advanced Analytics**
+#### **Enterprise Features & Advanced Analytics**
 - **Multi-tenant Support**: Organization-level scanning and reporting
 - **Advanced Reporting**: Executive dashboards and compliance reports
 - **API Integration**: REST/GraphQL APIs for enterprise systems
 - **Custom Rule Engine**: User-defined detection patterns
 
-#### **Q4 2025 - AI/ML Integration & Blockchain Features**
+#### **AI/ML Integration & Blockchain Features**
 - **AI/ML Integration**: Machine learning for threat pattern recognition
 - **Blockchain Integration**: Immutable signatures and decentralized verification
 - **Behavioral Analysis**: AI-powered anomaly detection

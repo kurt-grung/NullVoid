@@ -134,4 +134,4 @@ If you use [pre-commit](https://pre-commit.com/), add a local hook:
 ## See also
 
 - [Configuration](CONFIGURATION.md#pre-commit-integration) — Pre-commit section and env var.
-- [ROADMAP](ROADMAP.md) — Phase 2 Developer Experience (pre-commit hooks).
+- [ROADMAP](ROADMAP.md) — Developer Experience (pre-commit hooks).
