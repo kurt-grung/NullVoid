@@ -113,8 +113,8 @@ jobs:
           comment += '---\n';
           comment += '*This scan was performed by [NullVoid](https://github.com/kurt-grung/NullVoid) - a tool to detect malicious npm packages.*';
           
-          // Remove/update previous NullVoid scan comments
-          // 1. Issue comments: delete (createComment creates these)
+          // Remove ALL previous NullVoid scan comments before posting fresh results
+          // 1. Issue comments: delete
           const comments = await github.paginate(github.rest.issues.listComments, {
             owner: context.repo.owner,
             repo: context.repo.repo,
@@ -130,41 +130,34 @@ jobs:
             }
           }
           
-          // 2. PR reviews: cannot delete submitted reviews, but can update body
+          // 2. PR reviews: dismiss to remove from conversation (cannot delete submitted reviews)
           const { data: reviews } = await github.rest.pulls.listReviews({
             owner: context.repo.owner,
             repo: context.repo.repo,
             pull_number: context.issue.number,
           });
           const ourReviews = reviews.filter((r) => r.body && r.body.includes(marker));
-          if (ourReviews.length > 0) {
-            const sorted = ourReviews.sort((a, b) =>
-              new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0)
-            );
-            await github.rest.pulls.updateReview({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number,
-              review_id: sorted[0].id,
-              body: comment,
-            });
-            for (let i = 1; i < sorted.length; i++) {
-              await github.rest.pulls.updateReview({
+          for (const r of ourReviews) {
+            try {
+              await github.rest.pulls.dismissReview({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 pull_number: context.issue.number,
-                review_id: sorted[i].id,
-                body: '*(superseded by latest scan)*',
+                review_id: r.id,
+                message: 'Superseded by latest NullVoid scan',
               });
+            } catch (e) {
+              console.warn('Could not dismiss review', r.id, e.message);
             }
-          } else {
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: comment,
-            });
           }
+          
+          // 3. Always post fresh comment
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+            body: comment,
+          });
           
     - name: Fail on critical and high severity malware threats
       if: github.event_name == 'pull_request'
