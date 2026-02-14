@@ -283,7 +283,7 @@ export function loadRules(rulesPath: string, options: RulesLoadingOptions = {}):
     let parsedRules: any;
     
     if (ext === '.yaml' || ext === '.yml' || options.format === 'yaml') {
-      parsedRules = yaml.load(fileContent);
+      parsedRules = yaml.load(fileContent, { schema: yaml.JSON_SCHEMA });
     } else if (ext === '.json' || options.format === 'json') {
       parsedRules = JSON.parse(fileContent);
     } else {
