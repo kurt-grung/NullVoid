@@ -11,20 +11,28 @@ import type { SimilarPackageStats } from '../../src/lib/anomalyDetection';
 
 describe('Anomaly Detection (Phase 4)', () => {
   describe('computeCrossPackageAnomaly', () => {
-    it('should return 0 for empty similar packages', () => {
-      const result = computeCrossPackageAnomaly(
-        { scriptCount: 5, dependencyCount: 10 },
+    it('should use typical baseline when no similar packages and return deviation score', () => {
+      // Empty array triggers typical npm baseline; package deviating from typical gets non-zero score
+      const typical = computeCrossPackageAnomaly(
+        { scriptCount: 4, scriptTotalLength: 600, dependencyCount: 6 },
         []
       );
-      expect(result).toBe(0);
+      const deviant = computeCrossPackageAnomaly(
+        { scriptCount: 20, scriptTotalLength: 5000, dependencyCount: 100 },
+        []
+      );
+      expect(deviant).toBeGreaterThan(typical);
+      expect(typical).toBeLessThan(0.5); // close to baseline
+      expect(deviant).toBeGreaterThan(0.5); // deviates from baseline
     });
 
-    it('should return 0 for null/undefined similar packages', () => {
+    it('should use typical baseline for null/undefined similar packages', () => {
       const result = computeCrossPackageAnomaly(
-        { scriptCount: 5 },
+        { scriptCount: 5, dependencyCount: 10 },
         (null as unknown) as SimilarPackageStats[]
       );
-      expect(result).toBe(0);
+      expect(result).toBeGreaterThanOrEqual(0);
+      expect(result).toBeLessThanOrEqual(1);
     });
 
     it('should return higher score for deviant package', () => {

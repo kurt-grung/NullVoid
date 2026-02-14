@@ -268,7 +268,7 @@ async function detectDependencyConfusion(packageName, packagePath) {
             rareDependencyCount: 0
           };
           behavioralAnomaly = computeBehavioralAnomaly(pkgFeatures);
-          // Cross-package anomaly: compare to empty baseline when no sibling packages available
+          // Cross-package anomaly: compare to typical npm baseline when no sibling packages available
           crossPackageAnomaly = computeCrossPackageAnomaly(pkgFeatures, []);
         }
       } catch { /* ignore */ }

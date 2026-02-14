@@ -6,9 +6,13 @@ const { computeCrossPackageAnomaly, computeBehavioralAnomaly } = require('../../
 
 describe('Anomaly Detection (Phase 4)', () => {
   describe('computeCrossPackageAnomaly', () => {
-    test('should return 0 for empty similar packages', () => {
-      const result = computeCrossPackageAnomaly({ scriptCount: 5, dependencyCount: 10 }, []);
-      expect(result).toBe(0);
+    test('should use typical baseline when no similar packages and return deviation score', () => {
+      // Empty array triggers typical npm baseline; package deviating from typical gets non-zero score
+      const typical = computeCrossPackageAnomaly({ scriptCount: 4, scriptTotalLength: 600, dependencyCount: 6 }, []);
+      const deviant = computeCrossPackageAnomaly({ scriptCount: 20, scriptTotalLength: 5000, dependencyCount: 100 }, []);
+      expect(deviant).toBeGreaterThan(typical);
+      expect(typical).toBeLessThan(0.5); // close to baseline
+      expect(deviant).toBeGreaterThan(0.5); // deviates from baseline
     });
 
     test('should return higher score for deviant package', () => {
