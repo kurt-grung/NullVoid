@@ -79,6 +79,20 @@ export function isNullVoidCode(packageName: string): boolean {
     return true;
   }
 
+  // NullVoid repo structure (only when path suggests this repo)
+  const isNullVoidRepo = packageName.includes('NullVoid') || packageName.includes('nullvoid');
+  if (
+    isNullVoidRepo &&
+    (packageName.includes('/ts/src/') ||
+      packageName.includes('\\ts\\src\\') ||
+      packageName.includes('/js/lib/') ||
+      packageName.includes('\\js\\lib\\') ||
+      packageName.includes('packages/vscode-extension/') ||
+      packageName.includes('packages\\vscode-extension\\'))
+  ) {
+    return true;
+  }
+
   return false;
 }
 

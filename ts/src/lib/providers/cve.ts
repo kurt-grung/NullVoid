@@ -301,19 +301,45 @@ export class CVEProvider implements IoCProvider {
       references,
     };
 
-    // Check if this CVE is actually related to the package
-    // NVD keyword search can return false positives
-    const descriptionLower = description.toLowerCase();
+    // Filter false positives: NVD keyword search matches substrings
+    // e.g. "commander" -> "Total Commander", "glob" -> "uses glob to generate"
     const packageNameLower = packageName.toLowerCase();
+    const packageNorm = packageNameLower.replace(/^@/, '').replace(/\//g, '-');
 
-    // If package name doesn't appear in description, it might be a false positive
-    // But we'll include it anyway and let the user decide
-    if (
-      !descriptionLower.includes(packageNameLower) &&
-      !descriptionLower.includes(packageNameLower.replace('@', '').replace('/', '-'))
-    ) {
-      // Still include, but mark as potentially unrelated
-      logger.debug(`CVE ${cve.id} may not be directly related to package ${packageName}`);
+    // Prefer CPE: if CPE exists, require package to appear as product/vendor
+    const configs = cve.configurations?.flatMap((cfg) => cfg.nodes ?? []) ?? [];
+    const allCriteria = configs.flatMap(
+      (n) => n.cpeMatch?.map((m: { criteria: string }) => m.criteria) ?? []
+    );
+    const hasMatchingCpe = allCriteria.some(
+      (c: string) =>
+        c.toLowerCase().includes(`:${packageNameLower}:`) ||
+        c.toLowerCase().includes(`:${packageNorm}:`)
+    );
+
+    if (!hasMatchingCpe) {
+      const descriptionLower = description.toLowerCase();
+      const inDesc =
+        descriptionLower.includes(packageNameLower) || descriptionLower.includes(packageNorm);
+      if (!inDesc) {
+        logger.debug(`CVE ${cve.id} excluded: package "${packageName}" not in description`);
+        return null;
+      }
+      // Exclude common-word false positives: "glob", "tar", "commander" (Total Commander), "husky" (HUSKY RTU/WordPress)
+      const commonWords = ['glob', 'tar', 'run', 'link', 'node', 'commander', 'husky'];
+      if (commonWords.includes(packageNameLower)) {
+        // Require product-like mention (e.g. "glob package", "Axios up to")
+        const productLike =
+          new RegExp(`\\b${packageNameLower}\\s+(package|up to|before|through|version)`, 'i').test(
+            description
+          ) || new RegExp(`(package|npm)\\s+${packageNameLower}\\b`, 'i').test(description);
+        if (!productLike) {
+          logger.debug(
+            `CVE ${cve.id} excluded: "${packageName}" likely common-word false positive`
+          );
+          return null;
+        }
+      }
     }
 
     return {

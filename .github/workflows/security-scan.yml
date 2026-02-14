@@ -122,19 +122,21 @@ jobs:
             event: 'COMMENT'
           });
           
-    - name: Fail on critical and high severity threats
+    - name: Fail on critical and high severity malware threats
       if: github.event_name == 'pull_request'
       run: |
         if [ -f security-report.json ]; then
-          CRITICAL_THREATS=$(jq '[.threats[] | select(.severity == "CRITICAL")] | length' security-report.json)
-          HIGH_THREATS=$(jq '[.threats[] | select(.severity == "HIGH")] | length' security-report.json)
-          if [ "$CRITICAL_THREATS" -gt 0 ]; then
-            echo "🚨 CRITICAL threats detected! Immediate action required."
+          # Only fail on malware (code analysis), not VULNERABLE_PACKAGE (IoC can have false positives)
+          CRITICAL_MALWARE=$(jq '[.threats[] | select(.severity == "CRITICAL" and .type != "VULNERABLE_PACKAGE")] | length' security-report.json)
+          HIGH_MALWARE=$(jq '[.threats[] | select(.severity == "HIGH" and .type != "VULNERABLE_PACKAGE")] | length' security-report.json)
+          if [ "$CRITICAL_MALWARE" -gt 0 ]; then
+            echo "🚨 CRITICAL malware threats detected! Immediate action required."
             exit 1
-          elif [ "$HIGH_THREATS" -gt 0 ]; then
-            echo "❌ High severity threats detected! Please review and fix before merging."
+          elif [ "$HIGH_MALWARE" -gt 0 ]; then
+            echo "❌ High severity malware threats detected! Please review and fix before merging."
             exit 1
           fi
+          echo "✅ No critical/high malware threats. VULNERABLE_PACKAGE findings are informational (see dependency-scan job for npm audit)."
         fi
 
   dependency-scan:

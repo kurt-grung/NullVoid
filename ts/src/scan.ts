@@ -63,6 +63,8 @@ function collectScanablePaths(
     'build',
     'coverage',
     '.nyc_output',
+    'fixtures', // intentionally malicious test files
+    'out', // compiled output (e.g. vscode extension)
   ];
 
   try {
