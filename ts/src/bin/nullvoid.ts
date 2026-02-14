@@ -13,6 +13,8 @@ import { getIoCManager } from '../lib/iocIntegration';
 import { getCacheAnalytics } from '../lib/cache/cacheAnalytics';
 import { getConnectionPool } from '../lib/network/connectionPool';
 import { checkAllRegistriesHealth } from '../lib/registries';
+import { computePackageCID, verifyPackageCID, publishToIPFS } from '../lib/ipfsVerification';
+import { PHASE4_IPFS_CONFIG } from '../lib/config';
 import colors from '../colors';
 import * as packageJson from '../../package.json';
 
@@ -39,6 +41,222 @@ interface CliOptions {
 }
 
 program.name('nullvoid').description('NullVoid Security Scanner').version(packageJson.version);
+
+// Phase 4: Sign package (compute CID, optional pin)
+program
+  .command('sign-package <path>')
+  .description('Compute IPFS CID for a package tarball (Phase 4)')
+  .option('--pin', 'Pin to IPFS (requires PIN_SERVICE_URL and PIN_SERVICE_TOKEN)')
+  .option('-o, --output <file>', 'Write verification record JSON to file')
+  .option('--update-package-json <file>', 'Write nullvoid.verification.cid into package.json')
+  .action(
+    async (
+      pathArg: string,
+      options: { pin?: boolean; output?: string; updatePackageJson?: string }
+    ) => {
+      try {
+        const resolved = path.resolve(pathArg);
+        if (!fs.existsSync(resolved)) {
+          console.error(colors.red('Error:'), `Path not found: ${resolved}`);
+          process.exit(1);
+        }
+        const stat = fs.statSync(resolved);
+        const isTarball = resolved.endsWith('.tgz') || resolved.endsWith('.tar.gz');
+        let tarballPath = resolved;
+        if (stat.isDirectory() && !isTarball) {
+          console.error(
+            colors.red('Error:'),
+            'Path must be a .tgz tarball file. Run "npm pack" first.'
+          );
+          process.exit(1);
+        }
+        const spinner = ora('Computing CID...').start();
+        const { cid, algorithm } = await computePackageCID(tarballPath);
+        spinner.succeed(`CID: ${cid}`);
+
+        let pinned = false;
+        if (
+          options.pin &&
+          PHASE4_IPFS_CONFIG.PIN_SERVICE_URL &&
+          PHASE4_IPFS_CONFIG.PIN_SERVICE_TOKEN
+        ) {
+          const pinSpinner = ora('Pinning to IPFS...').start();
+          const pinResult = await publishToIPFS(tarballPath, {
+            PIN_SERVICE_URL: PHASE4_IPFS_CONFIG.PIN_SERVICE_URL,
+            PIN_SERVICE_TOKEN: PHASE4_IPFS_CONFIG.PIN_SERVICE_TOKEN,
+          });
+          if (pinResult.pinned) {
+            pinSpinner.succeed('Pinned to IPFS');
+            pinned = true;
+          } else {
+            pinSpinner.fail(pinResult.error || 'Pin failed');
+          }
+        }
+
+        const record = {
+          packageName: path.basename(tarballPath, '.tgz').replace(/\.tar\.gz$/, ''),
+          version: undefined as string | undefined,
+          cid,
+          algorithm,
+          timestamp: new Date().toISOString(),
+          pinned,
+        };
+        console.log(JSON.stringify(record, null, 2));
+
+        if (options.output) {
+          fs.writeFileSync(options.output, JSON.stringify(record, null, 2));
+          console.log(colors.green(`Verification record written to ${options.output}`));
+        }
+        if (options.updatePackageJson) {
+          const pkgPath = path.resolve(options.updatePackageJson);
+          if (fs.existsSync(pkgPath)) {
+            const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+            if (!pkg.nullvoid) pkg.nullvoid = {};
+            pkg.nullvoid.verification = { cid, algorithm, timestamp: record.timestamp };
+            fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
+            console.log(colors.green(`Updated nullvoid.verification in ${pkgPath}`));
+          } else {
+            console.error(colors.red('Error:'), `package.json not found: ${pkgPath}`);
+            process.exit(1);
+          }
+        }
+        process.exit(0);
+      } catch (error) {
+        console.error(colors.red('Error:'), (error as Error).message);
+        process.exit(1);
+      }
+    }
+  );
+
+// Phase 4: Verify package (compare CID)
+program
+  .command('verify-package <spec>')
+  .description(
+    'Verify package integrity against CID (Phase 4). Use <name>@<version> or path to .tgz. CID from --cid or package nullvoid.verification'
+  )
+  .option('--cid <cid>', 'Expected CID (overrides nullvoid.verification from package)')
+  .option('-j, --json', 'Output as JSON')
+  .action(async (spec: string, options: { cid?: string; json?: boolean }) => {
+    try {
+      let expectedCID = options.cid;
+      let tarballPath: string;
+
+      const resolvedSpec = path.resolve(spec);
+      const isLocalTarball =
+        fs.existsSync(resolvedSpec) &&
+        (resolvedSpec.endsWith('.tgz') || resolvedSpec.endsWith('.tar.gz'));
+
+      if (isLocalTarball) {
+        tarballPath = resolvedSpec;
+        if (!expectedCID) {
+          try {
+            const tar = (await import('tar')).default;
+            const tmpDir = (await import('os')).default.tmpdir();
+            const extractDir = path.join(tmpDir, `nullvoid-verify-extract-${Date.now()}`);
+            fs.mkdirSync(extractDir, { recursive: true });
+            await tar.extract({ file: resolvedSpec, cwd: extractDir });
+            const entries = fs.readdirSync(extractDir);
+            const pkgDir = entries.find((e) => fs.statSync(path.join(extractDir, e)).isDirectory());
+            const pkgPath = pkgDir
+              ? path.join(extractDir, pkgDir, 'package.json')
+              : path.join(extractDir, 'package.json');
+            if (fs.existsSync(pkgPath)) {
+              const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+              const nv = pkg.nullvoid?.verification;
+              expectedCID = typeof nv === 'string' ? nv : nv?.cid;
+            }
+            fs.rmSync(extractDir, { recursive: true, force: true });
+          } catch {
+            /* ignore */
+          }
+        }
+        if (!expectedCID) {
+          console.error(
+            colors.red('Error:'),
+            '--cid <cid> is required for local tarball (no nullvoid.verification in package.json)'
+          );
+          process.exit(1);
+        }
+      } else {
+        const match = spec.match(/^(.+?)@(.+)$/);
+        const packageName: string = match && match[1] ? match[1] : spec;
+        const version: string = match && match[2] ? match[2] : 'latest';
+
+        const spinner = ora('Fetching package from npm...').start();
+        const axios = (await import('axios')).default;
+        const metaRes = await axios.get(
+          `https://registry.npmjs.org/${encodeURIComponent(packageName)}`,
+          { timeout: 10000 }
+        );
+        const data = metaRes.data as {
+          versions?: Record<
+            string,
+            { dist?: { tarball?: string }; nullvoid?: { verification?: string | { cid?: string } } }
+          >;
+          'dist-tags'?: { latest?: string };
+        };
+        let versionData = data.versions?.[version];
+        if (!versionData && version === 'latest') {
+          const latest = data['dist-tags']?.latest;
+          versionData = latest ? data.versions?.[latest] : undefined;
+        }
+        if (!versionData) {
+          spinner.fail(`Version ${version} not found`);
+          process.exit(1);
+        }
+        if (!expectedCID) {
+          const nv = versionData.nullvoid?.verification;
+          expectedCID = typeof nv === 'string' ? nv : nv?.cid;
+        }
+        if (!expectedCID) {
+          spinner.fail('No CID found. Use --cid or add nullvoid.verification to package.json');
+          process.exit(1);
+        }
+        const tarballUrl = versionData.dist?.tarball;
+        if (!tarballUrl) {
+          spinner.fail('No tarball URL');
+          process.exit(1);
+        }
+        const tarballRes = await axios.get(tarballUrl, {
+          responseType: 'arraybuffer',
+          timeout: 60000,
+        });
+        const tmpDir = (await import('os')).default.tmpdir();
+        tarballPath = path.join(tmpDir, `nullvoid-verify-${Date.now()}.tgz`);
+        fs.writeFileSync(tarballPath, tarballRes.data);
+        spinner.succeed('Downloaded');
+      }
+
+      let result: { cid: string; algorithm: string; verified: boolean };
+      try {
+        result = await verifyPackageCID(tarballPath, expectedCID!);
+      } finally {
+        const tmpDir = (await import('os')).default.tmpdir();
+        if (tarballPath.startsWith(tmpDir) && fs.existsSync(tarballPath)) {
+          try {
+            fs.unlinkSync(tarballPath);
+          } catch {
+            /* ignore cleanup errors */
+          }
+        }
+      }
+
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        if (result.verified) {
+          console.log(colors.green('✓ Verified:'), result.cid);
+        } else {
+          console.log(colors.red('✗ Mismatch:'), `Expected ${expectedCID}, got ${result.cid}`);
+          process.exit(1);
+        }
+      }
+      process.exit(result.verified ? 0 : 1);
+    } catch (error) {
+      console.error(colors.red('Error:'), (error as Error).message);
+      process.exit(1);
+    }
+  });
 
 // Phase 2: Registry health command (must be before default to match "nullvoid registry-health")
 program

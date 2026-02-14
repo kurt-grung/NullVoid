@@ -1144,5 +1144,27 @@ export const DISPLAY_PATTERNS = {
   },
 };
 
+/**
+ * Phase 4: NLP Configuration (AI/ML)
+ */
+export const PHASE4_NLP_CONFIG = {
+  ENABLED: process.env['NULLVOID_PHASE4_NLP_ENABLED']?.toLowerCase() === 'true',
+  GITHUB_TOKEN: process.env['GITHUB_TOKEN'] || process.env['PHASE4_GITHUB_TOKEN'] || null,
+  MAX_ISSUES: 30,
+  SKIP_IF_NO_REPO: true,
+  TIMEOUT_MS: 10000,
+} as const;
+
+/**
+ * Phase 4: IPFS Verification Configuration (Blockchain)
+ */
+export const PHASE4_IPFS_CONFIG = {
+  ENABLED: process.env['NULLVOID_PHASE4_IPFS_ENABLED']?.toLowerCase() === 'true',
+  GATEWAY_URL: process.env['NULLVOID_IPFS_GATEWAY'] || 'https://ipfs.io',
+  PIN_SERVICE_URL: process.env['NULLVOID_IPFS_PIN_SERVICE_URL'] || null,
+  PIN_SERVICE_TOKEN: process.env['NULLVOID_IPFS_PIN_SERVICE_TOKEN'] || null,
+  ALGORITHM: 'sha2-256' as const,
+} as const;
+
 // Initialize configuration from environment
 updateConfigFromEnv();

@@ -181,41 +181,45 @@ NullVoid aims to be the most comprehensive and accurate static analysis security
 
 ---
 
-## 🤖 **Phase 4: AI/ML Integration & Blockchain Features (Q4 2025)**
+## 🤖 **Phase 4: AI/ML Integration & Blockchain Features (Q4 2025)** — *In Progress*
 
 ### **🧠 AI/ML Integration**
 
 #### **Threat Intelligence**
-- **Machine Learning Models**: Advanced ML models for threat detection
-- **Natural Language Processing**: NLP analysis of package descriptions and documentation
-- **Sentiment Analysis**: Analysis of package community sentiment and reviews
-- **Predictive Modeling**: Predictive models for future security threats
+- **Machine Learning Models**: Advanced ML models for threat detection — *Phase 2 scaffold extended with Phase 4 features*
+- **Natural Language Processing**: NLP analysis of package descriptions and documentation — *implemented* (`ts/src/lib/nlpAnalysis.ts`, `js/lib/nlpAnalysis.js`)
+- **Sentiment Analysis**: Analysis of package community sentiment and reviews — *implemented* (sentiment scoring in NLP pipeline)
+- **Predictive Modeling**: Predictive models for future security threats — *implemented* (extended `computePredictiveScore` with NLP and anomaly features)
 
 #### **Anomaly Detection**
-- **Behavioral Anomalies**: Detection of unusual package behavior patterns
-- **Statistical Analysis**: Advanced statistical analysis for anomaly detection
-- **Temporal Analysis**: Time-series analysis for temporal anomalies
-- **Cross-package Analysis**: Analysis across multiple packages for patterns
+- **Behavioral Anomalies**: Detection of unusual package behavior patterns — *implemented* (`ts/src/lib/anomalyDetection.ts`, `js/lib/anomalyDetection.js`: `computeBehavioralAnomaly`)
+- **Statistical Analysis**: Advanced statistical analysis for anomaly detection — *implemented* (Phase 2 timeline + Phase 4 cross-package)
+- **Temporal Analysis**: Time-series analysis for temporal anomalies — *Phase 2*
+- **Cross-package Analysis**: Analysis across multiple packages for patterns — *implemented* (`computeCrossPackageAnomaly`)
 
 #### **Natural Language Processing**
-- **Documentation Analysis**: Analysis of package documentation for security indicators
-- **Issue Analysis**: Analysis of GitHub issues and discussions for security concerns
-- **Review Analysis**: Analysis of package reviews and ratings for security insights
-- **Commit Message Analysis**: Analysis of commit messages for security indicators
+- **Documentation Analysis**: Analysis of package documentation for security indicators — *implemented* (`fetchPackageDocs`, `analyzeDocsNLP`)
+- **Issue Analysis**: Analysis of GitHub issues and discussions for security concerns — *implemented* (`fetchGitHubIssues`, `analyzeIssuesNLP`)
+- **Review Analysis**: Analysis of package reviews and ratings for security insights — *deferred*
+- **Commit Message Analysis**: Analysis of commit messages for security indicators — *Phase 2* (`commitPatternAnalysis.js`)
 
 ### **⛓️ Blockchain Integration**
 
 #### **Immutable Signatures**
-- **Blockchain-based Signing**: Package signing using blockchain technology
-- **Decentralized Verification**: Distributed package verification system
-- **Cryptographic Proofs**: Mathematical proof of package integrity
-- **Smart Contracts**: Automated security policy enforcement via smart contracts
+- **Blockchain-based Signing**: Package signing using blockchain technology — *implemented* (IPFS CID via `ts/src/lib/ipfsVerification.ts`)
+- **Decentralized Verification**: Distributed package verification system — *implemented* (`verifyPackageCID`, `fetchFromIPFS`)
+- **Cryptographic Proofs**: Mathematical proof of package integrity — *implemented* (CIDv1 sha2-256)
+- **Smart Contracts**: Automated security policy enforcement via smart contracts — *deferred*
 
 #### **Decentralized Verification**
-- **Distributed Trust**: Distributed trust model for package verification
-- **Consensus Mechanisms**: Consensus-based package verification
-- **Cryptographic Verification**: Advanced cryptographic verification methods
-- **Trust Networks**: Building trust networks for package verification
+- **Distributed Trust**: Distributed trust model for package verification — *implemented* (IPFS content-addressing)
+- **Consensus Mechanisms**: Consensus-based package verification — *deferred*
+- **Cryptographic Verification**: Advanced cryptographic verification methods — *implemented* (`computePackageCID`, `verifyPackageCID`)
+- **Trust Networks**: Building trust networks for package verification — *deferred*
+
+#### **CLI Commands**
+- `nullvoid sign-package <path>` — Compute CID for .tgz tarball, optional `--pin`, `--output` — *implemented*
+- `nullvoid verify-package <spec> --cid <cid>` — Verify package integrity against CID — *implemented*
 
 ---
 

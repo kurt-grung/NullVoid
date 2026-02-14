@@ -9,8 +9,25 @@
         "scopePrivate": 0.2,
         "suspiciousPatterns": 0.2,
         "lowActivityRecent": 0.1,
-        "commitPatternAnomaly": 0.1
+        "commitPatternAnomaly": 0.1,
+        "nlpSecurityScore": 0.1,
+        "crossPackageAnomaly": 0.05,
+        "behavioralAnomaly": 0.05
       }
+    },
+    "PHASE4_NLP_CONFIG": {
+      "ENABLED": false,
+      "GITHUB_TOKEN": null,
+      "MAX_ISSUES": 30,
+      "SKIP_IF_NO_REPO": true,
+      "TIMEOUT_MS": 10000
+    },
+    "PHASE4_IPFS_CONFIG": {
+      "ENABLED": false,
+      "GATEWAY_URL": "https://ipfs.io",
+      "PIN_SERVICE_URL": null,
+      "PIN_SERVICE_TOKEN": null,
+      "ALGORITHM": "sha2-256"
     }
   }
 }
