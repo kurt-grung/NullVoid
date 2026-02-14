@@ -24,7 +24,7 @@ const SUSPICIOUS_PHRASES = [
 
 const DEFAULT_NLP_CONFIG = {
   ENABLED: false,
-  GITHUB_TOKEN: process.env.GITHUB_TOKEN || process.env.PHASE4_GITHUB_TOKEN || null,
+  GITHUB_TOKEN: process.env.GITHUB_TOKEN || process.env.NULLVOID_GITHUB_TOKEN || null,
   MAX_ISSUES: 30,
   SKIP_IF_NO_REPO: true,
   TIMEOUT_MS: 10000

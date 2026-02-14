@@ -109,7 +109,7 @@ class BenchmarkSuite {
     
     perfLogger.debug(`Running benchmark: ${name}`, { iterations, warmup });
 
-    // Warmup phase
+    // Warmup
     for (let i = 0; i < warmup; i++) {
       try {
         await fn();

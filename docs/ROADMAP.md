@@ -81,12 +81,12 @@ NullVoid aims to be the most comprehensive and accurate static analysis security
 
 ## 🔍 **Enhanced Detection & Developer Experience**
 
-**Detection updates:** Registry health monitoring and configurable ML weights are implemented. Registry health: `checkRegistryHealth()` / `checkAllRegistriesHealth()` and CLI `nullvoid registry-health`. ML: `PHASE2_DETECTION.ML_WEIGHTS` (linear model); fallback config in `registries.js` uses `DEFAULT_ORDER` (not `defaultOrder`).
+**Detection updates:** Registry health monitoring and configurable ML weights are implemented. Registry health: `checkRegistryHealth()` / `checkAllRegistriesHealth()` and CLI `nullvoid registry-health`. ML: `ML_DETECTION.ML_WEIGHTS` (linear model); fallback config in `registries.js` uses `DEFAULT_ORDER` (not `defaultOrder`).
 
 ### **🧠 Enhanced Timeline Analysis** ✅ **In progress**
 
 #### **Advanced Algorithms**
-- **Machine Learning Models**: ML-based timeline analysis for better accuracy — *scaffold + configurable weights + pluggable model* (`lib/mlDetection.js`): rule-based + anomaly + commit-pattern scoring; `PHASE2_DETECTION.ML_WEIGHTS`; optional `ML_MODEL_URL` (POST features → score) or `ML_MODEL_PATH` (Node module exporting `score(features)`) to replace rule-based scoring
+- **Machine Learning Models**: ML-based timeline analysis for better accuracy — *scaffold + configurable weights + pluggable model* (`lib/mlDetection.js`): rule-based + anomaly + commit-pattern scoring; `ML_DETECTION.ML_WEIGHTS`; optional `ML_MODEL_URL` (POST features → score) or `ML_MODEL_PATH` (Node module exporting `score(features)`) to replace rule-based scoring
 - **Pattern Recognition**: Advanced pattern recognition in git history — *implemented* (`lib/commitPatternAnalysis.js`: `analyzeCommitMessagePatterns()`, `analyzeDiffPatterns()`; commit message and diff patterns feed into ML features)
 - **Anomaly Detection**: Statistical anomaly detection in package timelines — *implemented* (`lib/timelineAnalysis.js`: `timelineAnomalyScore`, `analyzeTimeline`)
 - **Predictive Analysis**: Predicting potential security issues based on patterns — *implemented* (`lib/mlDetection.js`: `computePredictiveScore()`, `predictiveScore` / `predictiveRisk` in `runMLDetection()`; `DEPENDENCY_CONFUSION_PREDICTIVE_RISK` threat when below threshold but predictive score ≥ 0.4)
@@ -181,9 +181,15 @@ NullVoid aims to be the most comprehensive and accurate static analysis security
 
 ---
 
-## 🤖 **AI/ML Integration & Blockchain Features** — *In Progress*
+## 🤖 **AI/ML Integration & Blockchain Features** — *Implemented*
 
 ### **🧠 AI/ML Integration**
+
+#### **Community Analysis** ✅ **Implemented**
+- **Downloads & Stars**: npm downloads, GitHub stars, dependents count — *implemented* (`ts/src/lib/communityAnalysis.ts`, `js/lib/communityAnalysis.js`)
+- **Maintenance Score**: Based on last publish and commit activity — *implemented*
+- **Popularity Score**: Composite score for ML pipeline — *implemented*
+- **Config**: `COMMUNITY_CONFIG` (ENABLED, GITHUB_TOKEN, USE_DOWNLOADS, USE_GITHUB_STARS, USE_DEPENDENTS)
 
 #### **Threat Intelligence**
 - **Machine Learning Models**: Advanced ML models for threat detection — *scaffold extended with cross-package features*
@@ -213,13 +219,22 @@ NullVoid aims to be the most comprehensive and accurate static analysis security
 
 #### **Decentralized Verification**
 - **Distributed Trust**: Distributed trust model for package verification — *implemented* (IPFS content-addressing)
-- **Consensus Mechanisms**: Consensus-based package verification — *deferred*
+- **Consensus Mechanisms**: Consensus-based package verification — *implemented* (`ts/src/lib/consensusVerification.ts`: npm, GitHub Packages, IPFS; `nullvoid verify-consensus`, `verify-package --consensus`)
 - **Cryptographic Verification**: Advanced cryptographic verification methods — *implemented* (`computePackageCID`, `verifyPackageCID`)
-- **Trust Networks**: Building trust networks for package verification — *deferred*
+- **Trust Networks**: Building trust networks for package verification — *implemented* (`ts/src/lib/trustNetwork.ts`, `nullvoid trust-status`; config: `TRUST_CONFIG`)
+
+#### **Smart Contracts** ✅ **Implemented**
+- **On-Chain Registry**: Package CIDs stored on blockchain — *implemented* (`contracts/NullVoidRegistry.sol`, `ts/src/lib/blockchainVerification.ts`)
+- **CLI**: `nullvoid register-on-chain <path>`, `nullvoid verify-on-chain <spec> --cid <cid>` — *implemented*
+- **Config**: `BLOCKCHAIN_CONFIG` (RPC_URL, CONTRACT_ADDRESS, PRIVATE_KEY, CHAIN_ID)
 
 #### **CLI Commands**
 - `nullvoid sign-package <path>` — Compute CID for .tgz tarball, optional `--pin`, `--output` — *implemented*
-- `nullvoid verify-package <spec> --cid <cid>` — Verify package integrity against CID — *implemented*
+- `nullvoid verify-package <spec> --cid <cid>` — Verify package integrity against CID; `--consensus` for multi-source verification — *implemented*
+- `nullvoid trust-status <spec>` — Show trust score and verification status — *implemented*
+- `nullvoid register-on-chain <path>` — Register package CID on blockchain — *implemented*
+- `nullvoid verify-on-chain <spec> --cid <cid>` — Verify package against blockchain — *implemented*
+- `nullvoid verify-consensus <spec>` — Multi-source consensus verification — *implemented*
 
 ---
 

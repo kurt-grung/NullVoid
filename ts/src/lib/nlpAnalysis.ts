@@ -7,7 +7,7 @@
 
 import axios from 'axios';
 
-export interface Phase4NlpConfig {
+export interface NlpConfig {
   ENABLED?: boolean;
   GITHUB_TOKEN?: string | null;
   MAX_ISSUES?: number;
@@ -88,7 +88,7 @@ export interface NlpAnalysisResult {
 
 const DEFAULT_NLP_CONFIG = {
   ENABLED: false,
-  GITHUB_TOKEN: process.env['GITHUB_TOKEN'] || process.env['PHASE4_GITHUB_TOKEN'] || null,
+  GITHUB_TOKEN: process.env['GITHUB_TOKEN'] || process.env['NULLVOID_GITHUB_TOKEN'] || null,
   MAX_ISSUES: 30,
   SKIP_IF_NO_REPO: true,
   TIMEOUT_MS: 10000,
@@ -305,9 +305,10 @@ function runNlpPipeline(text: string, additionalIssues: string[]): NlpAnalysisRe
 export async function runNlpAnalysis(
   packageName: string,
   version: string = 'latest',
-  config: Partial<typeof DEFAULT_NLP_CONFIG> & { PHASE4_NLP_CONFIG?: Phase4NlpConfig } = {}
+  config: Partial<typeof DEFAULT_NLP_CONFIG> & { NLP_CONFIG?: NlpConfig } = {}
 ): Promise<NlpAnalysisResult | null> {
-  const cfg = { ...DEFAULT_NLP_CONFIG, ...config.PHASE4_NLP_CONFIG, ...config };
+  const sub = config.NLP_CONFIG || config;
+  const cfg = { ...DEFAULT_NLP_CONFIG, ...sub, ...config };
   if (!cfg.ENABLED) return null;
 
   const docs = await fetchPackageDocs(packageName, version, cfg);

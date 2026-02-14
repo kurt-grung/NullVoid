@@ -200,6 +200,27 @@ nullvoid registry-health --json
 nullvoid registry-health -t 10000
 ```
 
+### Trust & Verification (AI/ML & Blockchain)
+```bash
+# Show trust score and verification status for a package
+nullvoid trust-status lodash@4.17.21
+
+# Verify package integrity against CID (single-source)
+nullvoid verify-package lodash@4.17.21 --cid bafy...
+
+# Multi-source consensus verification (npm + GitHub + IPFS)
+nullvoid verify-package lodash@4.17.21 --cid bafy... --consensus
+nullvoid verify-consensus lodash@4.17.21
+
+# Register package CID on blockchain (requires viem, deployed contract)
+nullvoid register-on-chain nullvoid-2.1.0.tgz
+
+# Verify package against blockchain
+nullvoid verify-on-chain lodash@4.17.21 --cid bafy...
+```
+
+Enable features via `.nullvoidrc.json` or environment: `TRUST_CONFIG`, `CONSENSUS_CONFIG`, `BLOCKCHAIN_CONFIG`. See [docs/TRUST_NETWORK.md](docs/TRUST_NETWORK.md), [docs/CONSENSUS.md](docs/CONSENSUS.md), [docs/BLOCKCHAIN.md](docs/BLOCKCHAIN.md).
+
 ### Combined Options
 ```bash
 # Show all threats with verbose output and parallel processing
@@ -624,6 +645,10 @@ Scanned 15 package(s) in 234ms
 | `--enable-redis` | Enable Redis distributed cache | `false` |
 | `--network-stats` | Show network performance metrics | `false` |
 | `nullvoid registry-health` | Check health of configured package registries | - |
+| `nullvoid trust-status <spec>` | Show trust score and verification status | - |
+| `nullvoid verify-consensus <spec>` | Multi-source consensus verification | - |
+| `nullvoid register-on-chain <path>` | Register package CID on blockchain | - |
+| `nullvoid verify-on-chain <spec> --cid <cid>` | Verify package against blockchain | - |
 | `--version` | Show version information | - |
 | `--help` | Show help information | - |
 
@@ -800,6 +825,10 @@ NullVoid has a comprehensive roadmap focusing on advanced threat detection, ente
 - **Custom Rule Engine**: User-defined detection patterns
 
 #### **AI/ML Integration & Blockchain Features**
+- **Community Analysis**: npm downloads, GitHub stars, maintenance score for ML pipeline (`COMMUNITY_CONFIG`)
+- **Trust Network**: Local trust store, `nullvoid trust-status` (`TRUST_CONFIG`)
+- **Consensus Verification**: Multi-source integrity check (npm, GitHub, IPFS); `nullvoid verify-consensus`, `verify-package --consensus` (`CONSENSUS_CONFIG`)
+- **Blockchain Registry**: On-chain package CIDs; `nullvoid register-on-chain`, `nullvoid verify-on-chain` (`BLOCKCHAIN_CONFIG`)
 - **AI/ML Integration**: Machine learning for threat pattern recognition
 - **Blockchain Integration**: Immutable signatures and decentralized verification
 - **Behavioral Analysis**: AI-powered anomaly detection
