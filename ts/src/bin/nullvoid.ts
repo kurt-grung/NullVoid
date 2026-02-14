@@ -442,6 +442,13 @@ async function performScan(target: string | undefined, options: CliOptions) {
       return;
     }
 
+    // Write output file immediately (before displayResults) so CI always has the report
+    if (options.output) {
+      const outPath = path.resolve(options.output);
+      fs.writeFileSync(outPath, JSON.stringify(result, null, 2));
+      console.log(`Results written to ${outPath}`);
+    }
+
     // Display results
     displayResults(result, options);
 
@@ -534,11 +541,6 @@ async function performScan(target: string | undefined, options: CliOptions) {
           console.log(`   Network stats unavailable: ${(error as Error).message}`);
         }
       }
-    }
-
-    if (options.output) {
-      fs.writeFileSync(options.output, JSON.stringify(result, null, 2));
-      console.log(`Results written to ${options.output}`);
     }
 
     if (options.sarif) {
