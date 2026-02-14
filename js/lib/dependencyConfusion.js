@@ -17,6 +17,8 @@ const { DEPENDENCY_CONFUSION_CONFIG } = require('./config');
 const { getPackageCreationDateMulti } = require('./registries');
 const { analyzeTimeline } = require('./timelineAnalysis');
 const { runMLDetection } = require('./mlDetection');
+const { runNlpAnalysis } = require('./nlpAnalysis');
+const { computeBehavioralAnomaly, computeCrossPackageAnomaly } = require('./anomalyDetection');
 
 /**
  * Calculate string similarity using Levenshtein distance
@@ -240,6 +242,53 @@ async function detectDependencyConfusion(packageName, packagePath) {
     const daysDifference = timelineResult.daysDifference ?? 0;
     const timelineRisk = timelineResult.riskLevel;
 
+    // Phase 4: NLP analysis (optional, when enabled)
+    let nlpResult = null;
+    let crossPackageAnomaly = null;
+    let behavioralAnomaly = null;
+    const phase4Nlp = DEPENDENCY_CONFUSION_CONFIG.PHASE4_NLP_CONFIG;
+
+    // Phase 4: Behavioral and cross-package anomaly from package.json
+    let pkgFeatures = null;
+    if (packagePath) {
+      try {
+        const pkgPath = path.join(packagePath, 'package.json');
+        if (fs.existsSync(pkgPath)) {
+          const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+          const scripts = pkg.scripts || {};
+          const scriptKeys = Object.keys(scripts);
+          const postinstall = scripts.postinstall || scripts.install;
+          pkgFeatures = {
+            scriptCount: scriptKeys.length,
+            scriptTotalLength: scriptKeys.reduce((sum, k) => sum + (scripts[k] || '').length, 0),
+            hasPostinstall: !!postinstall,
+            postinstallLength: postinstall ? postinstall.length : 0,
+            dependencyCount: Object.keys(pkg.dependencies || {}).length,
+            devDependencyCount: Object.keys(pkg.devDependencies || {}).length,
+            rareDependencyCount: 0
+          };
+          behavioralAnomaly = computeBehavioralAnomaly(pkgFeatures);
+          // Cross-package anomaly: compare to typical npm baseline when no sibling packages available
+          crossPackageAnomaly = computeCrossPackageAnomaly(pkgFeatures, []);
+        }
+      } catch { /* ignore */ }
+    }
+    if (phase4Nlp?.ENABLED) {
+      try {
+        let version = 'latest';
+        if (packagePath) {
+          try {
+            const pkgPath = path.join(packagePath, 'package.json');
+            if (fs.existsSync(pkgPath)) {
+              const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+              version = pkg.version || 'latest';
+            }
+          } catch { /* ignore */ }
+        }
+        nlpResult = await runNlpAnalysis(packageName, version, phase4Nlp);
+      } catch { /* ignore NLP errors */ }
+    }
+
     // Phase 2: ML detection (anomaly + threat score; commit pattern + optional model)
     const mlResult = await runMLDetection({
       creationDate,
@@ -248,7 +297,10 @@ async function detectDependencyConfusion(packageName, packagePath) {
       scopeType: nameAnalysis.scopeType,
       suspiciousPatternsCount: nameAnalysis.suspiciousPatterns?.length ?? 0,
       registryName,
-      packagePath
+      packagePath,
+      nlpResult,
+      crossPackageAnomaly,
+      behavioralAnomaly
     });
 
     // Generate threats based on analysis

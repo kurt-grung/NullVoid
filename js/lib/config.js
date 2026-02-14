@@ -548,11 +548,14 @@ const DEPENDENCY_CONFUSION_CONFIG = {
     ML_ANOMALY_THRESHOLD: 0.7,  // 0-1; score >= this may be flagged
     // Configurable ML weights (linear model); sum should be ~1 for 0-1 output
     ML_WEIGHTS: {
-      timelineAnomaly: 0.5,
-      scopePrivate: 0.2,
-      suspiciousPatterns: 0.2,
-      lowActivityRecent: 0.1,
-      commitPatternAnomaly: 0.1
+      timelineAnomaly: 0.4,
+      scopePrivate: 0.15,
+      suspiciousPatterns: 0.15,
+      lowActivityRecent: 0.08,
+      commitPatternAnomaly: 0.08,
+      nlpSecurityScore: 0.08,
+      crossPackageAnomaly: 0.03,
+      behavioralAnomaly: 0.03
     },
     // Full ML model: replace rule-based scoring (optional)
     // ML_MODEL_URL: POST features JSON, expect { score: 0-1 }; e.g. 'https://api.example.com/score'
@@ -561,6 +564,24 @@ const DEPENDENCY_CONFUSION_CONFIG = {
     ML_MODEL_PATH: null,
     // Commit pattern analysis (author behavior, repo structure)
     COMMIT_PATTERN_ANALYSIS: true
+  },
+
+  // Phase 4: NLP on docs/issues (AI/ML)
+  PHASE4_NLP_CONFIG: {
+    ENABLED: process.env.NULLVOID_PHASE4_NLP_ENABLED === 'true',
+    GITHUB_TOKEN: process.env.GITHUB_TOKEN || process.env.PHASE4_GITHUB_TOKEN || null,
+    MAX_ISSUES: 30,
+    SKIP_IF_NO_REPO: true,
+    TIMEOUT_MS: 10000
+  },
+
+  // Phase 4: IPFS verification (Blockchain)
+  PHASE4_IPFS_CONFIG: {
+    ENABLED: process.env.NULLVOID_PHASE4_IPFS_ENABLED === 'true',
+    GATEWAY_URL: process.env.NULLVOID_IPFS_GATEWAY || 'https://ipfs.io',
+    PIN_SERVICE_URL: process.env.NULLVOID_IPFS_PIN_SERVICE_URL || null,
+    PIN_SERVICE_TOKEN: process.env.NULLVOID_IPFS_PIN_SERVICE_TOKEN || null,
+    ALGORITHM: 'sha2-256'
   },
   
   // Analysis settings

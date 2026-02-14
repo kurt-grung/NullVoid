@@ -236,7 +236,7 @@ function loadRules(rulesPath) {
     const ext = path.extname(rulesPath).toLowerCase();
     
     if (ext === '.yaml' || ext === '.yml') {
-      return yaml.load(fileContent);
+      return yaml.load(fileContent, { schema: yaml.JSON_SCHEMA });
     } else if (ext === '.json') {
       return JSON.parse(fileContent);
     } else {

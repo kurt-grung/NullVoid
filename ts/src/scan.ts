@@ -16,7 +16,8 @@ import { detectMalware } from './lib/detection';
 import { filterThreatsBySeverity } from './lib/detection';
 import { queryIoCProviders, mergeIoCThreats } from './lib/iocScanIntegration';
 import { getOptimalWorkerCount, getOptimalChunkSize, chunkPackages } from './lib/parallel';
-import { SCAN_CONFIG, PARALLEL_CONFIG } from './lib/config';
+import { SCAN_CONFIG, PARALLEL_CONFIG, PHASE4_NLP_CONFIG } from './lib/config';
+import { runNlpAnalysis } from './lib/nlpAnalysis';
 import type { IoCProviderName } from './types/ioc-types';
 
 const logger = createLogger('scan');
@@ -62,6 +63,8 @@ function collectScanablePaths(
     'build',
     'coverage',
     '.nyc_output',
+    'fixtures', // intentionally malicious test files
+    'out', // compiled output (e.g. vscode extension)
   ];
 
   try {
@@ -275,9 +278,9 @@ export async function scan(
       if (fs.existsSync(packageJsonPath)) {
         try {
           const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-          const dependencies = {
-            ...packageJson.dependencies,
-            ...packageJson.devDependencies,
+          const dependencies: Record<string, string> = {
+            ...(packageJson.dependencies || {}),
+            ...(options.includeDevDependencies !== false ? packageJson.devDependencies || {} : {}),
           };
 
           if (Object.keys(dependencies).length > 0) {
@@ -286,6 +289,7 @@ export async function scan(
             // Check for suspicious dependencies and query IoC providers
             const dependencyThreats: Threat[] = [];
             const iocQueries: Promise<Threat[]>[] = [];
+            const nlpQueries: Promise<Threat[]>[] = [];
 
             for (const [depName, depVersion] of Object.entries(dependencies)) {
               if (typeof depVersion === 'string') {
@@ -343,28 +347,62 @@ export async function scan(
                     queryIoCProviders(depName, cleanVersion, providerNames, packageJsonPath)
                   );
                 }
+
+                // Phase 4: NLP analysis on dependencies (if enabled, limit to avoid rate limits)
+                if (PHASE4_NLP_CONFIG.ENABLED && nlpQueries.length < 20) {
+                  const cleanVersion = depVersion.replace(/^[\^~>=<]+\s*/, '');
+                  nlpQueries.push(
+                    runNlpAnalysis(depName, cleanVersion, PHASE4_NLP_CONFIG)
+                      .then((nlpResult): Threat[] => {
+                        if (
+                          nlpResult &&
+                          nlpResult.nlpSecurityScore >= 0.5 &&
+                          nlpResult.suspiciousPhrases.length > 0
+                        ) {
+                          return [
+                            {
+                              type: 'PHASE4_NLP_SECURITY_INDICATOR',
+                              message: `NLP analysis: security indicators in ${depName} docs/issues`,
+                              filePath: packageJsonPath,
+                              filename: 'package.json',
+                              severity: nlpResult.nlpSecurityScore >= 0.7 ? 'MEDIUM' : 'LOW',
+                              details: `Security score: ${(nlpResult.nlpSecurityScore * 100).toFixed(0)}%. Suspicious: ${nlpResult.suspiciousPhrases.slice(0, 3).join(', ')}`,
+                              confidence: Math.round(nlpResult.nlpSecurityScore * 80),
+                            },
+                          ];
+                        }
+                        return [];
+                      })
+                      .catch(() => [])
+                  );
+                }
               }
             }
 
-            // Wait for IoC queries and merge results BEFORE adding to threats
+            // Wait for IoC and NLP queries, then merge results
+            const allExtraThreats: Threat[] = [];
             if (iocQueries.length > 0) {
               try {
                 const iocResults = await Promise.all(iocQueries);
-                const allIocThreats = iocResults.flat();
-                // Merge IoC threats with dependency threats, then add to main threats list
-                const mergedThreats = mergeIoCThreats(dependencyThreats, allIocThreats);
-                threats.push(...mergedThreats);
+                allExtraThreats.push(...iocResults.flat());
               } catch (error) {
                 if (options.verbose) {
                   logger.warn(`IoC query failed: ${(error as Error).message}`);
                 }
-                // Still add dependency threats even if IoC fails
-                threats.push(...dependencyThreats);
               }
-            } else {
-              // No IoC queries, just add dependency threats
-              threats.push(...dependencyThreats);
             }
+            if (nlpQueries.length > 0) {
+              try {
+                const nlpResults = await Promise.all(nlpQueries);
+                allExtraThreats.push(...nlpResults.flat());
+              } catch (error) {
+                if (options.verbose) {
+                  logger.warn(`NLP query failed: ${(error as Error).message}`);
+                }
+              }
+            }
+            const mergedThreats = mergeIoCThreats(dependencyThreats, allExtraThreats);
+            threats.push(...mergedThreats);
           }
         } catch (error) {
           if (options.verbose) {

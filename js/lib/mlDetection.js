@@ -17,11 +17,14 @@ const PHASE2 = DEPENDENCY_CONFUSION_CONFIG?.PHASE2_DETECTION ?? {};
 const ML_ENABLED = PHASE2.ML_SCORING !== false;
 const ANOMALY_THRESHOLD = PHASE2.ML_ANOMALY_THRESHOLD ?? 0.7;
 const ML_WEIGHTS = PHASE2.ML_WEIGHTS ?? {
-  timelineAnomaly: 0.5,
-  scopePrivate: 0.2,
-  suspiciousPatterns: 0.2,
-  lowActivityRecent: 0.1,
-  commitPatternAnomaly: 0.1
+  timelineAnomaly: 0.4,
+  scopePrivate: 0.15,
+  suspiciousPatterns: 0.15,
+  lowActivityRecent: 0.08,
+  commitPatternAnomaly: 0.08,
+  nlpSecurityScore: 0.08,
+  crossPackageAnomaly: 0.03,
+  behavioralAnomaly: 0.03
 };
 const ML_MODEL_URL = PHASE2.ML_MODEL_URL || null;
 const ML_MODEL_PATH = PHASE2.ML_MODEL_PATH || null;
@@ -30,7 +33,7 @@ const MODEL_TIMEOUT = 5000;
 
 /**
  * Build a feature vector for a package (for rule-based or ML model)
- * @param {Object} params - timeline + name + scope + git activity + optional commitPatterns or packagePath
+ * @param {Object} params - timeline + name + scope + git activity + optional commitPatterns, nlpResult, crossPackageAnomaly, behavioralAnomaly
  * @returns {Object} Feature set
  */
 function buildFeatureVector(params) {
@@ -40,7 +43,10 @@ function buildFeatureVector(params) {
     scopeType = null,
     suspiciousPatternsCount = 0,
     registryName = null,
-    commitPatterns = null
+    commitPatterns = null,
+    nlpResult = null,
+    crossPackageAnomaly = null,
+    behavioralAnomaly = null
   } = params;
   const timeline = analyzeTimeline({
     registryCreated: params.registryCreated ?? params.creationDate,
@@ -66,6 +72,12 @@ function buildFeatureVector(params) {
     if (commitPatterns.messageAnomalyScore != null) features.messageAnomalyScore = commitPatterns.messageAnomalyScore;
     if (commitPatterns.diffAnomalyScore != null) features.diffAnomalyScore = commitPatterns.diffAnomalyScore;
   }
+  if (nlpResult) {
+    features.nlpSecurityScore = nlpResult.nlpSecurityScore ?? nlpResult.securityScore ?? 0;
+    features.nlpSuspiciousCount = nlpResult.nlpSuspiciousCount ?? nlpResult.suspiciousPhrases?.length ?? 0;
+  }
+  if (crossPackageAnomaly != null) features.crossPackageAnomaly = crossPackageAnomaly;
+  if (behavioralAnomaly != null) features.behavioralAnomaly = behavioralAnomaly;
   return features;
 }
 
@@ -86,6 +98,12 @@ function computeThreatScore(features, weights = ML_WEIGHTS) {
     score += weights.lowActivityRecent;
   if (features.commitPatternAnomaly != null && weights.commitPatternAnomaly)
     score += weights.commitPatternAnomaly * features.commitPatternAnomaly;
+  if (features.nlpSecurityScore != null && weights.nlpSecurityScore)
+    score += weights.nlpSecurityScore * features.nlpSecurityScore;
+  if (features.crossPackageAnomaly != null && weights.crossPackageAnomaly)
+    score += weights.crossPackageAnomaly * features.crossPackageAnomaly;
+  if (features.behavioralAnomaly != null && weights.behavioralAnomaly)
+    score += weights.behavioralAnomaly * features.behavioralAnomaly;
   return Math.min(1, score);
 }
 
@@ -181,9 +199,11 @@ async function computeThreatScoreFromModel(features) {
  */
 function computePredictiveScore(features) {
   let s = 0;
-  if (features.timelineAnomaly != null) s += 0.5 * features.timelineAnomaly;
-  if (features.commitPatternAnomaly != null) s += 0.3 * features.commitPatternAnomaly;
-  if (features.recentCommitCount < 5 && (features.daysDifference ?? 365) < 90) s += 0.2;
+  if (features.timelineAnomaly != null) s += 0.4 * features.timelineAnomaly;
+  if (features.commitPatternAnomaly != null) s += 0.25 * features.commitPatternAnomaly;
+  if (features.recentCommitCount < 5 && (features.daysDifference ?? 365) < 90) s += 0.15;
+  if (features.nlpSecurityScore != null) s += 0.15 * features.nlpSecurityScore;
+  if (features.crossPackageAnomaly != null) s += 0.05 * features.crossPackageAnomaly;
   return Math.min(1, s);
 }
 
@@ -212,7 +232,10 @@ async function runMLDetection(params) {
     registryName: params.registryName,
     creationDate: params.creationDate,
     firstCommitDate: params.firstCommitDate,
-    commitPatterns
+    commitPatterns,
+    nlpResult: params.nlpResult ?? null,
+    crossPackageAnomaly: params.crossPackageAnomaly ?? null,
+    behavioralAnomaly: params.behavioralAnomaly ?? null
   });
 
   let threatScore = null;

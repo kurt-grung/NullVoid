@@ -72,6 +72,10 @@ interface NVDCVE {
         vulnerable: boolean;
         criteria: string;
         matchCriteriaId: string;
+        versionStartIncluding?: string;
+        versionStartExcluding?: string;
+        versionEndIncluding?: string;
+        versionEndExcluding?: string;
       }>;
     }>;
   }>;
@@ -301,19 +305,86 @@ export class CVEProvider implements IoCProvider {
       references,
     };
 
-    // Check if this CVE is actually related to the package
-    // NVD keyword search can return false positives
-    const descriptionLower = description.toLowerCase();
+    // Filter false positives: NVD keyword search matches substrings
+    // e.g. "commander" -> "Total Commander", "glob" -> "uses glob to generate"
     const packageNameLower = packageName.toLowerCase();
+    const packageNorm = packageNameLower.replace(/^@/, '').replace(/\//g, '-');
 
-    // If package name doesn't appear in description, it might be a false positive
-    // But we'll include it anyway and let the user decide
+    // Prefer CPE: if CPE exists, require package to appear as product/vendor
+    const configs = cve.configurations?.flatMap((cfg) => cfg.nodes ?? []) ?? [];
+    const allCriteria = configs.flatMap(
+      (n) => n.cpeMatch?.map((m: { criteria: string }) => m.criteria) ?? []
+    );
+    const hasMatchingCpe = allCriteria.some(
+      (c: string) =>
+        c.toLowerCase().includes(`:${packageNameLower}:`) ||
+        c.toLowerCase().includes(`:${packageNorm}:`)
+    );
+
+    if (!hasMatchingCpe) {
+      const descriptionLower = description.toLowerCase();
+      const inDesc =
+        descriptionLower.includes(packageNameLower) || descriptionLower.includes(packageNorm);
+      if (!inDesc) {
+        logger.debug(`CVE ${cve.id} excluded: package "${packageName}" not in description`);
+        return null;
+      }
+      // Exclude common-word false positives: "glob", "tar", "commander" (Total Commander, Midnight Commander), "husky" (HUSKY RTU/WordPress)
+      const commonWords = ['glob', 'tar', 'run', 'link', 'node', 'commander', 'husky'];
+      if (commonWords.includes(packageNameLower)) {
+        // Explicit exclusion: "Midnight Commander" and "Total Commander" are different products from npm commander
+        if (
+          packageNameLower === 'commander' &&
+          (descriptionLower.includes('midnight commander') ||
+            descriptionLower.includes('total commander'))
+        ) {
+          logger.debug(
+            `CVE ${cve.id} excluded: "${packageName}" matches different product (Midnight/Total Commander)`
+          );
+          return null;
+        }
+        // Require product-like mention (e.g. "glob package", "Axios up to")
+        const productLike =
+          new RegExp(`\\b${packageNameLower}\\s+(package|up to|before|through|version)`, 'i').test(
+            description
+          ) || new RegExp(`(package|npm)\\s+${packageNameLower}\\b`, 'i').test(description);
+        if (!productLike) {
+          logger.debug(
+            `CVE ${cve.id} excluded: "${packageName}" likely common-word false positive`
+          );
+          return null;
+        }
+      }
+    }
+
+    // js-yaml: CVEs about grunt/shiba using js-yaml unsafely, not js-yaml itself (run for all, not just commonWords)
+    const desc = description.toLowerCase();
     if (
-      !descriptionLower.includes(packageNameLower) &&
-      !descriptionLower.includes(packageNameLower.replace('@', '').replace('/', '-'))
+      packageNameLower === 'js-yaml' &&
+      (desc.includes('package grunt') ||
+        desc.includes('package shiba') ||
+        desc.includes('grunt.file.readyaml') ||
+        desc.includes('of package shiba'))
     ) {
-      // Still include, but mark as potentially unrelated
-      logger.debug(`CVE ${cve.id} may not be directly related to package ${packageName}`);
+      logger.debug(`CVE ${cve.id} excluded: "${packageName}" CVE targets grunt/shiba, not js-yaml`);
+      return null;
+    }
+
+    // Version-aware filtering: if we have package version and CPE version range, exclude when not affected
+    if (version && version !== 'unknown') {
+      const isVersionAffected = this.isVersionAffectedByCve(cve, version);
+      if (!isVersionAffected) {
+        logger.debug(`CVE ${cve.id} excluded: package version ${version} not in affected range`);
+        return null;
+      }
+      // Fallback: parse "fixed in X" / "prior to X" from description when NVD has no CPE version bounds
+      const fixedIn = this.parseFixedVersionFromDescription(description);
+      if (fixedIn && this.compareVersions(version, fixedIn) >= 0) {
+        logger.debug(
+          `CVE ${cve.id} excluded: package version ${version} >= fixed version ${fixedIn}`
+        );
+        return null;
+      }
     }
 
     return {
@@ -335,6 +406,93 @@ export class CVEProvider implements IoCProvider {
       modifiedDate: cve.lastModified,
       references,
     };
+  }
+
+  /**
+   * Check if package version falls within CVE's affected range (from NVD CPE match)
+   * Returns true if affected or if version range cannot be determined (conservative)
+   */
+  private isVersionAffectedByCve(cve: NVDCVE, version: string): boolean {
+    const configs = cve.configurations?.flatMap((cfg) => cfg.nodes ?? []) ?? [];
+    const allMatches = configs.flatMap((n) => n.cpeMatch ?? []).filter((m) => m.vulnerable);
+
+    if (allMatches.length === 0) return true; // No version info, assume affected
+
+    // If any match has no version bounds, assume affected
+    const matchesWithBounds = allMatches.filter(
+      (m) =>
+        m.versionStartIncluding ||
+        m.versionStartExcluding ||
+        m.versionEndIncluding ||
+        m.versionEndExcluding
+    );
+    if (matchesWithBounds.length === 0) return true;
+
+    // Version is not affected only if ALL matches with bounds exclude it
+    for (const match of matchesWithBounds) {
+      if (this.isVersionInCpeRange(version, match)) return true;
+    }
+    return false;
+  }
+
+  private isVersionInCpeRange(
+    version: string,
+    match: {
+      versionStartIncluding?: string;
+      versionStartExcluding?: string;
+      versionEndIncluding?: string;
+      versionEndExcluding?: string;
+    }
+  ): boolean {
+    try {
+      if (
+        match.versionStartIncluding &&
+        this.compareVersions(version, match.versionStartIncluding) < 0
+      )
+        return false;
+      if (
+        match.versionStartExcluding &&
+        this.compareVersions(version, match.versionStartExcluding) <= 0
+      )
+        return false;
+      if (match.versionEndIncluding && this.compareVersions(version, match.versionEndIncluding) > 0)
+        return false;
+      if (
+        match.versionEndExcluding &&
+        this.compareVersions(version, match.versionEndExcluding) >= 0
+      )
+        return false;
+      return true;
+    } catch {
+      return true; // Default to affected if we can't parse
+    }
+  }
+
+  /**
+   * Parse "fixed in X" or "prior to X" from CVE description when NVD lacks CPE version bounds
+   */
+  private parseFixedVersionFromDescription(description: string): string | null {
+    // "fixed in 1.13.5", "fixed in v1.13.5", "versions 0.30.2 and 1.12.0 contain a patch"
+    const fixedInMatch = description.match(
+      /(?:fixed in|patched in|resolved in)\s+(?:v)?(\d+\.\d+\.\d+)/i
+    );
+    if (fixedInMatch?.[1]) return fixedInMatch[1];
+    const priorToMatch = description.match(/prior to\s+(?:v)?(\d+\.\d+\.\d+)/i);
+    if (priorToMatch?.[1]) return priorToMatch[1];
+    return null;
+  }
+
+  private compareVersions(v1: string, v2: string): number {
+    const parts1 = v1.split('.').map(Number);
+    const parts2 = v2.split('.').map(Number);
+    const maxLength = Math.max(parts1.length, parts2.length);
+    for (let i = 0; i < maxLength; i++) {
+      const part1 = parts1[i] || 0;
+      const part2 = parts2[i] || 0;
+      if (part1 > part2) return 1;
+      if (part1 < part2) return -1;
+    }
+    return 0;
   }
 
   /**
