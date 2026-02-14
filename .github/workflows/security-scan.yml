@@ -47,20 +47,20 @@ jobs:
     - name: Upload SARIF to GitHub Code Scanning
       uses: github/codeql-action/upload-sarif@v3
       with:
-        sarif_file: nullvoid-results.sarif
+        sarif_file: ${{ github.workspace }}/nullvoid-results.sarif
       continue-on-error: true  # do not fail job if repo has no Code Scanning enabled
       
     - name: Upload security report
       uses: actions/upload-artifact@v4
       with:
         name: security-report
-        path: security-report.json
+        path: ${{ github.workspace }}/security-report.json
         
     - name: Upload SARIF artifact
       uses: actions/upload-artifact@v4
       with:
         name: nullvoid-sarif
-        path: nullvoid-results.sarif
+        path: ${{ github.workspace }}/nullvoid-results.sarif
         
     - name: Comment PR with security results
       if: github.event_name == 'pull_request'
@@ -68,10 +68,13 @@ jobs:
       with:
         script: |
           const fs = require('fs');
+          const path = require('path');
+          const reportPath = path.join(process.env.GITHUB_WORKSPACE || '.', 'security-report.json');
           const marker = '## 🔍 NullVoid Security Scan Results';
+          const placeholder = '<!-- nullvoid-scan -->';  // minimal body for old reviews we can't delete
           let report;
           try {
-            const content = fs.readFileSync('security-report.json', 'utf8');
+            const content = fs.readFileSync(reportPath, 'utf8');
             report = JSON.parse(content);
           } catch (error) {
             console.log('Error parsing security report:', error.message);
@@ -121,7 +124,7 @@ jobs:
             issue_number: context.issue.number,
           });
           for (const c of comments) {
-            if (c.body && c.body.includes(marker)) {
+            if (c.body && (c.body.includes(marker) || c.body.includes('NullVoid Security Scan') || c.body.includes(placeholder))) {
               await github.rest.issues.deleteComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -130,42 +133,48 @@ jobs:
             }
           }
           
-          // 2. PR reviews: dismiss to remove from conversation (cannot delete submitted reviews)
+          // 2. PR reviews: cannot delete or dismiss own reviews (GitHub limitation)
+          // Update to minimal body so they collapse; keep only latest with full content
           const { data: reviews } = await github.rest.pulls.listReviews({
             owner: context.repo.owner,
             repo: context.repo.repo,
             pull_number: context.issue.number,
           });
-          const ourReviews = reviews.filter((r) => r.body && r.body.includes(marker));
-          for (const r of ourReviews) {
-            try {
-              await github.rest.pulls.dismissReview({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: context.issue.number,
-                review_id: r.id,
-                message: 'Superseded by latest NullVoid scan',
-              });
-            } catch (e) {
-              console.warn('Could not dismiss review', r.id, e.message);
-            }
+          const ourReviews = reviews.filter((r) => r.body && (
+            r.body.includes(marker) || r.body.includes('NullVoid Security Scan') ||
+            r.body.includes('(superseded)') || r.body.includes(placeholder)
+          ));
+          const sorted = ourReviews.sort((a, b) =>
+            new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0)
+          );
+          for (let i = 0; i < sorted.length; i++) {
+            await github.rest.pulls.updateReview({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              review_id: sorted[i].id,
+              body: i === 0 ? comment : placeholder,
+            });
           }
           
-          // 3. Always post fresh comment
-          await github.rest.issues.createComment({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            issue_number: context.issue.number,
-            body: comment,
-          });
+          // 3. Post fresh comment only if no reviews to update (use issue comment for new PRs)
+          if (ourReviews.length === 0) {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment,
+            });
+          }
           
     - name: Fail on critical and high severity malware threats
       if: github.event_name == 'pull_request'
       run: |
-        if [ -f security-report.json ]; then
+        REPORT="${{ github.workspace }}/security-report.json"
+        if [ -f "$REPORT" ]; then
           # Only fail on malware (code analysis), not VULNERABLE_PACKAGE (IoC can have false positives)
-          CRITICAL_MALWARE=$(jq '[.threats[] | select(.severity == "CRITICAL" and .type != "VULNERABLE_PACKAGE")] | length' security-report.json)
-          HIGH_MALWARE=$(jq '[.threats[] | select(.severity == "HIGH" and .type != "VULNERABLE_PACKAGE")] | length' security-report.json)
+          CRITICAL_MALWARE=$(jq '[.threats[] | select(.severity == "CRITICAL" and .type != "VULNERABLE_PACKAGE")] | length' "$REPORT")
+          HIGH_MALWARE=$(jq '[.threats[] | select(.severity == "HIGH" and .type != "VULNERABLE_PACKAGE")] | length' "$REPORT")
           if [ "$CRITICAL_MALWARE" -gt 0 ]; then
             echo "🚨 CRITICAL malware threats detected! Immediate action required."
             exit 1
