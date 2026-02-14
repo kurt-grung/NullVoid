@@ -14,7 +14,14 @@ import { getCacheAnalytics } from '../lib/cache/cacheAnalytics';
 import { getConnectionPool } from '../lib/network/connectionPool';
 import { checkAllRegistriesHealth } from '../lib/registries';
 import { computePackageCID, verifyPackageCID, publishToIPFS } from '../lib/ipfsVerification';
-import { PHASE4_IPFS_CONFIG } from '../lib/config';
+import { recordVerification, getTrustRecord } from '../lib/trustNetwork';
+import {
+  registerPackageOnChain,
+  getCidFromChain,
+  verifyPackageOnChain,
+} from '../lib/blockchainVerification';
+import { verifyPackageConsensus } from '../lib/consensusVerification';
+import { IPFS_CONFIG, TRUST_CONFIG, BLOCKCHAIN_CONFIG, CONSENSUS_CONFIG } from '../lib/config';
 import colors from '../colors';
 import * as packageJson from '../../package.json';
 
@@ -75,15 +82,11 @@ program
         spinner.succeed(`CID: ${cid}`);
 
         let pinned = false;
-        if (
-          options.pin &&
-          PHASE4_IPFS_CONFIG.PIN_SERVICE_URL &&
-          PHASE4_IPFS_CONFIG.PIN_SERVICE_TOKEN
-        ) {
+        if (options.pin && IPFS_CONFIG.PIN_SERVICE_URL && IPFS_CONFIG.PIN_SERVICE_TOKEN) {
           const pinSpinner = ora('Pinning to IPFS...').start();
           const pinResult = await publishToIPFS(tarballPath, {
-            PIN_SERVICE_URL: PHASE4_IPFS_CONFIG.PIN_SERVICE_URL,
-            PIN_SERVICE_TOKEN: PHASE4_IPFS_CONFIG.PIN_SERVICE_TOKEN,
+            PIN_SERVICE_URL: IPFS_CONFIG.PIN_SERVICE_URL,
+            PIN_SERVICE_TOKEN: IPFS_CONFIG.PIN_SERVICE_TOKEN,
           });
           if (pinResult.pinned) {
             pinSpinner.succeed('Pinned to IPFS');
@@ -135,11 +138,48 @@ program
     'Verify package integrity against CID. Use <name>@<version> or path to .tgz. CID from --cid or package nullvoid.verification'
   )
   .option('--cid <cid>', 'Expected CID (overrides nullvoid.verification from package)')
+  .option('--consensus', 'Run consensus verification across npm, GitHub, IPFS')
   .option('-j, --json', 'Output as JSON')
-  .action(async (spec: string, options: { cid?: string; json?: boolean }) => {
+  .action(async (spec: string, options: { cid?: string; json?: boolean; consensus?: boolean }) => {
     try {
+      const match = spec.match(/^(.+?)@(.+)$/);
+      const pkgName = match && match[1] ? match[1] : spec;
+      const pkgVersion = match && match[2] ? match[2] : 'latest';
+
+      if (options.consensus && !spec.includes(path.sep) && !fs.existsSync(path.resolve(spec))) {
+        const consensusResult = await verifyPackageConsensus(
+          pkgName,
+          pkgVersion,
+          options.cid ?? null,
+          {
+            SOURCES: [...CONSENSUS_CONFIG.SOURCES],
+            MIN_AGREEMENT: CONSENSUS_CONFIG.MIN_AGREEMENT,
+            GITHUB_TOKEN: CONSENSUS_CONFIG.GITHUB_TOKEN,
+            GATEWAY_URL: CONSENSUS_CONFIG.GATEWAY_URL,
+          }
+        );
+        if (options.json) {
+          console.log(JSON.stringify(consensusResult, null, 2));
+        } else {
+          console.log(colors.bold('\nConsensus Verification\n'));
+          consensusResult.sources.forEach((s) => {
+            const status = s.match ? colors.green('✓') : colors.red('✗');
+            console.log(`  ${status} ${s.name}: ${s.cid}`);
+          });
+          console.log(
+            `\n  Consensus: ${consensusResult.consensusCount}/${consensusResult.totalSources}`
+          );
+          console.log(
+            `  Agreed: ${consensusResult.agreed ? colors.green('Yes') : colors.red('No')}\n`
+          );
+        }
+        process.exit(consensusResult.agreed ? 0 : 1);
+      }
+
       let expectedCID = options.cid;
       let tarballPath: string;
+      let packageName: string | undefined;
+      let version: string | undefined;
 
       const resolvedSpec = path.resolve(spec);
       const isLocalTarball =
@@ -162,6 +202,8 @@ program
               : path.join(extractDir, 'package.json');
             if (fs.existsSync(pkgPath)) {
               const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+              packageName = pkg.name;
+              version = pkg.version;
               const nv = pkg.nullvoid?.verification;
               expectedCID = typeof nv === 'string' ? nv : nv?.cid;
             }
@@ -179,8 +221,8 @@ program
         }
       } else {
         const match = spec.match(/^(.+?)@(.+)$/);
-        const packageName: string = match && match[1] ? match[1] : spec;
-        const version: string = match && match[2] ? match[2] : 'latest';
+        packageName = match && match[1] ? match[1] : spec;
+        version = match && match[2] ? match[2] : 'latest';
 
         const spinner = ora('Fetching package from npm...').start();
         const axios = (await import('axios')).default;
@@ -241,6 +283,14 @@ program
         }
       }
 
+      if (result.verified && TRUST_CONFIG.ENABLED && packageName && version) {
+        try {
+          await recordVerification(packageName, version, result.cid);
+        } catch {
+          /* ignore trust record errors */
+        }
+      }
+
       if (options.json) {
         console.log(JSON.stringify(result, null, 2));
       } else {
@@ -284,6 +334,227 @@ program
         console.log('');
       }
       process.exit(0);
+    } catch (error) {
+      console.error(colors.red('Error:'), (error as Error).message);
+      process.exit(1);
+    }
+  });
+
+// Trust status command
+program
+  .command('trust-status <spec>')
+  .description(
+    'Show trust score and verification status for a package (name@version or package name)'
+  )
+  .option('-j, --json', 'Output as JSON')
+  .action(async (spec: string, options: { json?: boolean }) => {
+    try {
+      const match = spec.match(/^(.+?)@(.+)$/);
+      const packageName = match && match[1] ? match[1] : spec;
+      const version = match && match[2] ? match[2] : 'latest';
+
+      const record = await getTrustRecord(packageName, version);
+      if (options.json) {
+        console.log(JSON.stringify(record ?? { packageName, version, trustScore: null }, null, 2));
+      } else {
+        if (!record) {
+          console.log(colors.yellow(`No trust record for ${packageName}@${version}`));
+        } else {
+          console.log(colors.bold(`\nTrust Status: ${packageName}@${version}\n`));
+          console.log(`  Trust Score: ${(record.trustScore * 100).toFixed(0)}%`);
+          console.log(
+            `  Last Scan: ${record.lastScanOk ? colors.green('OK') : colors.red('Threats')}`
+          );
+          if (record.cid) console.log(`  Verified CID: ${record.cid}`);
+          if (record.verifiedAt) console.log(`  Verified At: ${record.verifiedAt}`);
+          if (record.publisher) console.log(`  Publisher: ${record.publisher}`);
+          console.log('');
+        }
+      }
+      process.exit(0);
+    } catch (error) {
+      console.error(colors.red('Error:'), (error as Error).message);
+      process.exit(1);
+    }
+  });
+
+// Register package on blockchain
+program
+  .command('register-on-chain <path>')
+  .description(
+    'Compute CID for package tarball and register on blockchain. Requires viem, CONTRACT_ADDRESS, PRIVATE_KEY.'
+  )
+  .option('-j, --json', 'Output as JSON')
+  .action(async (pathArg: string, options: { json?: boolean }) => {
+    try {
+      const resolved = path.resolve(pathArg);
+      if (
+        !fs.existsSync(resolved) ||
+        !(resolved.endsWith('.tgz') || resolved.endsWith('.tar.gz'))
+      ) {
+        console.error(colors.red('Error:'), 'Path must be a .tgz tarball. Run "npm pack" first.');
+        process.exit(1);
+      }
+      const tar = (await import('tar')).default;
+      const tmpDir = (await import('os')).default.tmpdir();
+      const extractDir = path.join(tmpDir, `nullvoid-register-${Date.now()}`);
+      fs.mkdirSync(extractDir, { recursive: true });
+      await tar.extract({ file: resolved, cwd: extractDir });
+      const entries = fs.readdirSync(extractDir);
+      const pkgDir = entries.find((e) => fs.statSync(path.join(extractDir, e)).isDirectory());
+      const pkgPath = pkgDir
+        ? path.join(extractDir, pkgDir, 'package.json')
+        : path.join(extractDir, 'package.json');
+      if (!fs.existsSync(pkgPath)) {
+        console.error(colors.red('Error:'), 'No package.json in tarball');
+        process.exit(1);
+      }
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+      fs.rmSync(extractDir, { recursive: true, force: true });
+
+      const packageName = pkg.name ?? path.basename(resolved, '.tgz').replace(/\.tar\.gz$/, '');
+      const version = pkg.version ?? '1.0.0';
+
+      const spinner = ora('Computing CID...').start();
+      const { cid } = await computePackageCID(resolved);
+      spinner.succeed(`CID: ${cid}`);
+
+      if (!BLOCKCHAIN_CONFIG.CONTRACT_ADDRESS || !BLOCKCHAIN_CONFIG.PRIVATE_KEY) {
+        console.error(
+          colors.red('Error:'),
+          'Set NULLVOID_BLOCKCHAIN_CONTRACT_ADDRESS and NULLVOID_BLOCKCHAIN_PRIVATE_KEY'
+        );
+        process.exit(1);
+      }
+
+      const regSpinner = ora('Registering on chain...').start();
+      const { txHash } = await registerPackageOnChain(packageName, version, cid, {
+        CONTRACT_ADDRESS: BLOCKCHAIN_CONFIG.CONTRACT_ADDRESS,
+        PRIVATE_KEY: BLOCKCHAIN_CONFIG.PRIVATE_KEY,
+        RPC_URL: BLOCKCHAIN_CONFIG.RPC_URL,
+      });
+      regSpinner.succeed(`Registered. Tx: ${txHash}`);
+
+      if (options.json) {
+        console.log(JSON.stringify({ packageName, version, cid, txHash }, null, 2));
+      }
+      process.exit(0);
+    } catch (error) {
+      console.error(colors.red('Error:'), (error as Error).message);
+      process.exit(1);
+    }
+  });
+
+// Verify package consensus (multi-source)
+program
+  .command('verify-consensus <spec>')
+  .description(
+    'Verify package integrity via consensus across npm, GitHub Packages, and IPFS. Use <name>@<version>'
+  )
+  .option('--cid <cid>', 'Known CID for IPFS source (optional)')
+  .option('-j, --json', 'Output as JSON')
+  .action(async (spec: string, options: { cid?: string; json?: boolean }) => {
+    try {
+      const match = spec.match(/^(.+?)@(.+)$/);
+      const packageName = match && match[1] ? match[1] : spec;
+      const version = match && match[2] ? match[2] : 'latest';
+
+      const result = await verifyPackageConsensus(packageName, version, options.cid ?? null, {
+        SOURCES: [...CONSENSUS_CONFIG.SOURCES],
+        MIN_AGREEMENT: CONSENSUS_CONFIG.MIN_AGREEMENT,
+        GITHUB_TOKEN: CONSENSUS_CONFIG.GITHUB_TOKEN,
+        GATEWAY_URL: CONSENSUS_CONFIG.GATEWAY_URL,
+      });
+
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        console.log(colors.bold(`\nConsensus: ${packageName}@${version}\n`));
+        result.sources.forEach((s) => {
+          const status = s.match ? colors.green('✓') : colors.red('✗');
+          console.log(`  ${status} ${s.name}: ${s.cid}`);
+        });
+        console.log(`\n  Consensus: ${result.consensusCount}/${result.totalSources}`);
+        console.log(`  Agreed: ${result.agreed ? colors.green('Yes') : colors.red('No')}\n`);
+      }
+      process.exit(result.agreed ? 0 : 1);
+    } catch (error) {
+      console.error(colors.red('Error:'), (error as Error).message);
+      process.exit(1);
+    }
+  });
+
+// Verify package on blockchain
+program
+  .command('verify-on-chain <spec>')
+  .description(
+    'Verify package CID against blockchain. Use <name>@<version>. CID from --cid or package nullvoid.verification'
+  )
+  .option('--cid <cid>', 'Expected CID (overrides nullvoid.verification)')
+  .option('-j, --json', 'Output as JSON')
+  .action(async (spec: string, options: { cid?: string; json?: boolean }) => {
+    try {
+      const match = spec.match(/^(.+?)@(.+)$/);
+      const packageName = match && match[1] ? match[1] : spec;
+      const version = match && match[2] ? match[2] : 'latest';
+
+      let expectedCID = options.cid;
+      if (!expectedCID) {
+        const axios = (await import('axios')).default;
+        const metaRes = await axios.get(
+          `https://registry.npmjs.org/${encodeURIComponent(packageName)}`,
+          { timeout: 10000 }
+        );
+        const data = metaRes.data as {
+          versions?: Record<string, { nullvoid?: { verification?: string | { cid?: string } } }>;
+          'dist-tags'?: { latest?: string };
+        };
+        let versionData = data.versions?.[version];
+        if (!versionData && version === 'latest') {
+          const latest = data['dist-tags']?.latest;
+          versionData = latest ? data.versions?.[latest] : undefined;
+        }
+        if (versionData) {
+          const nv = versionData.nullvoid?.verification;
+          expectedCID = typeof nv === 'string' ? nv : nv?.cid;
+        }
+      }
+      if (!expectedCID) {
+        console.error(
+          colors.red('Error:'),
+          '--cid required or add nullvoid.verification to package'
+        );
+        process.exit(1);
+      }
+
+      if (!BLOCKCHAIN_CONFIG.CONTRACT_ADDRESS) {
+        console.error(colors.red('Error:'), 'Set NULLVOID_BLOCKCHAIN_CONTRACT_ADDRESS');
+        process.exit(1);
+      }
+
+      const ok = await verifyPackageOnChain(packageName, version, expectedCID, {
+        CONTRACT_ADDRESS: BLOCKCHAIN_CONFIG.CONTRACT_ADDRESS,
+        RPC_URL: BLOCKCHAIN_CONFIG.RPC_URL,
+      });
+
+      if (options.json) {
+        console.log(
+          JSON.stringify({ verified: ok, packageName, version, cid: expectedCID }, null, 2)
+        );
+      } else if (ok) {
+        console.log(colors.green('✓ Verified on chain:'), expectedCID);
+      } else {
+        const chainCid = await getCidFromChain(packageName, version, {
+          CONTRACT_ADDRESS: BLOCKCHAIN_CONFIG.CONTRACT_ADDRESS,
+          RPC_URL: BLOCKCHAIN_CONFIG.RPC_URL,
+        });
+        console.log(
+          colors.red('✗ Mismatch:'),
+          `Expected ${expectedCID}, on chain: ${chainCid ?? 'none'}`
+        );
+        process.exit(1);
+      }
+      process.exit(ok ? 0 : 1);
     } catch (error) {
       console.error(colors.red('Error:'), (error as Error).message);
       process.exit(1);

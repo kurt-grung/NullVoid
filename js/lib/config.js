@@ -8,7 +8,7 @@ const path = require('path');
 
 /**
  * Load .nullvoidrc.json from project root (cwd) and merge into config
- * Supports: DEPENDENCY_CONFUSION_CONFIG.PHASE2_DETECTION (ML_MODEL_URL, ML_MODEL_PATH, ML_ANOMALY_THRESHOLD, ML_WEIGHTS)
+ * Supports: DEPENDENCY_CONFUSION_CONFIG.ML_DETECTION (ML_MODEL_URL, ML_MODEL_PATH, ML_ANOMALY_THRESHOLD, ML_WEIGHTS)
  * @param {object} config - Config object to merge into (mutated)
  */
 function loadNullvoidRc(config) {
@@ -485,9 +485,9 @@ const ENV_MAPPINGS = {
   NULLVOID_MAX_DEPTH: 'SCAN_CONFIG.MAX_DEPTH',
   NULLVOID_LOG_LEVEL: 'LOGGING_CONFIG.DEFAULT_LEVEL',
   // ML model (dependency confusion / timeline analysis)
-  NULLVOID_ML_MODEL_URL: 'DEPENDENCY_CONFUSION_CONFIG.PHASE2_DETECTION.ML_MODEL_URL',
-  NULLVOID_ML_MODEL_PATH: 'DEPENDENCY_CONFUSION_CONFIG.PHASE2_DETECTION.ML_MODEL_PATH',
-  NULLVOID_ML_ANOMALY_THRESHOLD: 'DEPENDENCY_CONFUSION_CONFIG.PHASE2_DETECTION.ML_ANOMALY_THRESHOLD'
+  NULLVOID_ML_MODEL_URL: 'DEPENDENCY_CONFUSION_CONFIG.ML_DETECTION.ML_MODEL_URL',
+  NULLVOID_ML_MODEL_PATH: 'DEPENDENCY_CONFUSION_CONFIG.ML_DETECTION.ML_MODEL_PATH',
+  NULLVOID_ML_ANOMALY_THRESHOLD: 'DEPENDENCY_CONFUSION_CONFIG.ML_DETECTION.ML_ANOMALY_THRESHOLD'
 };
 
 // Dependency Confusion Detection Configuration
@@ -541,7 +541,7 @@ const DEPENDENCY_CONFUSION_CONFIG = {
   },
 
   // Timeline & ML detection
-  PHASE2_DETECTION: {
+  ML_DETECTION: {
     MULTI_REGISTRY: true,
     TIMELINE_ANOMALY: true,
     ML_SCORING: true,
@@ -555,7 +555,10 @@ const DEPENDENCY_CONFUSION_CONFIG = {
       commitPatternAnomaly: 0.08,
       nlpSecurityScore: 0.08,
       crossPackageAnomaly: 0.03,
-      behavioralAnomaly: 0.03
+      behavioralAnomaly: 0.03,
+      reviewSecurityScore: 0.05,
+      popularityScore: 0.02,
+      trustScore: 0.05
     },
     // Full ML model: replace rule-based scoring (optional)
     // ML_MODEL_URL: POST features JSON, expect { score: 0-1 }; e.g. 'https://api.example.com/score'
@@ -567,21 +570,56 @@ const DEPENDENCY_CONFUSION_CONFIG = {
   },
 
   // NLP on docs/issues (AI/ML)
-  PHASE4_NLP_CONFIG: {
-    ENABLED: process.env.NULLVOID_PHASE4_NLP_ENABLED === 'true',
-    GITHUB_TOKEN: process.env.GITHUB_TOKEN || process.env.PHASE4_GITHUB_TOKEN || null,
+  NLP_CONFIG: {
+    ENABLED: process.env.NULLVOID_NLP_ENABLED === 'true',
+    GITHUB_TOKEN: process.env.GITHUB_TOKEN || process.env.NULLVOID_GITHUB_TOKEN || null,
     MAX_ISSUES: 30,
     SKIP_IF_NO_REPO: true,
     TIMEOUT_MS: 10000
   },
 
   // IPFS verification (Blockchain)
-  PHASE4_IPFS_CONFIG: {
-    ENABLED: process.env.NULLVOID_PHASE4_IPFS_ENABLED === 'true',
+  IPFS_CONFIG: {
+    ENABLED: process.env.NULLVOID_IPFS_ENABLED === 'true',
     GATEWAY_URL: process.env.NULLVOID_IPFS_GATEWAY || 'https://ipfs.io',
     PIN_SERVICE_URL: process.env.NULLVOID_IPFS_PIN_SERVICE_URL || null,
     PIN_SERVICE_TOKEN: process.env.NULLVOID_IPFS_PIN_SERVICE_TOKEN || null,
     ALGORITHM: 'sha2-256'
+  },
+
+  // Community analysis (downloads, stars, maintenance)
+  COMMUNITY_CONFIG: {
+    ENABLED: process.env.NULLVOID_COMMUNITY_ENABLED === 'true',
+    GITHUB_TOKEN: process.env.GITHUB_TOKEN || process.env.NULLVOID_GITHUB_TOKEN || null,
+    TIMEOUT_MS: 10000,
+    USE_DOWNLOADS: true,
+    USE_GITHUB_STARS: true,
+    USE_DEPENDENTS: false
+  },
+
+  // Trust network (local trust store)
+  TRUST_CONFIG: {
+    ENABLED: process.env.NULLVOID_TRUST_ENABLED === 'true',
+    TRUST_STORE_PATH: process.env.NULLVOID_TRUST_STORE_PATH || '~/.nullvoid/trust-store.json',
+    TRANSITIVE_TRUST_WEIGHT: 0.3
+  },
+
+  // Consensus verification (multi-source)
+  CONSENSUS_CONFIG: {
+    ENABLED: process.env.NULLVOID_CONSENSUS_ENABLED === 'true',
+    SOURCES: ['npm', 'github', 'ipfs'],
+    MIN_AGREEMENT: 2,
+    GITHUB_TOKEN: process.env.GITHUB_TOKEN || process.env.NULLVOID_GITHUB_TOKEN || null,
+    GATEWAY_URL: process.env.NULLVOID_IPFS_GATEWAY || 'https://ipfs.io'
+  },
+
+  // Blockchain verification (on-chain package CIDs)
+  BLOCKCHAIN_CONFIG: {
+    ENABLED: process.env.NULLVOID_BLOCKCHAIN_ENABLED === 'true',
+    RPC_URL: process.env.NULLVOID_BLOCKCHAIN_RPC_URL || 'https://polygon-rpc.com',
+    CONTRACT_ADDRESS: process.env.NULLVOID_BLOCKCHAIN_CONTRACT_ADDRESS || null,
+    PRIVATE_KEY: process.env.NULLVOID_BLOCKCHAIN_PRIVATE_KEY || null,
+    CHAIN_ID: parseInt(process.env.NULLVOID_BLOCKCHAIN_CHAIN_ID || '137', 10)
   },
   
   // Analysis settings

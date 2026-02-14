@@ -1147,9 +1147,9 @@ export const DISPLAY_PATTERNS = {
 /**
  * NLP Configuration (AI/ML)
  */
-export const PHASE4_NLP_CONFIG = {
-  ENABLED: process.env['NULLVOID_PHASE4_NLP_ENABLED']?.toLowerCase() === 'true',
-  GITHUB_TOKEN: process.env['GITHUB_TOKEN'] || process.env['PHASE4_GITHUB_TOKEN'] || null,
+export const NLP_CONFIG = {
+  ENABLED: process.env['NULLVOID_NLP_ENABLED']?.toLowerCase() === 'true',
+  GITHUB_TOKEN: process.env['GITHUB_TOKEN'] || process.env['NULLVOID_GITHUB_TOKEN'] || null,
   MAX_ISSUES: 30,
   SKIP_IF_NO_REPO: true,
   TIMEOUT_MS: 10000,
@@ -1158,12 +1158,55 @@ export const PHASE4_NLP_CONFIG = {
 /**
  * IPFS Verification Configuration (Blockchain)
  */
-export const PHASE4_IPFS_CONFIG = {
-  ENABLED: process.env['NULLVOID_PHASE4_IPFS_ENABLED']?.toLowerCase() === 'true',
+export const IPFS_CONFIG = {
+  ENABLED: process.env['NULLVOID_IPFS_ENABLED']?.toLowerCase() === 'true',
   GATEWAY_URL: process.env['NULLVOID_IPFS_GATEWAY'] || 'https://ipfs.io',
   PIN_SERVICE_URL: process.env['NULLVOID_IPFS_PIN_SERVICE_URL'] || null,
   PIN_SERVICE_TOKEN: process.env['NULLVOID_IPFS_PIN_SERVICE_TOKEN'] || null,
   ALGORITHM: 'sha2-256' as const,
+} as const;
+
+/**
+ * Community Analysis Configuration (downloads, stars, maintenance)
+ */
+export const COMMUNITY_CONFIG = {
+  ENABLED: process.env['NULLVOID_COMMUNITY_ENABLED']?.toLowerCase() === 'true',
+  GITHUB_TOKEN: process.env['GITHUB_TOKEN'] || process.env['NULLVOID_GITHUB_TOKEN'] || null,
+  TIMEOUT_MS: 10000,
+  USE_DOWNLOADS: true,
+  USE_GITHUB_STARS: true,
+  USE_DEPENDENTS: false,
+} as const;
+
+/**
+ * Trust Network Configuration
+ */
+export const TRUST_CONFIG = {
+  ENABLED: process.env['NULLVOID_TRUST_ENABLED']?.toLowerCase() === 'true',
+  TRUST_STORE_PATH: process.env['NULLVOID_TRUST_STORE_PATH'] || '~/.nullvoid/trust-store.json',
+  TRANSITIVE_TRUST_WEIGHT: 0.3,
+} as const;
+
+/**
+ * Blockchain Verification Configuration
+ */
+export const BLOCKCHAIN_CONFIG = {
+  ENABLED: process.env['NULLVOID_BLOCKCHAIN_ENABLED']?.toLowerCase() === 'true',
+  RPC_URL: process.env['NULLVOID_BLOCKCHAIN_RPC_URL'] || 'https://polygon-rpc.com',
+  CONTRACT_ADDRESS: process.env['NULLVOID_BLOCKCHAIN_CONTRACT_ADDRESS'] || null,
+  PRIVATE_KEY: process.env['NULLVOID_BLOCKCHAIN_PRIVATE_KEY'] || null,
+  CHAIN_ID: parseInt(process.env['NULLVOID_BLOCKCHAIN_CHAIN_ID'] || '137', 10),
+} as const;
+
+/**
+ * Consensus Verification Configuration
+ */
+export const CONSENSUS_CONFIG = {
+  ENABLED: process.env['NULLVOID_CONSENSUS_ENABLED']?.toLowerCase() === 'true',
+  SOURCES: ['npm', 'github', 'ipfs'] as const,
+  MIN_AGREEMENT: 2,
+  GITHUB_TOKEN: process.env['GITHUB_TOKEN'] || process.env['NULLVOID_GITHUB_TOKEN'] || null,
+  GATEWAY_URL: process.env['NULLVOID_IPFS_GATEWAY'] || 'https://ipfs.io',
 } as const;
 
 // Initialize configuration from environment

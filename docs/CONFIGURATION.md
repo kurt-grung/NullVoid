@@ -436,7 +436,7 @@ You can validate NullVoid configuration (e.g. after editing `js/lib/config.js` o
 node scripts/validate-config.js
 ```
 
-The script checks that required config objects and keys exist (e.g. `DEPENDENCY_CONFUSION_CONFIG.TIMELINE_THRESHOLDS`, `REGISTRY_ENDPOINTS`, `PHASE2_DETECTION.ML_WEIGHTS` sum in a reasonable range). Exit code 0 means valid; 1 means one or more validation errors (printed to stderr).
+The script checks that required config objects and keys exist (e.g. `DEPENDENCY_CONFUSION_CONFIG.TIMELINE_THRESHOLDS`, `REGISTRY_ENDPOINTS`, `ML_DETECTION.ML_WEIGHTS` sum in a reasonable range). Exit code 0 means valid; 1 means one or more validation errors (printed to stderr).
 
 ## Pre-commit Integration
 

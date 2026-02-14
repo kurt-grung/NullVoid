@@ -13,10 +13,10 @@ const { DEPENDENCY_CONFUSION_CONFIG } = require('./config');
 const { analyzeTimeline } = require('./timelineAnalysis');
 const { analyzeCommitPatterns, commitPatternAnomalyScore } = require('./commitPatternAnalysis');
 
-const PHASE2 = DEPENDENCY_CONFUSION_CONFIG?.PHASE2_DETECTION ?? {};
-const ML_ENABLED = PHASE2.ML_SCORING !== false;
-const ANOMALY_THRESHOLD = PHASE2.ML_ANOMALY_THRESHOLD ?? 0.7;
-const ML_WEIGHTS = PHASE2.ML_WEIGHTS ?? {
+const ML_CFG = DEPENDENCY_CONFUSION_CONFIG?.ML_DETECTION ?? {};
+const ML_ENABLED = ML_CFG.ML_SCORING !== false;
+const ANOMALY_THRESHOLD = ML_CFG.ML_ANOMALY_THRESHOLD ?? 0.7;
+const ML_WEIGHTS = ML_CFG.ML_WEIGHTS ?? {
   timelineAnomaly: 0.4,
   scopePrivate: 0.15,
   suspiciousPatterns: 0.15,
@@ -24,16 +24,19 @@ const ML_WEIGHTS = PHASE2.ML_WEIGHTS ?? {
   commitPatternAnomaly: 0.08,
   nlpSecurityScore: 0.08,
   crossPackageAnomaly: 0.03,
-  behavioralAnomaly: 0.03
+  behavioralAnomaly: 0.03,
+  reviewSecurityScore: 0.05,
+  popularityScore: 0.02,
+  trustScore: 0.05
 };
-const ML_MODEL_URL = PHASE2.ML_MODEL_URL || null;
-const ML_MODEL_PATH = PHASE2.ML_MODEL_PATH || null;
-const COMMIT_PATTERN_ENABLED = PHASE2.COMMIT_PATTERN_ANALYSIS !== false;
+const ML_MODEL_URL = ML_CFG.ML_MODEL_URL || null;
+const ML_MODEL_PATH = ML_CFG.ML_MODEL_PATH || null;
+const COMMIT_PATTERN_ENABLED = ML_CFG.COMMIT_PATTERN_ANALYSIS !== false;
 const MODEL_TIMEOUT = 5000;
 
 /**
  * Build a feature vector for a package (for rule-based or ML model)
- * @param {Object} params - timeline + name + scope + git activity + optional commitPatterns, nlpResult, crossPackageAnomaly, behavioralAnomaly
+ * @param {Object} params - timeline + name + scope + git activity + optional commitPatterns, nlpResult, crossPackageAnomaly, behavioralAnomaly, communityResult
  * @returns {Object} Feature set
  */
 function buildFeatureVector(params) {
@@ -46,7 +49,9 @@ function buildFeatureVector(params) {
     commitPatterns = null,
     nlpResult = null,
     crossPackageAnomaly = null,
-    behavioralAnomaly = null
+    behavioralAnomaly = null,
+    communityResult = null,
+    trustScore = null
   } = params;
   const timeline = analyzeTimeline({
     registryCreated: params.registryCreated ?? params.creationDate,
@@ -78,13 +83,18 @@ function buildFeatureVector(params) {
   }
   if (crossPackageAnomaly != null) features.crossPackageAnomaly = crossPackageAnomaly;
   if (behavioralAnomaly != null) features.behavioralAnomaly = behavioralAnomaly;
+  if (communityResult) {
+    features.reviewSecurityScore = 1 - (communityResult.reviewSecurityScore ?? 0.5);
+    features.popularityScore = 1 - (communityResult.popularityScore ?? 0.5);
+  }
+  if (trustScore != null) features.trustScore = 1 - trustScore;
   return features;
 }
 
 /**
  * Compute a single threat score (0–1) from features using configurable ML weights
  * @param {Object} features - From buildFeatureVector
- * @param {Object} [weights] - Override PHASE2_DETECTION.ML_WEIGHTS
+ * @param {Object} [weights] - Override ML_DETECTION.ML_WEIGHTS
  * @returns {number} Score 0–1
  */
 function computeThreatScore(features, weights = ML_WEIGHTS) {
@@ -104,6 +114,12 @@ function computeThreatScore(features, weights = ML_WEIGHTS) {
     score += weights.crossPackageAnomaly * features.crossPackageAnomaly;
   if (features.behavioralAnomaly != null && weights.behavioralAnomaly)
     score += weights.behavioralAnomaly * features.behavioralAnomaly;
+  if (features.reviewSecurityScore != null && weights.reviewSecurityScore)
+    score += weights.reviewSecurityScore * features.reviewSecurityScore;
+  if (features.popularityScore != null && weights.popularityScore)
+    score += weights.popularityScore * features.popularityScore;
+  if (features.trustScore != null && weights.trustScore)
+    score += weights.trustScore * features.trustScore;
   return Math.min(1, score);
 }
 
@@ -204,6 +220,8 @@ function computePredictiveScore(features) {
   if (features.recentCommitCount < 5 && (features.daysDifference ?? 365) < 90) s += 0.15;
   if (features.nlpSecurityScore != null) s += 0.15 * features.nlpSecurityScore;
   if (features.crossPackageAnomaly != null) s += 0.05 * features.crossPackageAnomaly;
+  if (features.reviewSecurityScore != null) s += 0.05 * features.reviewSecurityScore;
+  if (features.popularityScore != null) s += 0.05 * features.popularityScore;
   return Math.min(1, s);
 }
 
@@ -235,7 +253,9 @@ async function runMLDetection(params) {
     commitPatterns,
     nlpResult: params.nlpResult ?? null,
     crossPackageAnomaly: params.crossPackageAnomaly ?? null,
-    behavioralAnomaly: params.behavioralAnomaly ?? null
+    behavioralAnomaly: params.behavioralAnomaly ?? null,
+    communityResult: params.communityResult ?? null,
+    trustScore: params.trustScore ?? null
   });
 
   let threatScore = null;

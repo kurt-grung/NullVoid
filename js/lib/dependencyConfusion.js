@@ -18,6 +18,8 @@ const { getPackageCreationDateMulti } = require('./registries');
 const { analyzeTimeline } = require('./timelineAnalysis');
 const { runMLDetection } = require('./mlDetection');
 const { runNlpAnalysis } = require('./nlpAnalysis');
+const { runCommunityAnalysis } = require('./communityAnalysis');
+const { getTrustScore } = require('./trustNetwork');
 const { computeBehavioralAnomaly, computeCrossPackageAnomaly } = require('./anomalyDetection');
 
 /**
@@ -203,7 +205,7 @@ function analyzePackageName(packageName) {
  */
 async function detectDependencyConfusion(packageName, packagePath) {
   const threats = [];
-  const useMultiRegistry = DEPENDENCY_CONFUSION_CONFIG.PHASE2_DETECTION?.MULTI_REGISTRY !== false;
+  const useMultiRegistry = DEPENDENCY_CONFUSION_CONFIG.ML_DETECTION?.MULTI_REGISTRY !== false;
 
   try {
     // Get package creation date (multi-registry or single npm)
@@ -244,9 +246,12 @@ async function detectDependencyConfusion(packageName, packagePath) {
 
     // NLP analysis (optional, when enabled)
     let nlpResult = null;
+    let communityResult = null;
     let crossPackageAnomaly = null;
     let behavioralAnomaly = null;
-    const nlpConfig = DEPENDENCY_CONFUSION_CONFIG.PHASE4_NLP_CONFIG;
+    const nlpConfig = DEPENDENCY_CONFUSION_CONFIG.NLP_CONFIG;
+    const communityConfig = DEPENDENCY_CONFUSION_CONFIG.COMMUNITY_CONFIG;
+    const trustConfig = DEPENDENCY_CONFUSION_CONFIG.TRUST_CONFIG;
 
     // Behavioral and cross-package anomaly from package.json
     let pkgFeatures = null;
@@ -273,20 +278,32 @@ async function detectDependencyConfusion(packageName, packagePath) {
         }
       } catch { /* ignore */ }
     }
+    let version = 'latest';
+    if (packagePath) {
+      try {
+        const pkgPath = path.join(packagePath, 'package.json');
+        if (fs.existsSync(pkgPath)) {
+          const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+          version = pkg.version || 'latest';
+        }
+      } catch { /* ignore */ }
+    }
     if (nlpConfig?.ENABLED) {
       try {
-        let version = 'latest';
-        if (packagePath) {
-          try {
-            const pkgPath = path.join(packagePath, 'package.json');
-            if (fs.existsSync(pkgPath)) {
-              const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-              version = pkg.version || 'latest';
-            }
-          } catch { /* ignore */ }
-        }
         nlpResult = await runNlpAnalysis(packageName, version, nlpConfig);
       } catch { /* ignore NLP errors */ }
+    }
+    if (communityConfig?.ENABLED) {
+      try {
+        communityResult = await runCommunityAnalysis(packageName, version, communityConfig);
+      } catch { /* ignore community analysis errors */ }
+    }
+
+    let trustScore = null;
+    if (trustConfig?.ENABLED) {
+      try {
+        trustScore = await getTrustScore(packageName, version);
+      } catch { /* ignore trust lookup errors */ }
     }
 
     // ML detection (anomaly + threat score; commit pattern + optional model)
@@ -299,6 +316,8 @@ async function detectDependencyConfusion(packageName, packagePath) {
       registryName,
       packagePath,
       nlpResult,
+      communityResult,
+      trustScore,
       crossPackageAnomaly,
       behavioralAnomaly
     });

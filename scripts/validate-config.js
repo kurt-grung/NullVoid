@@ -31,11 +31,11 @@ if (!DEPENDENCY_CONFUSION_CONFIG) {
   if (!DEPENDENCY_CONFUSION_CONFIG.SCOPE_PATTERNS || !Array.isArray(DEPENDENCY_CONFUSION_CONFIG.SCOPE_PATTERNS.PRIVATE_SCOPES)) {
     errors.push('DEPENDENCY_CONFUSION_CONFIG.SCOPE_PATTERNS must define PRIVATE_SCOPES (array)');
   }
-  const phase2 = DEPENDENCY_CONFUSION_CONFIG.PHASE2_DETECTION;
-  if (phase2 && phase2.ML_WEIGHTS) {
-    const sum = Object.values(phase2.ML_WEIGHTS).reduce((a, b) => a + (typeof b === 'number' ? b : 0), 0);
+  const mlCfg = DEPENDENCY_CONFUSION_CONFIG.ML_DETECTION;
+  if (mlCfg && mlCfg.ML_WEIGHTS) {
+    const sum = Object.values(mlCfg.ML_WEIGHTS).reduce((a, b) => a + (typeof b === 'number' ? b : 0), 0);
     if (sum > 0 && (sum < 0.5 || sum > 1.5)) {
-      errors.push(`PHASE2_DETECTION.ML_WEIGHTS sum is ${sum.toFixed(2)}; typical range 0.5–1.5 for 0–1 score`);
+      errors.push(`ML_DETECTION.ML_WEIGHTS sum is ${sum.toFixed(2)}; typical range 0.5–1.5 for 0–1 score`);
     }
   }
 }

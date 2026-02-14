@@ -284,7 +284,7 @@
       "severity": "CRITICAL",
       "details": "MALICIOUS CODE DETECTED: Massive obfuscated code blob detected (8355 characters). High entropy detected (5.08). Confidence: 40% (2 threats)",
       "lineNumber": 74,
-      "sampleCode": "... * @param {Object} [weights] - Override PHASE2_DETECTION.ML_W...",
+      "sampleCode": "... * @param {Object} [weights] - Override ML_DETECTION.ML_W...",
       "confidence": 0.4
     },
     {

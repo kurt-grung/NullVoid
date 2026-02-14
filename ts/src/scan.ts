@@ -16,7 +16,7 @@ import { detectMalware } from './lib/detection';
 import { filterThreatsBySeverity } from './lib/detection';
 import { queryIoCProviders, mergeIoCThreats } from './lib/iocScanIntegration';
 import { getOptimalWorkerCount, getOptimalChunkSize, chunkPackages } from './lib/parallel';
-import { SCAN_CONFIG, PARALLEL_CONFIG, PHASE4_NLP_CONFIG } from './lib/config';
+import { SCAN_CONFIG, PARALLEL_CONFIG, NLP_CONFIG } from './lib/config';
 import { runNlpAnalysis } from './lib/nlpAnalysis';
 import type { IoCProviderName } from './types/ioc-types';
 
@@ -349,10 +349,10 @@ export async function scan(
                 }
 
                 // NLP analysis on dependencies (if enabled, limit to avoid rate limits)
-                if (PHASE4_NLP_CONFIG.ENABLED && nlpQueries.length < 20) {
+                if (NLP_CONFIG.ENABLED && nlpQueries.length < 20) {
                   const cleanVersion = depVersion.replace(/^[\^~>=<]+\s*/, '');
                   nlpQueries.push(
-                    runNlpAnalysis(depName, cleanVersion, PHASE4_NLP_CONFIG)
+                    runNlpAnalysis(depName, cleanVersion, NLP_CONFIG)
                       .then((nlpResult): Threat[] => {
                         if (
                           nlpResult &&
@@ -361,7 +361,7 @@ export async function scan(
                         ) {
                           return [
                             {
-                              type: 'PHASE4_NLP_SECURITY_INDICATOR',
+                              type: 'NLP_SECURITY_INDICATOR',
                               message: `NLP analysis: security indicators in ${depName} docs/issues`,
                               filePath: packageJsonPath,
                               filename: 'package.json',
