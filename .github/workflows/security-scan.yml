@@ -38,11 +38,15 @@ jobs:
     - name: Build NullVoid
       run: npm run build
       
-    - name: Run NullVoid security scan
-      run: node ts/dist/bin/nullvoid.js . --format json --output ${{ github.workspace }}/security-report.json
-      
-    - name: Convert to SARIF for Code Scanning
-      run: node scripts/json-to-sarif.js ${{ github.workspace }}/security-report.json ${{ github.workspace }}/nullvoid-results.sarif
+    - name: Run NullVoid security scan and convert to SARIF
+      run: |
+        set -e
+        cd "${{ github.workspace }}"
+        REPORT="${{ github.workspace }}/security-report.json"
+        SARIF="${{ github.workspace }}/nullvoid-results.sarif"
+        node ts/dist/bin/nullvoid.js . --format json --output "$REPORT"
+        test -f "$REPORT" || { echo "ERROR: security-report.json was not created"; ls -la . 2>/dev/null || true; exit 1; }
+        node scripts/json-to-sarif.js "$REPORT" "$SARIF"
       
     - name: Upload SARIF to GitHub Code Scanning
       uses: github/codeql-action/upload-sarif@v3
