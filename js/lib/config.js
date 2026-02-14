@@ -484,7 +484,7 @@ const ENV_MAPPINGS = {
   NULLVOID_MAX_FILE_SIZE: 'FILE_CONFIG.MAX_FILE_SIZE',
   NULLVOID_MAX_DEPTH: 'SCAN_CONFIG.MAX_DEPTH',
   NULLVOID_LOG_LEVEL: 'LOGGING_CONFIG.DEFAULT_LEVEL',
-  // Phase 2 ML model (dependency confusion / timeline analysis)
+  // ML model (dependency confusion / timeline analysis)
   NULLVOID_ML_MODEL_URL: 'DEPENDENCY_CONFUSION_CONFIG.PHASE2_DETECTION.ML_MODEL_URL',
   NULLVOID_ML_MODEL_PATH: 'DEPENDENCY_CONFUSION_CONFIG.PHASE2_DETECTION.ML_MODEL_PATH',
   NULLVOID_ML_ANOMALY_THRESHOLD: 'DEPENDENCY_CONFUSION_CONFIG.PHASE2_DETECTION.ML_ANOMALY_THRESHOLD'
@@ -528,19 +528,19 @@ const DEPENDENCY_CONFUSION_CONFIG = {
     /^[a-z]+[0-9]+[a-z]+$/     // letters-numbers-letters
   ],
   
-  // Registry endpoints (Phase 2: multi-registry)
+  // Registry endpoints (multi-registry)
   REGISTRY_ENDPOINTS: {
     npm: 'https://registry.npmjs.org',
     github: 'https://npm.pkg.github.com'
   },
 
-  // Phase 2: Multi-registry query order and optional custom registries
+  // Multi-registry query order and optional custom registries
   REGISTRIES: {
     DEFAULT_ORDER: ['npm', 'github'],
     CUSTOM: [] // e.g. [{ name: 'company', url: 'https://npm.company.com', auth: 'Bearer TOKEN' }]
   },
 
-  // Phase 2: Timeline & ML detection
+  // Timeline & ML detection
   PHASE2_DETECTION: {
     MULTI_REGISTRY: true,
     TIMELINE_ANOMALY: true,
@@ -566,7 +566,7 @@ const DEPENDENCY_CONFUSION_CONFIG = {
     COMMIT_PATTERN_ANALYSIS: true
   },
 
-  // Phase 4: NLP on docs/issues (AI/ML)
+  // NLP on docs/issues (AI/ML)
   PHASE4_NLP_CONFIG: {
     ENABLED: process.env.NULLVOID_PHASE4_NLP_ENABLED === 'true',
     GITHUB_TOKEN: process.env.GITHUB_TOKEN || process.env.PHASE4_GITHUB_TOKEN || null,
@@ -575,7 +575,7 @@ const DEPENDENCY_CONFUSION_CONFIG = {
     TIMEOUT_MS: 10000
   },
 
-  // Phase 4: IPFS verification (Blockchain)
+  // IPFS verification (Blockchain)
   PHASE4_IPFS_CONFIG: {
     ENABLED: process.env.NULLVOID_PHASE4_IPFS_ENABLED === 'true',
     GATEWAY_URL: process.env.NULLVOID_IPFS_GATEWAY || 'https://ipfs.io',

@@ -293,7 +293,7 @@ nullvoid /path/to/project --enable-redis
 # Show statistics
 nullvoid /path/to/project --cache-stats --network-stats
 
-# Registry health check (Phase 2)
+# Registry health check
 nullvoid registry-health
 nullvoid registry-health --json
 nullvoid registry-health -t 10000

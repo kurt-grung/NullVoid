@@ -1,5 +1,5 @@
 /**
- * Multi-registry provider (Phase 2)
+ * Multi-registry provider
  *
  * Fetches package metadata from npm, GitHub Packages, and configurable
  * private registries. Supports cross-registry comparison for dependency
@@ -192,7 +192,7 @@ export async function fetchFromRegistry(
 }
 
 /**
- * Get package creation date from the first available registry (Phase 2 multi-registry)
+ * Get package creation date from the first available registry
  */
 export async function getPackageCreationDateMulti(
   packageName: string,
@@ -274,7 +274,7 @@ export async function compareRegistries(
 }
 
 /**
- * Registry health check: ping registry root and measure latency (Phase 2).
+ * Registry health check: ping registry root and measure latency.
  */
 export function checkRegistryHealth(
   registryName: string,
@@ -314,7 +314,7 @@ export function checkRegistryHealth(
 }
 
 /**
- * Check health of all configured registries (Phase 2).
+ * Check health of all configured registries.
  */
 export async function checkAllRegistriesHealth(
   options: { timeout?: number } = {}

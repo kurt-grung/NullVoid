@@ -1,10 +1,10 @@
 /**
- * Phase 4: Anomaly Detection Unit Tests (JS)
+ * Anomaly Detection Unit Tests
  */
 
 const { computeCrossPackageAnomaly, computeBehavioralAnomaly } = require('../../lib/anomalyDetection');
 
-describe('Anomaly Detection (Phase 4)', () => {
+describe('Anomaly Detection', () => {
   describe('computeCrossPackageAnomaly', () => {
     test('should use typical baseline when no similar packages and return deviation score', () => {
       // Empty array triggers typical npm baseline; package deviating from typical gets non-zero score

@@ -209,7 +209,7 @@ program
 
 program
   .command('registry-health')
-  .description('Check health and availability of configured package registries (Phase 2)')
+  .description('Check health and availability of configured package registries')
   .option('-o, --output <format>', 'Output format (table, json)', 'table')
   .option('-t, --timeout <ms>', 'Health check timeout in ms', '5000')
   .action(async (options) => {

@@ -1,5 +1,5 @@
 /**
- * Unit tests for multi-registry and registry health (Phase 2)
+ * Unit tests for multi-registry and registry health
  */
 
 const https = require('https');
@@ -13,7 +13,7 @@ const {
   checkAllRegistriesHealth
 } = require('../../lib/registries');
 
-describe('Registries (Phase 2)', () => {
+describe('Registries', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });

@@ -1,5 +1,5 @@
 /**
- * Phase 4: NLP Analysis Unit Tests (JS)
+ * NLP Analysis Unit Tests
  */
 
 const {
@@ -10,7 +10,7 @@ const {
   DEFAULT_NLP_CONFIG
 } = require('../../lib/nlpAnalysis');
 
-describe('NLP Analysis (Phase 4)', () => {
+describe('NLP Analysis', () => {
   describe('analyzeDocsNLP', () => {
     test('should return security score 0 for empty text', () => {
       const result = analyzeDocsNLP({ readme: '', description: '' });

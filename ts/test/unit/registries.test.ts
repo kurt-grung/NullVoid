@@ -1,5 +1,5 @@
 /**
- * Unit tests for multi-registry and registry health (Phase 2)
+ * Unit tests for multi-registry and registry health
  */
 
 import { describe, it, expect, beforeEach } from '@jest/globals';
@@ -12,7 +12,7 @@ import {
 
 jest.mock('https');
 
-describe('Registries (Phase 2)', () => {
+describe('Registries', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });

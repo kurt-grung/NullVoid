@@ -1145,7 +1145,7 @@ export const DISPLAY_PATTERNS = {
 };
 
 /**
- * Phase 4: NLP Configuration (AI/ML)
+ * NLP Configuration (AI/ML)
  */
 export const PHASE4_NLP_CONFIG = {
   ENABLED: process.env['NULLVOID_PHASE4_NLP_ENABLED']?.toLowerCase() === 'true',
@@ -1156,7 +1156,7 @@ export const PHASE4_NLP_CONFIG = {
 } as const;
 
 /**
- * Phase 4: IPFS Verification Configuration (Blockchain)
+ * IPFS Verification Configuration (Blockchain)
  */
 export const PHASE4_IPFS_CONFIG = {
   ENABLED: process.env['NULLVOID_PHASE4_IPFS_ENABLED']?.toLowerCase() === 'true',

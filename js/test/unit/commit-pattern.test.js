@@ -1,5 +1,5 @@
 /**
- * Unit tests for Commit Pattern Analysis (Phase 2)
+ * Unit tests for Commit Pattern Analysis
  */
 
 const { execSync } = require('child_process');
@@ -13,7 +13,7 @@ const {
   analyzeDiffPatterns
 } = require('../../lib/commitPatternAnalysis');
 
-describe('Commit Pattern Analysis (Phase 2)', () => {
+describe('Commit Pattern Analysis', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });

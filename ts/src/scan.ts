@@ -348,7 +348,7 @@ export async function scan(
                   );
                 }
 
-                // Phase 4: NLP analysis on dependencies (if enabled, limit to avoid rate limits)
+                // NLP analysis on dependencies (if enabled, limit to avoid rate limits)
                 if (PHASE4_NLP_CONFIG.ENABLED && nlpQueries.length < 20) {
                   const cleanVersion = depVersion.replace(/^[\^~>=<]+\s*/, '');
                   nlpQueries.push(

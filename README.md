@@ -188,7 +188,7 @@ nullvoid --network-stats
 nullvoid . --network-stats
 ```
 
-### Registry Health (Phase 2)
+### Registry Health
 ```bash
 # Check health of configured package registries (npm, yarn, github)
 nullvoid registry-health
@@ -623,7 +623,7 @@ Scanned 15 package(s) in 234ms
 | `--cache-stats` | Show cache statistics | `false` |
 | `--enable-redis` | Enable Redis distributed cache | `false` |
 | `--network-stats` | Show network performance metrics | `false` |
-| `nullvoid registry-health` | Check health of configured package registries (Phase 2) | - |
+| `nullvoid registry-health` | Check health of configured package registries | - |
 | `--version` | Show version information | - |
 | `--help` | Show help information | - |
 

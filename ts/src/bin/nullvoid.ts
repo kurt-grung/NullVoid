@@ -42,10 +42,10 @@ interface CliOptions {
 
 program.name('nullvoid').description('NullVoid Security Scanner').version(packageJson.version);
 
-// Phase 4: Sign package (compute CID, optional pin)
+// Sign package (compute CID, optional pin)
 program
   .command('sign-package <path>')
-  .description('Compute IPFS CID for a package tarball (Phase 4)')
+  .description('Compute IPFS CID for a package tarball')
   .option('--pin', 'Pin to IPFS (requires PIN_SERVICE_URL and PIN_SERVICE_TOKEN)')
   .option('-o, --output <file>', 'Write verification record JSON to file')
   .option('--update-package-json <file>', 'Write nullvoid.verification.cid into package.json')
@@ -128,11 +128,11 @@ program
     }
   );
 
-// Phase 4: Verify package (compare CID)
+// Verify package (compare CID)
 program
   .command('verify-package <spec>')
   .description(
-    'Verify package integrity against CID (Phase 4). Use <name>@<version> or path to .tgz. CID from --cid or package nullvoid.verification'
+    'Verify package integrity against CID. Use <name>@<version> or path to .tgz. CID from --cid or package nullvoid.verification'
   )
   .option('--cid <cid>', 'Expected CID (overrides nullvoid.verification from package)')
   .option('-j, --json', 'Output as JSON')
@@ -258,10 +258,10 @@ program
     }
   });
 
-// Phase 2: Registry health command (must be before default to match "nullvoid registry-health")
+// Registry health command (must be before default to match "nullvoid registry-health")
 program
   .command('registry-health')
-  .description('Check health and availability of configured package registries (Phase 2)')
+  .description('Check health and availability of configured package registries')
   .option('-j, --json', 'Output as JSON')
   .option('-t, --timeout <ms>', 'Health check timeout in ms', '5000')
   .action(async function (this: { opts: () => { json?: boolean; timeout?: string } }) {
