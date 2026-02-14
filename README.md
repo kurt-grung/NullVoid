@@ -34,9 +34,9 @@ jobs:
   security-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '18'
       
@@ -47,7 +47,7 @@ jobs:
         run: nullvoid . --output sarif --sarif-file nullvoid-results.sarif
       
       - name: Upload SARIF Results
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: nullvoid-results.sarif
 ```
@@ -228,6 +228,11 @@ NullVoid now integrates with multiple vulnerability databases to check packages 
 - **NVD/CVE**: National Vulnerability Database (public, enabled by default)
 - **Snyk**: Commercial vulnerability database (requires API key)
 
+### **Intelligent CVE Filtering**
+NullVoid reduces false positives with version-aware and product-aware filtering:
+- **Version-aware**: Excludes CVEs when your installed version is outside the affected range (NVD CPE bounds or "fixed in X" from descriptions)
+- **Product disambiguation**: Excludes CVEs for different products with similar names (e.g. Midnight Commander vs npm commander, grunt/shiba vs js-yaml)
+
 ### **Usage**
 ```bash
 # Automatic IoC scanning (enabled by default)
@@ -300,6 +305,7 @@ For more details, see [IoC Usage Guide](docs/IOC_USAGE.md).
 - **Multi-Layer Security**: Comprehensive static analysis with multiple detection methods
 - **Path Security**: Protection against path traversal and command injection attacks
 - **Input Validation**: Comprehensive input sanitization and validation
+- **Safe Config Loading**: Rules and config files loaded with restricted YAML schema (JSON_SCHEMA) to prevent arbitrary code execution from untrusted input
 
 ### **Threat Detection Capabilities**
 - **Obfuscated Malware**: Detection of variable name mangling, hex encoding, and anti-debugging patterns
@@ -351,7 +357,7 @@ For more details, see [IoC Usage Guide](docs/IOC_USAGE.md).
 - **Vulnerability Display**: Enhanced output with CVE details and CVSS scores
 - **Cache Statistics**: View detailed cache performance metrics
 - **Network Statistics**: Monitor connection pool and request performance
-- **Comprehensive Test Coverage**: 113 tests across 18 test suites
+- **Comprehensive Test Coverage**: 142 tests across 22 test suites
 
 ## 🎯 v2.0.3 - Enhanced Type Safety & Code Quality
 
@@ -479,7 +485,7 @@ NullVoid's TypeScript migration and v2.1.0 optimizations deliver significant per
 - **✅ Zero Warnings**: Enterprise-grade code quality with comprehensive error handling
 - **🎨 Enhanced UX**: Beautiful colored output with professional formatting
 - **🔒 Security Hardened**: Fixed memory leaks and enhanced security measures
-- **🏆 Production Ready**: Comprehensive testing with 113 tests across 18 test suites
+- **🏆 Production Ready**: Comprehensive testing with 142 tests across 22 test suites
 
 ## 🎯 **What Can NullVoid Scan?**
 
@@ -816,9 +822,9 @@ jobs:
   security-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '18'
       
@@ -829,7 +835,7 @@ jobs:
         run: nullvoid . --output sarif --sarif-file nullvoid-results.sarif
       
       - name: Upload SARIF Results
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: nullvoid-results.sarif
 ```
@@ -920,7 +926,7 @@ stage('NullVoid Security Scan') {
     "tool": {
       "driver": {
         "name": "NullVoid",
-        "version": "2.0.2",
+        "version": "2.1.0",
         "informationUri": "https://github.com/kurt-grung/NullVoid"
       }
     },
@@ -973,7 +979,7 @@ NullVoid is maintained as a focused, security-first tool with a single developme
 ### 🔒 **Security-First Approach**
 - **No External Code**: All code is written and reviewed by the core team
 - **Focused Development**: Single direction ensures consistent security standards
-- **Quality Assurance**: 111+ tests ensure reliability and security
+- **Quality Assurance**: 142+ tests ensure reliability and security
 - **Regular Updates**: Continuous security improvements and threat detection updates
 
 ### 📋 **Issue Guidelines**
