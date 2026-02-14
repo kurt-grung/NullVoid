@@ -1,0 +1,16 @@
+{
+  "DEPENDENCY_CONFUSION_CONFIG": {
+    "PHASE2_DETECTION": {
+      "ML_MODEL_URL": "https://api.example.com/score",
+      "ML_MODEL_PATH": null,
+      "ML_ANOMALY_THRESHOLD": 0.7,
+      "ML_WEIGHTS": {
+        "timelineAnomaly": 0.5,
+        "scopePrivate": 0.2,
+        "suspiciousPatterns": 0.2,
+        "lowActivityRecent": 0.1,
+        "commitPatternAnomaly": 0.1
+      }
+    }
+  }
+}
