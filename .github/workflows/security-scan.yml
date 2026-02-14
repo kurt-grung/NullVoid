@@ -68,14 +68,13 @@ jobs:
       with:
         script: |
           const fs = require('fs');
+          const marker = '## 🔍 NullVoid Security Scan Results';
           let report;
           try {
             const content = fs.readFileSync('security-report.json', 'utf8');
             report = JSON.parse(content);
           } catch (error) {
             console.log('Error parsing security report:', error.message);
-            console.log('File content:', fs.readFileSync('security-report.json', 'utf8'));
-            // Create a fallback report
             report = {
               threats: [],
               packagesScanned: 0,
@@ -84,7 +83,7 @@ jobs:
             };
           }
           
-          let comment = '## 🔍 NullVoid Security Scan Results\n\n';
+          let comment = marker + '\n\n';
           
           if (report.threats.length === 0) {
             comment += '✅ **No security threats detected!**\n\n';
@@ -114,12 +113,27 @@ jobs:
           comment += '---\n';
           comment += '*This scan was performed by [NullVoid](https://github.com/kurt-grung/NullVoid) - a tool to detect malicious npm packages.*';
           
-          github.rest.pulls.createReview({
-            pull_number: context.issue.number,
+          // Remove previous NullVoid scan comments (from bot or any comment with our marker)
+          const { data: comments } = await github.rest.issues.listComments({
             owner: context.repo.owner,
             repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+          for (const c of comments) {
+            if (c.body && c.body.includes(marker)) {
+              await github.rest.issues.deleteComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: c.id,
+              });
+            }
+          }
+          
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
             body: comment,
-            event: 'COMMENT'
           });
           
     - name: Fail on critical and high severity malware threats
