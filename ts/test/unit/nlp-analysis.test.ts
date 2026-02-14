@@ -1,5 +1,5 @@
 /**
- * Phase 4: NLP Analysis Unit Tests
+ * NLP Analysis Unit Tests
  */
 
 import { describe, it, expect } from '@jest/globals';
@@ -12,7 +12,7 @@ import {
 } from '../../src/lib/nlpAnalysis';
 import type { GitHubIssue } from '../../src/lib/nlpAnalysis';
 
-describe('NLP Analysis (Phase 4)', () => {
+describe('NLP Analysis', () => {
   describe('analyzeDocsNLP', () => {
     it('should return security score 0 for empty text', () => {
       const result = analyzeDocsNLP({ readme: '', description: '' });

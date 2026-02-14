@@ -1,6 +1,6 @@
 # IoC Integration & Performance Features Usage Guide
 
-This guide explains how to use the new Q1 2025 features: Public IoC Integration and Performance Optimizations.
+This guide explains how to use Public IoC Integration and Performance Optimizations.
 
 ## Table of Contents
 

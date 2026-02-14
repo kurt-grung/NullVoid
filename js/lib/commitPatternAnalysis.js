@@ -1,5 +1,5 @@
 /**
- * Commit Pattern Analysis (Phase 2)
+ * Commit Pattern Analysis
  *
  * Analyzes author behavior and repo structure from git history for
  * dependency confusion and supply-chain risk. Feeds into ML detection.
@@ -43,7 +43,7 @@ function git(cmd, cwd) {
 }
 
 /**
- * Analyze commit patterns: authors, activity, repo structure (Phase 2)
+ * Analyze commit patterns: authors, activity, repo structure
  * @param {string} packagePath - Path to package directory (or repo)
  * @returns {Object} { authorCount, totalCommitCount, firstCommitDate, lastCommitDate, dateRangeDays, branchCount, recentCommitCount90d, recentCommitCount30d, hasMultipleAuthors, dominantAuthorShare, repoRoot, hasGitHistory }
  */
@@ -111,7 +111,7 @@ function analyzeCommitPatterns(packagePath) {
   if (count90 != null) result.recentCommitCount90d = parseInt(count90, 10) || 0;
   if (count30 != null) result.recentCommitCount30d = parseInt(count30, 10) || 0;
 
-  // Pattern recognition: commit messages and diff patterns (Phase 2 optional)
+  // Pattern recognition: commit messages and diff patterns
   const messagePatterns = analyzeCommitMessagePatterns(cwd);
   const diffPatterns = analyzeDiffPatterns(cwd);
   result.commitMessagePatterns = messagePatterns;
@@ -132,7 +132,7 @@ const SUSPICIOUS_MESSAGE_PATTERNS = [
 const MAX_RECENT_MESSAGES = 20;
 
 /**
- * Analyze recent commit messages for suspicious patterns (Phase 2 optional)
+ * Analyze recent commit messages for suspicious patterns
  * @param {string} cwd - Repo root
  * @returns {Object} { messages, suspiciousCount, emptyCount, anomalyScore }
  */
@@ -159,7 +159,7 @@ function analyzeCommitMessagePatterns(cwd) {
 }
 
 /**
- * Analyze recent diff patterns (large deletions, single-file mass changes) (Phase 2 optional)
+ * Analyze recent diff patterns (large deletions, single-file mass changes)
  * @param {string} cwd - Repo root
  * @returns {Object} { recentCommitsWithLargeDiffs, avgAdditions, avgDeletions, anomalyScore }
  */

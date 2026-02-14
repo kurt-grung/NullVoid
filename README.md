@@ -34,9 +34,9 @@ jobs:
   security-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '18'
       
@@ -47,7 +47,7 @@ jobs:
         run: nullvoid . --output sarif --sarif-file nullvoid-results.sarif
       
       - name: Upload SARIF Results
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: nullvoid-results.sarif
 ```
@@ -188,7 +188,7 @@ nullvoid --network-stats
 nullvoid . --network-stats
 ```
 
-### Registry Health (Phase 2)
+### Registry Health
 ```bash
 # Check health of configured package registries (npm, yarn, github)
 nullvoid registry-health
@@ -227,6 +227,11 @@ NullVoid now integrates with multiple vulnerability databases to check packages 
 - **GitHub Security Advisories (GHSA)**: GitHub's security database (public, enabled by default)
 - **NVD/CVE**: National Vulnerability Database (public, enabled by default)
 - **Snyk**: Commercial vulnerability database (requires API key)
+
+### **Intelligent CVE Filtering**
+NullVoid reduces false positives with version-aware and product-aware filtering:
+- **Version-aware**: Excludes CVEs when your installed version is outside the affected range (NVD CPE bounds or "fixed in X" from descriptions)
+- **Product disambiguation**: Excludes CVEs for different products with similar names (e.g. Midnight Commander vs npm commander, grunt/shiba vs js-yaml)
 
 ### **Usage**
 ```bash
@@ -300,6 +305,7 @@ For more details, see [IoC Usage Guide](docs/IOC_USAGE.md).
 - **Multi-Layer Security**: Comprehensive static analysis with multiple detection methods
 - **Path Security**: Protection against path traversal and command injection attacks
 - **Input Validation**: Comprehensive input sanitization and validation
+- **Safe Config Loading**: Rules and config files loaded with restricted YAML schema (JSON_SCHEMA) to prevent arbitrary code execution from untrusted input
 
 ### **Threat Detection Capabilities**
 - **Obfuscated Malware**: Detection of variable name mangling, hex encoding, and anti-debugging patterns
@@ -351,7 +357,7 @@ For more details, see [IoC Usage Guide](docs/IOC_USAGE.md).
 - **Vulnerability Display**: Enhanced output with CVE details and CVSS scores
 - **Cache Statistics**: View detailed cache performance metrics
 - **Network Statistics**: Monitor connection pool and request performance
-- **Comprehensive Test Coverage**: 113 tests across 18 test suites
+- **Comprehensive Test Coverage**: 142 tests across 22 test suites
 
 ## 🎯 v2.0.3 - Enhanced Type Safety & Code Quality
 
@@ -479,7 +485,7 @@ NullVoid's TypeScript migration and v2.1.0 optimizations deliver significant per
 - **✅ Zero Warnings**: Enterprise-grade code quality with comprehensive error handling
 - **🎨 Enhanced UX**: Beautiful colored output with professional formatting
 - **🔒 Security Hardened**: Fixed memory leaks and enhanced security measures
-- **🏆 Production Ready**: Comprehensive testing with 113 tests across 18 test suites
+- **🏆 Production Ready**: Comprehensive testing with 142 tests across 22 test suites
 
 ## 🎯 **What Can NullVoid Scan?**
 
@@ -617,7 +623,7 @@ Scanned 15 package(s) in 234ms
 | `--cache-stats` | Show cache statistics | `false` |
 | `--enable-redis` | Enable Redis distributed cache | `false` |
 | `--network-stats` | Show network performance metrics | `false` |
-| `nullvoid registry-health` | Check health of configured package registries (Phase 2) | - |
+| `nullvoid registry-health` | Check health of configured package registries | - |
 | `--version` | Show version information | - |
 | `--help` | Show help information | - |
 
@@ -768,9 +774,9 @@ NULLVOID_REGISTRY_TIMEOUT=10000
 
 ## 🗺️ **Roadmap**
 
-NullVoid has a comprehensive roadmap for 2025 focusing on advanced threat detection, enterprise features, and AI/ML integration.
+NullVoid has a comprehensive roadmap focusing on advanced threat detection, enterprise features, and AI/ML integration.
 
-### **🎯 2025 Roadmap Highlights**
+### **🎯 Roadmap Highlights**
 
 #### **Public IoC Integration & Performance**
 - ✅ **TypeScript Migration**: Complete migration to TypeScript for enhanced type safety and developer experience
@@ -781,19 +787,19 @@ NullVoid has a comprehensive roadmap for 2025 focusing on advanced threat detect
 - ✅ **Multi-Layer Cache**: L1 (memory), L2 (file), L3 (Redis) caching system
 - ✅ **Network Optimizations**: Connection pooling, request batching, compression
 
-#### **Q2 2025 - Enhanced Detection & Developer Experience**
+#### **Enhanced Detection & Developer Experience**
 - **Advanced Timeline Analysis**: ML-based timeline analysis and commit pattern analysis
 - **IDE Integration**: [VS Code extension](packages/vscode-extension) (run scan from Command Palette); IntelliJ plugins planned
 - **Pre-commit Hooks**: Optional scan before commit—set `NULLVOID_PRE_COMMIT=1` to enable; commit is **blocked** if threats are found. See [Pre-commit Integration](docs/PRE_COMMIT.md).
 - **More CI/CD Platforms**: [Jenkins](Jenkinsfile.example), [CircleCI](.circleci/config.yml), [Travis CI](.travis.example.yml), [GitLab CI](.gitlab-ci.example.yml), [Azure DevOps](azure-pipelines.example.yml)
 
-#### **Q3 2025 - Enterprise Features & Advanced Analytics**
+#### **Enterprise Features & Advanced Analytics**
 - **Multi-tenant Support**: Organization-level scanning and reporting
 - **Advanced Reporting**: Executive dashboards and compliance reports
 - **API Integration**: REST/GraphQL APIs for enterprise systems
 - **Custom Rule Engine**: User-defined detection patterns
 
-#### **Q4 2025 - AI/ML Integration & Blockchain Features**
+#### **AI/ML Integration & Blockchain Features**
 - **AI/ML Integration**: Machine learning for threat pattern recognition
 - **Blockchain Integration**: Immutable signatures and decentralized verification
 - **Behavioral Analysis**: AI-powered anomaly detection
@@ -816,9 +822,9 @@ jobs:
   security-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '18'
       
@@ -829,7 +835,7 @@ jobs:
         run: nullvoid . --output sarif --sarif-file nullvoid-results.sarif
       
       - name: Upload SARIF Results
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: nullvoid-results.sarif
 ```
@@ -920,7 +926,7 @@ stage('NullVoid Security Scan') {
     "tool": {
       "driver": {
         "name": "NullVoid",
-        "version": "2.0.2",
+        "version": "2.1.0",
         "informationUri": "https://github.com/kurt-grung/NullVoid"
       }
     },
@@ -973,7 +979,7 @@ NullVoid is maintained as a focused, security-first tool with a single developme
 ### 🔒 **Security-First Approach**
 - **No External Code**: All code is written and reviewed by the core team
 - **Focused Development**: Single direction ensures consistent security standards
-- **Quality Assurance**: 111+ tests ensure reliability and security
+- **Quality Assurance**: 142+ tests ensure reliability and security
 - **Regular Updates**: Continuous security improvements and threat detection updates
 
 ### 📋 **Issue Guidelines**

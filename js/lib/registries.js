@@ -1,5 +1,5 @@
 /**
- * Multi-registry provider (Phase 2)
+ * Multi-registry provider
  *
  * Fetches package metadata from npm, GitHub Packages, and configurable
  * private registries. Supports cross-registry comparison for dependency
@@ -155,7 +155,7 @@ async function fetchFromRegistry(registryName, packageName, options = {}) {
 }
 
 /**
- * Get package creation date from the first available registry (Phase 2 multi-registry)
+ * Get package creation date from the first available registry
  * @param {string} packageName - Package name
  * @param {Object} [options] - { registryOrder, timeout }
  * @returns {Promise<{ created: Date, registryName: string, allResults: Array }|null>}
@@ -211,7 +211,7 @@ async function compareRegistries(packageName) {
 }
 
 /**
- * Registry health check: ping registry root and measure latency (Phase 2).
+ * Registry health check: ping registry root and measure latency.
  * @param {string} registryName - npm, github, or custom name
  * @param {Object} [options] - { timeout }
  * @returns {Promise<{ registryName: string, ok: boolean, latencyMs: number, statusCode?: number, error?: string }>}
@@ -249,7 +249,7 @@ function checkRegistryHealth(registryName, options = {}) {
 }
 
 /**
- * Check health of all configured registries (Phase 2).
+ * Check health of all configured registries.
  * @param {Object} [options] - { timeout }
  * @returns {Promise<Array<{ registryName: string, ok: boolean, latencyMs: number, statusCode?: number, error?: string }>>}
  */

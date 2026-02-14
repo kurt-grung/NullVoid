@@ -1,4 +1,4 @@
-# IDE Integration (Phase 2 Optional)
+# IDE Integration
 
 Run NullVoid from IntelliJ, Sublime Text, and Vim using external tools or build systems. For the **VS Code extension** (recommended), see [packages/vscode-extension/README.md](../packages/vscode-extension/README.md).
 

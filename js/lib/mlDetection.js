@@ -1,5 +1,5 @@
 /**
- * ML Detection scaffold (Phase 2)
+ * ML Detection scaffold
  *
  * Lightweight threat scoring from timeline + pattern + commit-pattern features.
  * Supports rule-based weights, commit pattern analysis, and pluggable ML model
@@ -208,7 +208,7 @@ function computePredictiveScore(features) {
 }
 
 /**
- * Run Phase 2 ML-style detection: anomaly score + threat score (rule-based or model)
+ * Run ML-style detection: anomaly score + threat score (rule-based or model)
  * @param {Object} params - Same as dependency confusion + optional packagePath, commitPatterns
  * @returns {Promise<Object>} { enabled, anomalyScore, threatScore, aboveThreshold, predictiveScore, predictiveRisk, features, modelUsed }
  */

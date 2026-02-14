@@ -1,5 +1,5 @@
 /**
- * Phase 4: Extended Anomaly Detection (JS)
+ * Extended Anomaly Detection
  *
  * Cross-package anomaly: compare package behavior vs similar packages.
  * Behavioral anomaly: static analysis of package scripts/files.

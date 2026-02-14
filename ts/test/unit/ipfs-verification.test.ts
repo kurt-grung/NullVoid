@@ -1,5 +1,5 @@
 /**
- * Phase 4: IPFS Verification Unit Tests
+ * IPFS Verification Unit Tests
  */
 
 import * as fs from 'fs';
@@ -12,14 +12,14 @@ import {
   fetchFromIPFS,
 } from '../../src/lib/ipfsVerification';
 
-describe('IPFS Verification (Phase 4)', () => {
+describe('IPFS Verification', () => {
   let tempDir: string;
   let testFilePath: string;
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nullvoid-ipfs-test-'));
     testFilePath = path.join(tempDir, 'test.txt');
-    fs.writeFileSync(testFilePath, 'Hello, NullVoid Phase 4!');
+    fs.writeFileSync(testFilePath, 'Hello, NullVoid!');
   });
 
   afterEach(() => {
@@ -37,7 +37,7 @@ describe('IPFS Verification (Phase 4)', () => {
     });
 
     it('should compute same CID for same content (buffer)', async () => {
-      const buffer = Buffer.from('Hello, NullVoid Phase 4!');
+      const buffer = Buffer.from('Hello, NullVoid!');
       const result1 = await computePackageCID(testFilePath);
       const result2 = await computePackageCID(buffer);
       expect(result1.cid).toBe(result2.cid);

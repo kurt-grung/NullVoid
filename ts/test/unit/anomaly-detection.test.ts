@@ -1,5 +1,5 @@
 /**
- * Phase 4: Anomaly Detection Unit Tests
+ * Anomaly Detection Unit Tests
  */
 
 import { describe, it, expect } from '@jest/globals';
@@ -9,7 +9,7 @@ import {
 } from '../../src/lib/anomalyDetection';
 import type { SimilarPackageStats } from '../../src/lib/anomalyDetection';
 
-describe('Anomaly Detection (Phase 4)', () => {
+describe('Anomaly Detection', () => {
   describe('computeCrossPackageAnomaly', () => {
     it('should use typical baseline when no similar packages and return deviation score', () => {
       // Empty array triggers typical npm baseline; package deviating from typical gets non-zero score

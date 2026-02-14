@@ -1,5 +1,5 @@
 /**
- * Phase 4: IPFS Content-Addressing for Package Verification
+ * IPFS Content-Addressing for Package Verification
  *
  * Computes CID (Content Identifier) for package tarballs.
  * Enables immutable verification via content hashing.

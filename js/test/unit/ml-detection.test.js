@@ -1,5 +1,5 @@
 /**
- * Unit tests for ML detection scaffold (Phase 2)
+ * Unit tests for ML detection scaffold
  */
 
 const {
@@ -9,7 +9,7 @@ const {
   runMLDetection
 } = require('../../lib/mlDetection');
 
-describe('ML Detection (Phase 2)', () => {
+describe('ML Detection', () => {
   describe('buildFeatureVector', () => {
     test('should build feature vector from params', () => {
       const features = buildFeatureVector({

@@ -2,10 +2,10 @@
  * Dependency Confusion Detection Module
  *
  * Detects potential dependency confusion attacks by analyzing:
- * - Git history vs npm registry creation dates (Phase 2: multi-registry)
+ * - Git history vs npm registry creation dates
  * - Scope ownership and namespace conflicts
  * - Package name similarity patterns
- * - Timeline-based threat indicators (Phase 2: enhanced timeline, ML scoring)
+ * - Timeline-based threat indicators (enhanced timeline, ML scoring)
  */
 
 const fs = require('fs');
@@ -206,7 +206,7 @@ async function detectDependencyConfusion(packageName, packagePath) {
   const useMultiRegistry = DEPENDENCY_CONFUSION_CONFIG.PHASE2_DETECTION?.MULTI_REGISTRY !== false;
 
   try {
-    // Get package creation date (Phase 2: multi-registry or single npm)
+    // Get package creation date (multi-registry or single npm)
     let creationDate = null;
     let registryName = 'npm';
     if (useMultiRegistry) {
@@ -232,7 +232,7 @@ async function detectDependencyConfusion(packageName, packagePath) {
     // Analyze package name
     const nameAnalysis = analyzePackageName(packageName);
 
-    // Phase 2: enhanced timeline analysis
+    // Enhanced timeline analysis
     const timelineResult = analyzeTimeline({
       registryCreated: creationDate,
       firstCommitDate: gitHistory.firstCommitDate,
@@ -242,13 +242,13 @@ async function detectDependencyConfusion(packageName, packagePath) {
     const daysDifference = timelineResult.daysDifference ?? 0;
     const timelineRisk = timelineResult.riskLevel;
 
-    // Phase 4: NLP analysis (optional, when enabled)
+    // NLP analysis (optional, when enabled)
     let nlpResult = null;
     let crossPackageAnomaly = null;
     let behavioralAnomaly = null;
-    const phase4Nlp = DEPENDENCY_CONFUSION_CONFIG.PHASE4_NLP_CONFIG;
+    const nlpConfig = DEPENDENCY_CONFUSION_CONFIG.PHASE4_NLP_CONFIG;
 
-    // Phase 4: Behavioral and cross-package anomaly from package.json
+    // Behavioral and cross-package anomaly from package.json
     let pkgFeatures = null;
     if (packagePath) {
       try {
@@ -273,7 +273,7 @@ async function detectDependencyConfusion(packageName, packagePath) {
         }
       } catch { /* ignore */ }
     }
-    if (phase4Nlp?.ENABLED) {
+    if (nlpConfig?.ENABLED) {
       try {
         let version = 'latest';
         if (packagePath) {
@@ -285,11 +285,11 @@ async function detectDependencyConfusion(packageName, packagePath) {
             }
           } catch { /* ignore */ }
         }
-        nlpResult = await runNlpAnalysis(packageName, version, phase4Nlp);
+        nlpResult = await runNlpAnalysis(packageName, version, nlpConfig);
       } catch { /* ignore NLP errors */ }
     }
 
-    // Phase 2: ML detection (anomaly + threat score; commit pattern + optional model)
+    // ML detection (anomaly + threat score; commit pattern + optional model)
     const mlResult = await runMLDetection({
       creationDate,
       firstCommitDate: gitHistory.firstCommitDate,
@@ -329,7 +329,7 @@ async function detectDependencyConfusion(packageName, packagePath) {
       });
     }
 
-    // Phase 2: ML-only threat when timeline is LOW but anomaly/threat score is high
+    // ML-only threat when timeline is LOW but anomaly/threat score is high
     if (timelineRisk === 'LOW' && mlResult.enabled && mlResult.aboveThreshold) {
       threats.push({
         type: 'DEPENDENCY_CONFUSION_ML_ANOMALY',
@@ -348,7 +348,7 @@ async function detectDependencyConfusion(packageName, packagePath) {
       });
     }
 
-    // Phase 2: Predictive risk (below threat threshold but pattern suggests potential future risk)
+    // Predictive risk (below threat threshold but pattern suggests potential future risk)
     if (timelineRisk === 'LOW' && mlResult.enabled && mlResult.predictiveRisk && !mlResult.aboveThreshold) {
       threats.push({
         type: 'DEPENDENCY_CONFUSION_PREDICTIVE_RISK',

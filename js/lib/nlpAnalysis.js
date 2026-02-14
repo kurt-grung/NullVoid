@@ -1,5 +1,5 @@
 /**
- * Phase 4: NLP Analysis on package docs and GitHub issues (JS)
+ * NLP Analysis on package docs and GitHub issues
  *
  * Fetches README/description from npm registry and GitHub issues when repo URL is available.
  * Runs NLP pipeline: security keyword extraction, sentiment, suspicious phrase detection.

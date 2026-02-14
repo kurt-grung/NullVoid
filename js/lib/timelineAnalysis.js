@@ -1,5 +1,5 @@
 /**
- * Enhanced Timeline Analysis (Phase 2)
+ * Enhanced Timeline Analysis
  *
  * Builds structured timeline events from git + registry data and computes
  * statistical anomaly scores for dependency confusion detection. Feeds into
