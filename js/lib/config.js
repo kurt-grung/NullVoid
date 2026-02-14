@@ -3,6 +3,53 @@
  * Centralizes all configuration values and magic numbers
  */
 
+const fs = require('fs');
+const path = require('path');
+
+/**
+ * Load .nullvoidrc.json from project root (cwd) and merge into config
+ * Supports: DEPENDENCY_CONFUSION_CONFIG.PHASE2_DETECTION (ML_MODEL_URL, ML_MODEL_PATH, ML_ANOMALY_THRESHOLD, ML_WEIGHTS)
+ * @param {object} config - Config object to merge into (mutated)
+ */
+function loadNullvoidRc(config) {
+  const rcPaths = [
+    path.join(process.cwd(), '.nullvoidrc.json'),
+    path.join(process.cwd(), '.nullvoidrc')
+  ];
+  for (const rcPath of rcPaths) {
+    try {
+      if (fs.existsSync(rcPath)) {
+        const content = fs.readFileSync(rcPath, 'utf8');
+        const rc = rcPath.endsWith('.json') ? JSON.parse(content) : JSON.parse(content);
+        deepMerge(config, rc);
+        break;
+      }
+    } catch {
+      // Ignore parse errors or missing file
+    }
+  }
+}
+
+/**
+ * Deep merge source into target (mutates target)
+ * @param {object} target - Target object
+ * @param {object} source - Source object
+ */
+function deepMerge(target, source) {
+  if (!source || typeof source !== 'object') return;
+  for (const key of Object.keys(source)) {
+    const srcVal = source[key];
+    if (srcVal != null && typeof srcVal === 'object' && !Array.isArray(srcVal)) {
+      if (!target[key] || typeof target[key] !== 'object') {
+        target[key] = {};
+      }
+      deepMerge(target[key], srcVal);
+    } else if (srcVal !== undefined) {
+      target[key] = srcVal;
+    }
+  }
+}
+
 /**
  * Cache configuration
  */
@@ -436,7 +483,11 @@ const ENV_MAPPINGS = {
   NULLVOID_CHUNK_SIZE: 'PARALLEL_CONFIG.CHUNK_SIZE',
   NULLVOID_MAX_FILE_SIZE: 'FILE_CONFIG.MAX_FILE_SIZE',
   NULLVOID_MAX_DEPTH: 'SCAN_CONFIG.MAX_DEPTH',
-  NULLVOID_LOG_LEVEL: 'LOGGING_CONFIG.DEFAULT_LEVEL'
+  NULLVOID_LOG_LEVEL: 'LOGGING_CONFIG.DEFAULT_LEVEL',
+  // Phase 2 ML model (dependency confusion / timeline analysis)
+  NULLVOID_ML_MODEL_URL: 'DEPENDENCY_CONFUSION_CONFIG.PHASE2_DETECTION.ML_MODEL_URL',
+  NULLVOID_ML_MODEL_PATH: 'DEPENDENCY_CONFUSION_CONFIG.PHASE2_DETECTION.ML_MODEL_PATH',
+  NULLVOID_ML_ANOMALY_THRESHOLD: 'DEPENDENCY_CONFUSION_CONFIG.PHASE2_DETECTION.ML_ANOMALY_THRESHOLD'
 };
 
 // Dependency Confusion Detection Configuration
@@ -531,6 +582,12 @@ updateConfigFromEnv({
   LOGGING_CONFIG,
   DEPENDENCY_CONFUSION_CONFIG
 }, ENV_MAPPINGS);
+
+// Load .nullvoidrc.json from project root (overrides env for project-specific config)
+loadNullvoidRc({
+  CACHE_CONFIG,
+  DEPENDENCY_CONFUSION_CONFIG
+});
 
 module.exports = {
   CACHE_CONFIG,
