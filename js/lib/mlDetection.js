@@ -17,14 +17,14 @@ const PHASE2 = DEPENDENCY_CONFUSION_CONFIG?.PHASE2_DETECTION ?? {};
 const ML_ENABLED = PHASE2.ML_SCORING !== false;
 const ANOMALY_THRESHOLD = PHASE2.ML_ANOMALY_THRESHOLD ?? 0.7;
 const ML_WEIGHTS = PHASE2.ML_WEIGHTS ?? {
-  timelineAnomaly: 0.5,
-  scopePrivate: 0.2,
-  suspiciousPatterns: 0.2,
-  lowActivityRecent: 0.1,
-  commitPatternAnomaly: 0.1,
-  nlpSecurityScore: 0.1,
-  crossPackageAnomaly: 0.05,
-  behavioralAnomaly: 0.05
+  timelineAnomaly: 0.4,
+  scopePrivate: 0.15,
+  suspiciousPatterns: 0.15,
+  lowActivityRecent: 0.08,
+  commitPatternAnomaly: 0.08,
+  nlpSecurityScore: 0.08,
+  crossPackageAnomaly: 0.03,
+  behavioralAnomaly: 0.03
 };
 const ML_MODEL_URL = PHASE2.ML_MODEL_URL || null;
 const ML_MODEL_PATH = PHASE2.ML_MODEL_PATH || null;

@@ -18,7 +18,7 @@ const { getPackageCreationDateMulti } = require('./registries');
 const { analyzeTimeline } = require('./timelineAnalysis');
 const { runMLDetection } = require('./mlDetection');
 const { runNlpAnalysis } = require('./nlpAnalysis');
-const { computeBehavioralAnomaly } = require('./anomalyDetection');
+const { computeBehavioralAnomaly, computeCrossPackageAnomaly } = require('./anomalyDetection');
 
 /**
  * Calculate string similarity using Levenshtein distance
@@ -248,7 +248,8 @@ async function detectDependencyConfusion(packageName, packagePath) {
     let behavioralAnomaly = null;
     const phase4Nlp = DEPENDENCY_CONFUSION_CONFIG.PHASE4_NLP_CONFIG;
 
-    // Phase 4: Behavioral anomaly from package.json
+    // Phase 4: Behavioral and cross-package anomaly from package.json
+    let pkgFeatures = null;
     if (packagePath) {
       try {
         const pkgPath = path.join(packagePath, 'package.json');
@@ -257,7 +258,7 @@ async function detectDependencyConfusion(packageName, packagePath) {
           const scripts = pkg.scripts || {};
           const scriptKeys = Object.keys(scripts);
           const postinstall = scripts.postinstall || scripts.install;
-          const pkgFeatures = {
+          pkgFeatures = {
             scriptCount: scriptKeys.length,
             scriptTotalLength: scriptKeys.reduce((sum, k) => sum + (scripts[k] || '').length, 0),
             hasPostinstall: !!postinstall,
@@ -267,6 +268,8 @@ async function detectDependencyConfusion(packageName, packagePath) {
             rareDependencyCount: 0
           };
           behavioralAnomaly = computeBehavioralAnomaly(pkgFeatures);
+          // Cross-package anomaly: compare to empty baseline when no sibling packages available
+          crossPackageAnomaly = computeCrossPackageAnomaly(pkgFeatures, []);
         }
       } catch { /* ignore */ }
     }

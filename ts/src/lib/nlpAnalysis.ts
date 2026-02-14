@@ -281,16 +281,17 @@ function runNlpPipeline(text: string, additionalIssues: string[]): NlpAnalysisRe
   sentimentScore = Math.max(0, Math.min(1, sentimentScore));
 
   // Security score: 0-1 based on keyword count and suspicious phrases
+  const dedupedPhrases = [...new Set(suspiciousPhrases)];
   const keywordScore = Math.min(1, securityKeywordCount * 0.1);
-  const phraseScore = Math.min(1, suspiciousPhrases.length * 0.2);
+  const phraseScore = Math.min(1, dedupedPhrases.length * 0.2);
   const securityScore = Math.min(1, (keywordScore + phraseScore) / 2);
 
   const nlpSecurityScore = Math.min(1, securityScore);
-  const nlpSuspiciousCount = suspiciousPhrases.length;
+  const nlpSuspiciousCount = dedupedPhrases.length;
 
   return {
     securityScore: nlpSecurityScore,
-    suspiciousPhrases: [...new Set(suspiciousPhrases)],
+    suspiciousPhrases: dedupedPhrases,
     sentimentScore,
     issueSecurityCount: 0,
     nlpSecurityScore,
