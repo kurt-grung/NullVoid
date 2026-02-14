@@ -113,8 +113,9 @@ jobs:
           comment += '---\n';
           comment += '*This scan was performed by [NullVoid](https://github.com/kurt-grung/NullVoid) - a tool to detect malicious npm packages.*';
           
-          // Remove previous NullVoid scan comments (from bot or any comment with our marker)
-          const { data: comments } = await github.rest.issues.listComments({
+          // Remove/update previous NullVoid scan comments
+          // 1. Issue comments: delete (createComment creates these)
+          const comments = await github.paginate(github.rest.issues.listComments, {
             owner: context.repo.owner,
             repo: context.repo.repo,
             issue_number: context.issue.number,
@@ -129,12 +130,41 @@ jobs:
             }
           }
           
-          await github.rest.issues.createComment({
+          // 2. PR reviews: cannot delete submitted reviews, but can update body
+          const { data: reviews } = await github.rest.pulls.listReviews({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            issue_number: context.issue.number,
-            body: comment,
+            pull_number: context.issue.number,
           });
+          const ourReviews = reviews.filter((r) => r.body && r.body.includes(marker));
+          if (ourReviews.length > 0) {
+            const sorted = ourReviews.sort((a, b) =>
+              new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0)
+            );
+            await github.rest.pulls.updateReview({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              review_id: sorted[0].id,
+              body: comment,
+            });
+            for (let i = 1; i < sorted.length; i++) {
+              await github.rest.pulls.updateReview({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number,
+                review_id: sorted[i].id,
+                body: '*(superseded by latest scan)*',
+              });
+            }
+          } else {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment,
+            });
+          }
           
     - name: Fail on critical and high severity malware threats
       if: github.event_name == 'pull_request'
