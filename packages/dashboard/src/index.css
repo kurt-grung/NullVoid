@@ -1,227 +1,53 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600;700&display=swap');
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
 
-:root {
-  --bg: #0f1419;
-  --bg-card: #1a2332;
-  --bg-hover: #243044;
-  --text: #e6edf3;
-  --text-muted: #8b949e;
-  --accent: #f59e0b;
-  --accent-dim: #d97706;
-  --critical: #ef4444;
-  --high: #f97316;
-  --medium: #eab308;
-  --low: #22c55e;
-  --border: #30363d;
-  --radius: 8px;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Vercel-style: clean, bold */
+@layer base {
+  * {
+    @apply box-border;
+  }
+  body {
+    @apply m-0 min-h-screen font-sans text-[15px] leading-relaxed antialiased;
+    @apply bg-surface text-black dark:bg-dark-surface dark:text-white;
+  }
+  h1 {
+    @apply font-sans font-bold text-3xl tracking-tight text-black dark:text-white mb-8;
+  }
+  h2, h3 {
+    @apply font-sans font-semibold text-sm tracking-tight text-neutral-500 dark:text-neutral-400 uppercase;
+  }
+  a {
+    @apply text-black dark:text-white no-underline hover:underline transition-colors;
+  }
+  code {
+    @apply font-mono text-[0.8125em] bg-surface-muted dark:bg-dark-muted px-1.5 py-0.5 rounded text-black dark:text-white;
+  }
 }
 
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  font-family: 'DM Sans', system-ui, sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  min-height: 100vh;
-  line-height: 1.5;
-}
-
-h1, h2, h3 {
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 600;
-}
-
-a {
-  color: var(--accent);
-  text-decoration: none;
-}
-
-a:hover {
-  text-decoration: underline;
-}
-
-code {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.9em;
-  background: var(--bg-card);
-  padding: 0.15em 0.4em;
-  border-radius: 4px;
-}
-
-.app {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
-
-.nav {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  padding: 1rem 1.5rem;
-  background: var(--bg-card);
-  border-bottom: 1px solid var(--border);
-}
-
-.nav-brand {
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 600;
-  font-size: 1.25rem;
-  color: var(--accent);
-}
-
-.nav-links {
-  display: flex;
-  gap: 1rem;
-}
-
-.nav-links a {
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.nav-links a:hover,
-.nav-links a.active {
-  color: var(--text);
-  text-decoration: none;
-}
-
-.main {
-  flex: 1;
-  padding: 1.5rem;
-  max-width: 1400px;
-  margin: 0 auto;
-  width: 100%;
-}
-
-.card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1.25rem;
-  margin-bottom: 1rem;
-}
-
-.card h3 {
-  margin-top: 0;
-  font-size: 1rem;
-  color: var(--text-muted);
-}
-
-.metric-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 1rem;
-}
-
-.metric {
-  background: var(--bg);
-  border-radius: var(--radius);
-  padding: 1rem;
-  text-align: center;
-}
-
-.metric-value {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 1.75rem;
-  font-weight: 600;
-  color: var(--accent);
-}
-
-.metric-label {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  margin-top: 0.25rem;
-}
-
-.severity-critical { color: var(--critical); }
-.severity-high { color: var(--high); }
-.severity-medium { color: var(--medium); }
-.severity-low { color: var(--low); }
-
-.threat-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.threat-item {
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--border);
-  font-size: 0.9rem;
-}
-
-.threat-item:last-child {
-  border-bottom: none;
-}
-
-.threat-item:hover {
-  background: var(--bg-hover);
-}
-
-.btn {
-  font-family: 'DM Sans', sans-serif;
-  font-weight: 500;
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  color: var(--text);
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.btn:hover {
-  background: var(--bg-hover);
-}
-
-.btn-primary {
-  background: var(--accent);
-  color: var(--bg);
-  border-color: var(--accent);
-}
-
-.btn-primary:hover {
-  background: var(--accent-dim);
-  border-color: var(--accent-dim);
-}
-
-.status-badge {
-  display: inline-block;
-  padding: 0.2em 0.5em;
-  font-size: 0.75rem;
-  font-weight: 600;
-  border-radius: 4px;
-  text-transform: uppercase;
-}
-
-.status-pending { background: var(--medium); color: var(--bg); }
-.status-running { background: var(--accent); color: var(--bg); }
-.status-completed { background: var(--low); color: var(--bg); }
-.status-failed { background: var(--critical); color: white; }
-
-.loading {
-  text-align: center;
-  padding: 2rem;
-  color: var(--text-muted);
-}
-
-.error {
-  color: var(--critical);
-  padding: 1rem;
-  background: rgba(239, 68, 68, 0.1);
-  border-radius: var(--radius);
-}
-
-.api-unavailable {
-  padding: 1rem 1.25rem;
-  margin-bottom: 1rem;
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius);
-  color: var(--text-muted);
-  font-size: 0.9rem;
+@layer components {
+  .card-minimal {
+    @apply bg-surface-card dark:bg-dark-card border border-surface-border dark:border-dark-border rounded-lg p-6 mb-6;
+  }
+  .card-minimal h3 {
+    @apply mt-0 mb-4 text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-widest;
+  }
+  .metric-minimal {
+    @apply bg-surface-muted dark:bg-dark-muted rounded-lg p-6 text-center;
+  }
+  .metric-minimal .value {
+    @apply font-sans text-3xl font-bold text-black dark:text-white tracking-tight;
+  }
+  .metric-minimal .label {
+    @apply text-xs text-neutral-500 dark:text-neutral-400 mt-2 font-medium uppercase tracking-wider;
+  }
+  .list-item-minimal {
+    @apply px-5 py-4 border-b border-surface-border dark:border-dark-border text-sm last:border-b-0 hover:bg-surface-muted dark:hover:bg-dark-muted transition-colors;
+  }
+  .badge-minimal {
+    @apply inline-block px-2.5 py-1 text-[11px] font-semibold rounded uppercase tracking-wider;
+  }
 }

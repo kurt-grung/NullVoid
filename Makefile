@@ -1,12 +1,15 @@
-.PHONY: help build build-api api dashboard dev test lint install ml-serve ml-train
+.PHONY: all help build build-api api dashboard dev test lint install ml-serve ml-train
+
+all: dashboard
 
 help:
 	@echo "NullVoid - Makefile targets"
 	@echo ""
+	@echo "  make            - Start dashboard (default)"
+	@echo "  make dashboard  - Start dashboard dev server (proxies to API)"
 	@echo "  make build      - Build TypeScript scanner"
 	@echo "  make build-api  - Build API package"
 	@echo "  make api        - Start API (builds first, port 3001)"
-	@echo "  make dashboard  - Start dashboard dev server (proxies to API)"
 	@echo "  make dev        - Start scanner in dev mode"
 	@echo "  make test       - Run tests"
 	@echo "  make lint       - Run linter"

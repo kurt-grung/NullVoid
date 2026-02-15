@@ -37,63 +37,80 @@ export default function Scans() {
       .finally(() => setSubmitting(false))
   }
 
-  if (loading) return <div className="loading">Loading...</div>
+  if (loading) return (
+    <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">Loading...</div>
+  )
+
+  const statusClass = (s: string) =>
+    s === 'pending'
+      ? 'bg-amber-200 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200'
+      : s === 'running'
+        ? 'bg-blue-500 text-white'
+        : s === 'completed'
+          ? 'bg-green-500 text-white'
+          : 'bg-red-500 text-white'
 
   return (
     <>
       <h1>Scans</h1>
       {apiUnavailable && (
-        <div className="api-unavailable" role="status">
-          <p>No API connected. Deploy the NullVoid API to view and run scans.</p>
-          <p style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
+        <div
+          className="card-minimal border-l-4 border-l-neutral-400 dark:border-l-neutral-500"
+          role="status"
+        >
+          <p className="text-neutral-600 dark:text-neutral-400 text-sm font-medium">No API connected. Deploy the NullVoid API to view and run scans.</p>
+          <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-500">
             If the API is deployed on Vercel, add <code>TURSO_DATABASE_URL</code> and{' '}
             <code>TURSO_AUTH_TOKEN</code> in Vercel → Settings → Environment Variables.
           </p>
         </div>
       )}
-      {error && !apiUnavailable && <div className="error">{error}</div>}
+      {error && !apiUnavailable && (
+        <div className="card-minimal border-l-4 border-l-red-500 text-red-600 dark:text-red-400 text-sm">
+          {error}
+        </div>
+      )}
 
-      <div className="card">
+      <div className="card-minimal">
         <h3>New Scan</h3>
-        <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+        <form onSubmit={handleSubmit} className="flex gap-2 items-center mt-3">
           <input
             type="text"
             value={target}
             onChange={(e) => setTarget(e.target.value)}
             placeholder="Target path (e.g. . or ./packages/api)"
-            style={{
-              flex: 1,
-              padding: '0.5rem',
-              background: 'var(--bg)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius)',
-              color: 'var(--text)',
-            }}
+            className="flex-1 px-4 py-2.5 bg-surface dark:bg-dark-surface border border-surface-border dark:border-dark-border rounded-md text-black dark:text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:ring-offset-0"
           />
-          <button type="submit" className="btn btn-primary" disabled={submitting}>
+          <button
+            type="submit"
+            className="px-5 py-2.5 text-sm font-semibold rounded-md bg-black dark:bg-white text-white dark:text-black cursor-pointer transition-opacity hover:opacity-80 disabled:opacity-50"
+            disabled={submitting}
+          >
             {submitting ? 'Starting...' : 'Start Scan'}
           </button>
         </form>
       </div>
 
-      <div className="card">
+      <div className="card-minimal">
         <h3>Recent Scans</h3>
-        <ul className="threat-list">
+        <ul className="list-none p-0 m-0 mt-3">
           {scans.map((s) => (
-            <li key={s.id} className="threat-item">
-              <Link to={`/scans/${s.id}`} style={{ color: 'inherit' }}>
-                <span className={`status-badge status-${s.status}`}>{s.status}</span>
+            <li key={s.id} className="list-item-minimal">
+              <Link to={`/scans/${s.id}`} className="text-inherit no-underline hover:no-underline">
+                <span className={`badge-minimal ${statusClass(s.status)}`}>{s.status}</span>
                 {' '}
                 <code>{s.target}</code>
                 {' '}
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                <span className="text-neutral-500 dark:text-neutral-400 text-xs">
                   {new Date(s.createdAt).toLocaleString()}
                 </span>
               </Link>
             </li>
           ))}
         </ul>
-        {scans.length === 0 && <p style={{ color: 'var(--text-muted)' }}>No scans yet.</p>}
+        {scans.length === 0 && (
+          <p className="text-neutral-500 dark:text-neutral-400 text-sm mt-6 font-medium">No scans yet.</p>
+        )}
       </div>
     </>
   )

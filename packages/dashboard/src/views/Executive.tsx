@@ -53,7 +53,9 @@ export default function Executive() {
     return () => { cancelled = true }
   }, [completed.length])
 
-  if (loading) return <div className="loading">Loading...</div>
+  if (loading) return (
+    <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">Loading...</div>
+  )
 
   const topPackages = Object.entries(packageThreats)
     .sort((a, b) => b[1] - a[1])
@@ -63,43 +65,43 @@ export default function Executive() {
     <>
       <h1>Executive Overview</h1>
       {apiUnavailable && (
-        <div className="api-unavailable" role="status">
-          No API connected. Deploy the NullVoid API to view scan data.
+        <div className="card-minimal border-l-4 border-l-neutral-400 dark:border-l-neutral-500" role="status">
+          <p className="text-neutral-600 dark:text-neutral-400 text-sm font-medium">No API connected. Deploy the NullVoid API to view scan data.</p>
         </div>
       )}
-      <div className="metric-grid">
-        <div className="metric">
-          <div className="metric-value">{scans.length}</div>
-          <div className="metric-label">Total Scans</div>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3 mb-6">
+        <div className="metric-minimal">
+          <div className="value">{scans.length}</div>
+          <div className="label">Total Scans</div>
         </div>
-        <div className="metric">
-          <div className="metric-value">{completed.length}</div>
-          <div className="metric-label">Completed</div>
+        <div className="metric-minimal">
+          <div className="value">{completed.length}</div>
+          <div className="label">Completed</div>
         </div>
-        <div className="metric">
-          <div className="metric-value">{totalThreats}</div>
-          <div className="metric-label">Threats Found</div>
+        <div className="metric-minimal">
+          <div className="value">{totalThreats}</div>
+          <div className="label">Threats Found</div>
         </div>
       </div>
 
-      <div className="card">
+      <div className="card-minimal">
         <h3>Severity Distribution</h3>
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-          <span className="severity-critical">CRITICAL: {severityCounts.CRITICAL ?? 0}</span>
-          <span className="severity-high">HIGH: {severityCounts.HIGH ?? 0}</span>
-          <span className="severity-medium">MEDIUM: {severityCounts.MEDIUM ?? 0}</span>
-          <span className="severity-low">LOW: {severityCounts.LOW ?? 0}</span>
+        <div className="flex gap-4 flex-wrap mt-3 text-sm">
+          <span className="text-red-600 dark:text-red-400">CRITICAL: {severityCounts.CRITICAL ?? 0}</span>
+          <span className="text-orange-600 dark:text-orange-400">HIGH: {severityCounts.HIGH ?? 0}</span>
+          <span className="text-amber-600 dark:text-amber-400">MEDIUM: {severityCounts.MEDIUM ?? 0}</span>
+          <span className="text-green-600 dark:text-green-400">LOW: {severityCounts.LOW ?? 0}</span>
         </div>
       </div>
 
-      <div className="card">
+      <div className="card-minimal">
         <h3>Top Packages by Threat Count</h3>
         {topPackages.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)' }}>No threat data yet. Run scans to see results.</p>
+          <p className="text-neutral-500 dark:text-neutral-400 text-sm mt-3">No threat data yet. Run scans to see results.</p>
         ) : (
-          <ul className="threat-list">
+          <ul className="list-none p-0 m-0 mt-3">
             {topPackages.map(([pkg, count]) => (
-              <li key={pkg} className="threat-item">
+              <li key={pkg} className="list-item-minimal">
                 <code>{pkg}</code> — {count} threat{count !== 1 ? 's' : ''}
               </li>
             ))}
