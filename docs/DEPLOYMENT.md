@@ -4,7 +4,7 @@ Both the **Dashboard** and **API** deploy to **Vercel** when you connect this re
 
 ## Vercel (Dashboard + API)
 
-A single Vercel project serves the **Dashboard** at `/` and the **API** at `/api`. The API deploys when you connect this repository. Vercel uses **Turso** (serverless SQLite) for the database—SQLite files do not work on Vercel’s read-only filesystem.
+A single Vercel project serves the **Dashboard** at `/` and the **API** at `/api`. The API deploys when you connect this repository. Vercel uses **Turso** (serverless SQLite) for the database—SQLite files do not work on Vercel's read-only filesystem.
 
 ### Setup
 
