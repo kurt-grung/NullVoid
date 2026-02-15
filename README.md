@@ -38,7 +38,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
       
       - name: Install NullVoid
         run: npm install -g nullvoid
@@ -84,7 +84,7 @@ stages:
 
 nullvoid-scan:
   stage: test
-  image: node:18
+  image: node:20
   before_script:
     - npm ci
   script:
@@ -97,7 +97,7 @@ nullvoid-scan:
       sast: nullvoid-results.sarif
 ```
 
-Use `npm run build && node ts/dist/bin/nullvoid.js . ...` if building from the NullVoid repo. **CircleCI** is also supported; see [.circleci/config.yml](.circleci/config.yml). **Travis CI** and **Azure DevOps** examples: [.travis.example.yml](.travis.example.yml), [azure-pipelines.example.yml](azure-pipelines.example.yml). For IntelliJ, Sublime, and Vim integration, see [docs/IDE_INTEGRATION.md](docs/IDE_INTEGRATION.md).
+Use `npm ci && npm run build && node ts/dist/bin/nullvoid.js . ...` if building from the NullVoid repo (root `npm ci` installs all workspaces). **CircleCI** is also supported; see [.circleci/config.yml](.circleci/config.yml). **Travis CI** and **Azure DevOps** examples: [.travis.example.yml](.travis.example.yml), [azure-pipelines.example.yml](azure-pipelines.example.yml). For IntelliJ, Sublime, and Vim integration, see [docs/IDE_INTEGRATION.md](docs/IDE_INTEGRATION.md).
 
 
 ### Scan Options
@@ -608,17 +608,33 @@ nullvoid --format json --output results.json
 nullvoid . --format json --output results.json
 ```
 
+**Build from source:**
+```bash
+git clone https://github.com/kurt-grung/NullVoid.git && cd NullVoid
+make install && make build && make test
+# or: npm ci && npm run build && npm test
+```
+
 ## 🔧 **TypeScript Support**
 
-NullVoid is built with **TypeScript** for enhanced type safety and developer experience:
+NullVoid is built with **TypeScript** for enhanced type safety and developer experience. The project uses **Turborepo** for the monorepo build pipeline (workspaces: `packages/*`, `ts`, `js`). **Node 20+** is required for building (some dependencies require it).
 
 ### **Development**
 ```bash
+# Install dependencies (root npm ci installs all workspaces)
+npm install
+# or
+make install
+
+# Build TypeScript and packages
+npm run build
+# or
+make build
+
 # Development mode with TypeScript
 npm run dev -- scan --help
-
-# Build TypeScript to JavaScript
-npm run build
+# or
+make dev
 
 # Type checking
 npm run type-check
@@ -626,6 +642,20 @@ npm run type-check
 # Development with file watching
 npm run build:watch
 ```
+
+### **Makefile targets**
+| Target | Description |
+|--------|-------------|
+| `make build` | Build TypeScript scanner and packages |
+| `make build-api` | Build API package |
+| `make api` | Start API (port 3001) |
+| `make dashboard` | Start dashboard dev server |
+| `make dev` | Start scanner in dev mode |
+| `make test` | Run tests |
+| `make lint` | Run linter |
+| `make install` | Install dependencies |
+| `make ml-serve` | Start ML model server (port 8000) |
+| `make ml-train` | Train ML model |
 
 ### **ML Model (optional)**
 See [ML Training Pipeline](#-ml-training-pipeline) above for the full setup. Quick reference:
@@ -1049,7 +1079,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
       
       - name: Install NullVoid
         run: npm install -g nullvoid
@@ -1072,11 +1102,10 @@ A ready-to-use CircleCI config is in [.circleci/config.yml](.circleci/config.yml
 jobs:
   security-scan:
     docker:
-      - image: cimg/node:18
+      - image: cimg/node:20
     steps:
       - checkout
       - run: npm ci
-      - run: cd ts && npm ci
       - run: npm run build
       - run: node ts/dist/bin/nullvoid.js . --format json --output security-report.json
       - store_artifacts:
@@ -1088,7 +1117,7 @@ jobs:
 # .gitlab-ci.yml
 security_scan:
   stage: test
-  image: node:18
+  image: node:20
   script:
     - npm install -g nullvoid
     - nullvoid . --output sarif --sarif-file nullvoid-results.sarif
@@ -1109,7 +1138,7 @@ pool:
 steps:
 - task: NodeTool@0
   inputs:
-    versionSpec: '18.x'
+    versionSpec: '20.x'
   displayName: 'Install Node.js'
 
 - script: |
@@ -1194,6 +1223,7 @@ NullVoid is maintained as a focused, security-first tool with a single developme
 - **Feature Requests**: Open an issue to discuss potential enhancements (use the [feature request template](.github/ISSUE_TEMPLATE/feature_request.md))
 - **Project Board**: Track roadmap, bugs, and updates via [GitHub Projects](https://github.com/kurt-grung/NullVoid/projects) — see [.github/PROJECT_SETUP.md](.github/PROJECT_SETUP.md) for setup
 - **GitHub Pages**: Dashboard deployed at [kurt-grung.github.io/NullVoid](https://kurt-grung.github.io/NullVoid/) — see [.github/PAGES_SETUP.md](.github/PAGES_SETUP.md) to enable
+- **API deployment**: Deploy API to Vercel with Turso (free tier) — see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 - **Documentation**: Report documentation issues or suggest improvements
 
 ### 💡 **Getting Help**
