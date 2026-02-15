@@ -1,20 +1,11 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalPassThroughEnv": ["TURSO_DATABASE_URL", "TURSO_AUTH_TOKEN", "NULLVOID_API_URL", "VITE_API_URL"],
   "tasks": {
-    "build": {
-      "dependsOn": ["^build"],
-      "outputs": ["dist/**", "**/dist/**", "out/**"]
-    },
-    "@nullvoid/api#build": {
-      "dependsOn": ["@nullvoid/ts#build"]
-    },
-    "dev": {
-      "cache": false,
-      "persistent": true
-    },
-    "test": {
-      "dependsOn": ["build"]
-    },
+    "build": {"dependsOn": ["^build"], "outputs": ["dist/**", "**/dist/**", "out/**"]},
+    "@nullvoid/api#build": {"dependsOn": ["@nullvoid/ts#build"]},
+    "dev": {"cache": false, "persistent": true},
+    "test": {"dependsOn": ["build"]},
     "lint": {},
     "type-check": {}
   }
