@@ -263,6 +263,7 @@ const SKIP_DIRS = [
   '.git',
   '.vscode',
   '.idea',
+  '.cursor',
   'dist',
   'build',
   'coverage',
