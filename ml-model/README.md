@@ -2,34 +2,32 @@
 
 Train and serve a small ML model for dependency confusion threat scoring.
 
-**Run commands from the `ml-model` directory.** From project root: `cd ml-model` first.
-
 ## Quick Start
 
-### 1. Export features
+From the **project root**:
 
 ```bash
-# Known-good packages (label 0) and known-bad (label 1)
-node export-features.js --good lodash,react,express,axios --bad malicious-pkg --out train.jsonl
+# 1. Install Python deps (one-time)
+cd ml-model && pip3 install -r requirements.txt && cd ..
+
+# 2. Export features (optional; train.jsonl may already exist)
+npm run ml:export
+
+# 3. Train the model
+npm run ml:train
+
+# 4. Start the ML server (keep running)
+npm run ml:serve
 ```
 
-Or use defaults (known-good only; add --bad for malicious):
+Or run from `ml-model/` directly:
 
 ```bash
+cd ml-model
+pip3 install -r requirements.txt
 node export-features.js --out train.jsonl
-```
-
-### 2. Train
-
-```bash
-pip install -r requirements.txt
-python train.py --input train.jsonl --output model.pkl
-```
-
-### 3. Serve
-
-```bash
-python serve.py --port 8000
+python3 train.py --input train.jsonl --output model.pkl
+python3 serve.py --port 8000
 ```
 
 ### 4. Configure NullVoid

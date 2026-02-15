@@ -20,7 +20,7 @@ nullvoid
 # Scan a specific package
 nullvoid express
 
-# Scan a specific directory
+# Scan a specific directory (recursively finds all package.json subdirs)
 nullvoid /path/to/project
 ```
 
@@ -475,6 +475,18 @@ npm run type-check
 npm run build:watch
 ```
 
+### **ML Model (optional)**
+```bash
+# Start ML server for dependency confusion scoring
+npm run ml:serve
+
+# Train model (from ml-model/train.jsonl)
+npm run ml:train
+
+# Export features for training
+npm run ml:export
+```
+
 ### **Type Definitions**
 - Full TypeScript type definitions included
 - IntelliSense support in VS Code and other IDEs  
@@ -779,6 +791,50 @@ NullVoid includes advanced **Dependency Confusion Detection** to identify potent
 - Use package-lock.json files
 - Monitor for suspicious updates
 
+### **🤖 ML-Powered Threat Scoring**
+
+NullVoid can use a trained ML model for dependency confusion threat scoring. When `ML_MODEL_URL` is configured, scans send feature vectors to the model and incorporate its score into threat detection.
+
+**Quick setup:**
+
+```bash
+# 1. Install Python deps (one-time)
+cd ml-model && pip3 install -r requirements.txt && cd ..
+
+# 2. Train the model
+npm run ml:train
+
+# 3. Start the ML server (keep running in a terminal)
+npm run ml:serve
+
+# 4. Scan (in another terminal)
+nullvoid scan .
+```
+
+**npm scripts:**
+
+| Command | Description |
+|---------|-------------|
+| `npm run ml:serve` | Start ML server on port 8000 |
+| `npm run ml:train` | Train model from `train.jsonl` |
+| `npm run ml:export` | Export features to `train.jsonl` |
+
+Configure via `.nullvoidrc` or environment:
+
+```json
+{
+  "DEPENDENCY_CONFUSION_CONFIG": {
+    "ML_DETECTION": {
+      "ML_MODEL_URL": "http://localhost:8000/score"
+    }
+  }
+}
+```
+
+Or: `export NULLVOID_ML_MODEL_URL=http://localhost:8000/score`
+
+See [ml-model/README.md](ml-model/README.md) for training and API details.
+
 ### **⚙️ Configuration**
 
 Dependency confusion detection can be configured via environment variables:
@@ -813,7 +869,8 @@ NullVoid has a comprehensive roadmap focusing on advanced threat detection, ente
 - ✅ **Network Optimizations**: Connection pooling, request batching, compression
 
 #### **Enhanced Detection & Developer Experience**
-- **Advanced Timeline Analysis**: ML-based timeline analysis and commit pattern analysis
+- ✅ **ML Detection**: ML-based dependency confusion scoring; `npm run ml:serve`, `ml:train`, `ml:export`; see [ml-model/README.md](ml-model/README.md)
+- ✅ **Advanced Timeline Analysis**: ML-based timeline analysis and commit pattern analysis
 - **IDE Integration**: [VS Code extension](packages/vscode-extension) (run scan from Command Palette); IntelliJ plugins planned
 - **Pre-commit Hooks**: Optional scan before commit—set `NULLVOID_PRE_COMMIT=1` to enable; commit is **blocked** if threats are found. See [Pre-commit Integration](docs/PRE_COMMIT.md).
 - **More CI/CD Platforms**: [Jenkins](Jenkinsfile.example), [CircleCI](.circleci/config.yml), [Travis CI](.travis.example.yml), [GitLab CI](.gitlab-ci.example.yml), [Azure DevOps](azure-pipelines.example.yml)
@@ -829,7 +886,7 @@ NullVoid has a comprehensive roadmap focusing on advanced threat detection, ente
 - **Trust Network**: Local trust store, `nullvoid trust-status` (`TRUST_CONFIG`)
 - **Consensus Verification**: Multi-source integrity check (npm, GitHub, IPFS); `nullvoid verify-consensus`, `verify-package --consensus` (`CONSENSUS_CONFIG`)
 - **Blockchain Registry**: On-chain package CIDs; `nullvoid register-on-chain`, `nullvoid verify-on-chain` (`BLOCKCHAIN_CONFIG`)
-- **AI/ML Integration**: Machine learning for threat pattern recognition
+- ✅ **AI/ML Integration**: ML model for dependency confusion threat scoring (`npm run ml:serve`)
 - **Blockchain Integration**: Immutable signatures and decentralized verification
 - **Behavioral Analysis**: AI-powered anomaly detection
 - **Predictive Analysis**: Predicting potential security issues
