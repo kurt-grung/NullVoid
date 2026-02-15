@@ -96,7 +96,9 @@ export function isNullVoidCode(packageName: string): boolean {
       packageName.includes('packages/dashboard/') ||
       packageName.includes('packages\\dashboard\\') ||
       packageName.includes('packages/api/') ||
-      packageName.includes('packages\\api\\'))
+      packageName.includes('packages\\api\\') ||
+      packageName.includes('/api/index.js') ||
+      packageName.includes('\\api\\index.js'))
   ) {
     return true;
   }
