@@ -10,7 +10,7 @@
     "api/index.js": {
       "memory": 1024,
       "maxDuration": 60,
-      "includeFiles": ["packages/api/dist/**", "ts/dist/**"]
+      "includeFiles": "**/dist/**"
     }
   }
 }
