@@ -73,6 +73,22 @@ function requireAuth(req: Request, res: Response, next: () => void): void {
 
 app.use(authMiddleware);
 
+/** GET / - API info (avoids "Cannot GET /api" when visiting /api directly) */
+app.get('/', (_req: Request, res: Response) => {
+  res.json({
+    name: 'NullVoid API',
+    version: '1.0',
+    endpoints: {
+      health: 'GET /api/health',
+      scans: 'GET /api/scans',
+      scan: 'GET /api/scan/:id',
+      triggerScan: 'POST /api/scan',
+      organizations: 'GET /api/organizations',
+      teams: 'GET /api/teams',
+    },
+  });
+});
+
 function enforceTenantAccess(
   req: Request,
   orgId?: string | null,
