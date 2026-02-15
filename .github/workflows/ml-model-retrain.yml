@@ -1,6 +1,8 @@
 name: ML Model Retrain
 
 on:
+  push:
+    branches: [feat/ml-pipeline]
   schedule:
     # Run weekly on Sunday at 3 AM UTC
     - cron: '0 3 * * 0'
