@@ -1,18 +1,23 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getScans, triggerScan, type ScanSummary } from '../api'
+import { getScans, triggerScan, isApiUnavailableError, type ScanSummary } from '../api'
 
 export default function Scans() {
   const [scans, setScans] = useState<ScanSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [apiUnavailable, setApiUnavailable] = useState(false)
   const [target, setTarget] = useState('.')
   const [submitting, setSubmitting] = useState(false)
 
   const refresh = () => {
+    setError(null)
     getScans()
       .then((r) => setScans(r.scans))
-      .catch((e) => setError(e.message))
+      .catch((e) => {
+        if (isApiUnavailableError(e)) setApiUnavailable(true)
+        else setError(e.message)
+      })
       .finally(() => setLoading(false))
   }
 
@@ -37,7 +42,12 @@ export default function Scans() {
   return (
     <>
       <h1>Scans</h1>
-      {error && <div className="error">{error}</div>}
+      {apiUnavailable && (
+        <div className="api-unavailable" role="status">
+          No API connected. Deploy the NullVoid API to view and run scans.
+        </div>
+      )}
+      {error && !apiUnavailable && <div className="error">{error}</div>}
 
       <div className="card">
         <h3>New Scan</h3>

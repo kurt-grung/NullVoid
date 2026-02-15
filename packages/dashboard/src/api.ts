@@ -1,5 +1,17 @@
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
 
+/** Detect when API is unavailable (404, CORS, network) - show friendly empty state instead of error */
+export function isApiUnavailableError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error);
+  return (
+    msg.includes('API error') ||
+    msg.includes('404') ||
+    msg.includes('Failed to fetch') ||
+    msg.includes('NetworkError') ||
+    msg.includes('Ensure NullVoid API')
+  );
+}
+
 export interface ScanSummary {
   id: string;
   status: string;

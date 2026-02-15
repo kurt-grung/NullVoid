@@ -215,3 +215,13 @@ code {
   background: rgba(239, 68, 68, 0.1);
   border-radius: var(--radius);
 }
+
+.api-unavailable {
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}

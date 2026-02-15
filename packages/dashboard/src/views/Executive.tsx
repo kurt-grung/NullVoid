@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getScans, getScan, type ScanSummary, type ScanDetail } from '../api'
+import { getScans, getScan, isApiUnavailableError, type ScanSummary, type ScanDetail } from '../api'
 
 export default function Executive() {
   const [scans, setScans] = useState<ScanSummary[]>([])
@@ -7,12 +7,15 @@ export default function Executive() {
   const [severityCounts, setSeverityCounts] = useState<Record<string, number>>({ CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 })
   const [packageThreats, setPackageThreats] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [apiUnavailable, setApiUnavailable] = useState(false)
 
   useEffect(() => {
     getScans()
       .then((r) => setScans(r.scans))
-      .catch((e) => setError(e.message))
+      .catch((e) => {
+        if (isApiUnavailableError(e)) setApiUnavailable(true)
+        else setScans([])
+      })
       .finally(() => setLoading(false))
   }, [])
 
@@ -51,7 +54,6 @@ export default function Executive() {
   }, [completed.length])
 
   if (loading) return <div className="loading">Loading...</div>
-  if (error) return <div className="error">{error}</div>
 
   const topPackages = Object.entries(packageThreats)
     .sort((a, b) => b[1] - a[1])
@@ -60,6 +62,11 @@ export default function Executive() {
   return (
     <>
       <h1>Executive Overview</h1>
+      {apiUnavailable && (
+        <div className="api-unavailable" role="status">
+          No API connected. Deploy the NullVoid API to view scan data.
+        </div>
+      )}
       <div className="metric-grid">
         <div className="metric">
           <div className="metric-value">{scans.length}</div>
