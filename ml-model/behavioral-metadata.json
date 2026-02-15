@@ -1,0 +1,29 @@
+{
+  "model_type": "xgboost_behavioral_calibrated",
+  "feature_keys": [
+    "scriptCount",
+    "scriptTotalLength",
+    "hasPostinstall",
+    "postinstallLength",
+    "preinstallLength",
+    "postuninstallLength",
+    "networkScriptCount",
+    "evalUsageCount",
+    "childProcessCount",
+    "fileSystemAccessCount",
+    "dependencyCount",
+    "devDependencyCount"
+  ],
+  "training_date": "2026-02-15T15:37:56.860145Z",
+  "dataset_size": 60,
+  "class_distribution": {
+    "good": 8,
+    "bad": 40
+  },
+  "metrics": {
+    "accuracy": 0.6667,
+    "precision": 0.875,
+    "recall": 0.7,
+    "roc_auc": 0.65
+  }
+}
