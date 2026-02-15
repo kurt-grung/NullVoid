@@ -23,11 +23,11 @@
     "popularityScore",
     "trustScore"
   ],
-  "training_date": "2026-02-15T15:14:38.748379Z",
-  "dataset_size": 59,
+  "training_date": "2026-02-15T15:17:16.819867Z",
+  "dataset_size": 84,
   "class_distribution": {
     "good": 2,
-    "bad": 45
+    "bad": 65
   },
   "metrics": {
     "accuracy": 1.0,
