@@ -2,6 +2,27 @@
 
 Both the **Dashboard** and **API** deploy to **Vercel** when you connect this repository.
 
+## GitHub Codespaces (Demo)
+
+Run NullVoid in the cloud for demos or development—100% free (60 hours/month), no credit card. The `.devcontainer` config installs Node, Python, and dependencies automatically.
+
+### Setup
+
+1. Open the repo on GitHub → **Code** → **Codespaces** → **Create codespace on main**
+2. Wait for the container to build (postCreateCommand runs `npm install`, `pip install`, `npm run build`)
+3. In one terminal: `make api`
+4. In another terminal: `make dashboard`
+5. Open the forwarded port **5174** (Dashboard) in your browser
+
+### ML Pipeline
+
+The ML page (Export, Train) works in Codespaces. Use SQLite (no Turso needed). Optional: `make ml-serve` for the scoring API on port 8000.
+
+### Notes
+
+- Codespaces is ephemeral—not for 24/7 production
+- For production deployment, use [Vercel](#vercel-dashboard--api)
+
 ## Vercel (Dashboard + API)
 
 A single Vercel project serves the **Dashboard** at `/` and the **API** at `/api`. The API deploys when you connect this repository. Vercel uses **Turso** (serverless SQLite) for the database—SQLite files do not work on Vercel's read-only filesystem.
