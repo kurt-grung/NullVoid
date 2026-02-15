@@ -71,6 +71,15 @@ node export-features.js --from-ghsa --limit 200 --out train.jsonl
 GITHUB_TOKEN=ghp_xxx node export-features.js --from-ghsa --limit 500 --out train.jsonl
 ```
 
+## Deduplication
+
+When combining data from multiple sources (export-features, scan), deduplicate before training:
+
+```bash
+npm run ml:dedup
+# or: node ml-model/dedup-train.js [input.jsonl] [output.jsonl]
+```
+
 ## Training Options
 
 ```bash
