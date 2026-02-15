@@ -1,0 +1,29 @@
+{
+  "name": "NullVoid",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.11"
+    }
+  },
+  "postCreateCommand": "npm install && pip install -r ml-model/requirements.txt && npm run build",
+  "postStartCommand": "bash scripts/codespaces-start.sh",
+  "forwardPorts": [3001, 5174, 8000],
+  "portsAttributes": {
+    "5174": {
+      "label": "Dashboard",
+      "onAutoForward": "openPreview"
+    },
+    "3001": {
+      "label": "API"
+    },
+    "8000": {
+      "label": "ML Serve"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": []
+    }
+  }
+}

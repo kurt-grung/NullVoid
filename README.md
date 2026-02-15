@@ -615,6 +615,10 @@ make install && make build && make test
 # or: npm ci && npm run build && npm test
 ```
 
+### Try in GitHub Codespaces
+
+Run NullVoid (including the ML pipeline) in the cloud—no local install. Click **Code** → **Codespaces** → **Create codespace on main**. After the container builds, API and Dashboard start automatically. Open the forwarded port **5174** (Dashboard). Use the ML page to export features and train models. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#github-codespaces-demo) for details.
+
 ## 🔧 **TypeScript Support**
 
 NullVoid is built with **TypeScript** for enhanced type safety and developer experience. The project uses **Turborepo** for the monorepo build pipeline (workspaces: `packages/*`, `ts`, `js`). **Node 20+** is required for building (some dependencies require it).
