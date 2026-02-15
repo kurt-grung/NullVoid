@@ -646,16 +646,42 @@ npm run build:watch
 ### **Makefile targets**
 | Target | Description |
 |--------|-------------|
+| `make` | Start dashboard (default) |
 | `make build` | Build TypeScript scanner and packages |
 | `make build-api` | Build API package |
 | `make api` | Start API (port 3001) |
-| `make dashboard` | Start dashboard dev server |
+| `make dashboard` | Start dashboard dev server (port 5174) |
 | `make dev` | Start scanner in dev mode |
 | `make test` | Run tests |
 | `make lint` | Run linter |
 | `make install` | Install dependencies |
+| `make kill` | Stop API, dashboard, and ML server (ports 3001, 5174, 8000) |
 | `make ml-serve` | Start ML model server (port 8000) |
 | `make ml-train` | Train ML model |
+
+### **Dashboard**
+
+The web dashboard provides a UI for scans, compliance, reports, and ML commands.
+
+```bash
+# Terminal 1: Start API (required for dashboard)
+make api
+
+# Terminal 2: Start dashboard
+make dashboard
+# Open http://localhost:5174
+```
+
+| Page | Description |
+|------|-------------|
+| **Executive** | Overview: scan counts, threats, severity distribution, top packages |
+| **Scans** | Run scans, view recent scans, link to scan details |
+| **Compliance** | Control coverage (C/I/A), gap analysis for SOC 2 / ISO 27001 |
+| **Reports** | View HTML or download Markdown reports for completed scans |
+| **ML** | Run export/train for dependency confusion and behavioral models (API must run locally) |
+
+- **Reports**: `GET /api/report/:scanId?format=html|markdown&compliance=soc2|iso27001`
+- **Stop all**: `make kill` stops API, dashboard, and ML server
 
 ### **ML Model (optional)**
 See [ML Training Pipeline](#-ml-training-pipeline) above for the full setup. Quick reference:
@@ -1044,8 +1070,8 @@ NullVoid has a comprehensive roadmap focusing on advanced threat detection, ente
 
 #### **Enterprise Features & Advanced Analytics**
 - **Multi-tenant Support**: Organization-level scanning and reporting
-- **Advanced Reporting**: Executive dashboards and compliance reports
-- **API Integration**: REST/GraphQL APIs for enterprise systems
+- ✅ **Advanced Reporting**: Executive dashboard, compliance (C/I/A), scan reports (HTML/Markdown), ML controls
+- **API Integration**: REST API for scans, reports, organizations, teams; deploy to Vercel
 - **Custom Rule Engine**: User-defined detection patterns
 
 #### **AI/ML Integration & Blockchain Features**
@@ -1213,16 +1239,20 @@ stage('NullVoid Security Scan') {
 
 ## 🤝 Contributing
 
-**This project does not accept external contributions.**
+**This project is not open to external contributions.**
 
-NullVoid is maintained as a focused, security-first tool with a single development direction. However, we welcome your feedback and suggestions!
+NullVoid is built and maintained by [Kurt Grüng](https://kurtgrung.com) as a focused, security-first tool with a single development direction. However, we welcome your feedback and suggestions!
+
+- [LinkedIn](https://www.linkedin.com/in/kurtgrung/)
+- [kurtgrung.com](https://kurtgrung.com)
+- [GitHub](https://github.com/kurt-grung)
 
 ### 🐛 **Reporting Issues**
 - **Security Issues**: Please report security vulnerabilities privately to `kurtgrung@gmail.com`
 - **Bug Reports**: Open an issue with detailed reproduction steps (use the [bug report template](.github/ISSUE_TEMPLATE/bug_report.md))
 - **Feature Requests**: Open an issue to discuss potential enhancements (use the [feature request template](.github/ISSUE_TEMPLATE/feature_request.md))
 - **Project Board**: Track roadmap, bugs, and updates via [GitHub Projects](https://github.com/kurt-grung/NullVoid/projects) — see [.github/PROJECT_SETUP.md](.github/PROJECT_SETUP.md) for setup
-- **Dashboard + API**: Deploy to Vercel with Turso — see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+- **Dashboard + API**: Deploy to Vercel with Turso — see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md); enhancement roadmap: [docs/dashboard-enhancement-plan.md](docs/dashboard-enhancement-plan.md)
 - **Documentation**: Report documentation issues or suggest improvements
 
 ### 💡 **Getting Help**
