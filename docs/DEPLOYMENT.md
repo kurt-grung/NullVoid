@@ -10,9 +10,7 @@ Run NullVoid in the cloud for demos or development—100% free (60 hours/month),
 
 1. Open the repo on GitHub → **Code** → **Codespaces** → **Create codespace on main**
 2. Wait for the container to build (postCreateCommand runs `npm install`, `pip install`, `npm run build`)
-3. In one terminal: `make api`
-4. In another terminal: `make dashboard`
-5. Open the forwarded port **5174** (Dashboard) in your browser
+3. API and Dashboard start automatically (postStartCommand). Open the forwarded port **5174** (Dashboard) in your browser
 
 ### ML Pipeline
 

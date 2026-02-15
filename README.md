@@ -617,14 +617,7 @@ make install && make build && make test
 
 ### Try in GitHub Codespaces
 
-Run NullVoid (including the ML pipeline) in the cloud—no local install. Click **Code** → **Codespaces** → **Create codespace on main**. After the container builds:
-
-```bash
-make api        # Terminal 1: start API
-make dashboard  # Terminal 2: start dashboard
-```
-
-Open the forwarded port **5174** (Dashboard). Use the ML page to export features and train models. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#github-codespaces-demo) for details.
+Run NullVoid (including the ML pipeline) in the cloud—no local install. Click **Code** → **Codespaces** → **Create codespace on main**. After the container builds, API and Dashboard start automatically. Open the forwarded port **5174** (Dashboard). Use the ML page to export features and train models. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#github-codespaces-demo) for details.
 
 ## 🔧 **TypeScript Support**
 

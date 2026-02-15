@@ -7,6 +7,7 @@
     }
   },
   "postCreateCommand": "npm install && pip install -r ml-model/requirements.txt && npm run build",
+  "postStartCommand": "bash scripts/codespaces-start.sh",
   "forwardPorts": [3001, 5174, 8000],
   "portsAttributes": {
     "5174": {
