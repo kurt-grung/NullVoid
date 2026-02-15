@@ -714,8 +714,52 @@ async function performScan(target: string | undefined, options: CliOptions) {
       }
     };
 
-    const result = await scan(effectiveTarget, scanOptions, progressCallback);
-    spinner.succeed('✅ Scan completed');
+    let result: ScanResult;
+    try {
+      result = await scan(effectiveTarget, scanOptions, progressCallback);
+      spinner.succeed('✅ Scan completed');
+    } catch (scanError) {
+      spinner.fail('❌ Scan failed');
+      // Still write a minimal report when --output is set so CI has something to work with
+      if (options.output) {
+        const errorResult: ScanResult = {
+          threats: [
+            {
+              type: 'SCAN_ERROR',
+              message: `Scan failed: ${(scanError as Error).message}`,
+              filePath: effectiveTarget,
+              filename: path.basename(effectiveTarget) || 'unknown',
+              severity: 'HIGH',
+              details: (scanError as Error).stack ?? '',
+              confidence: 1,
+            },
+          ],
+          metrics: {
+            duration: 0,
+            memoryUsage: 0,
+            cpuUsage: 0,
+            filesPerSecond: 0,
+            packagesPerSecond: 0,
+          },
+          summary: { totalFiles: 0, totalPackages: 0, threatsFound: 1, scanDuration: 0 },
+          packagesScanned: 0,
+          filesScanned: 0,
+          performance: {
+            duration: 0,
+            memoryUsage: 0,
+            cpuUsage: 0,
+            filesPerSecond: 0,
+            packagesPerSecond: 0,
+          },
+          metadata: { target: effectiveTarget, scanTime: new Date().toISOString(), options: {} },
+        };
+        const outPath = path.resolve(options.output);
+        fs.writeFileSync(outPath, JSON.stringify(errorResult, null, 2));
+        console.error('Error:', (scanError as Error).message);
+        process.exit(1);
+      }
+      throw scanError;
+    }
 
     // When format is json and no output file, print JSON only to stdout (machine-readable)
     if (options.format === 'json' && !options.output) {
