@@ -55,16 +55,16 @@ export default function ML() {
   return (
     <>
       <h1>ML Pipeline</h1>
-      <p className="text-neutral-500 dark:text-neutral-400 text-sm mb-6">
-        Run ML commands via the API. Only available when the API runs locally (<code>make api</code>).
-      </p>
-
-      {available === false && !apiUnavailable && (
-        <div className="alert-warning mb-6">
-          <p className="text-neutral-600 dark:text-neutral-400 text-sm font-medium">
-            ML commands are not available on this deployment. Run the API locally with <code>make api</code> and open the dashboard at localhost:5174.
+      {available === false && !apiUnavailable ? (
+        <div className="alert-info mb-6">
+          <p className="text-sm font-medium">
+            ML commands (export, train) run locally only. Use <code>make api</code> and <code>make dashboard</code>, then open localhost:5174.
           </p>
         </div>
+      ) : (
+        <p className="text-neutral-500 dark:text-neutral-400 text-sm mb-6">
+          Export features and train XGBoost models for dependency confusion and behavioral detection.
+        </p>
       )}
 
       <div className="card-minimal">
