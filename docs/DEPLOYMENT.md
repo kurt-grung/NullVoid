@@ -19,9 +19,13 @@ The API deploys to Vercel when you connect this repository. Vercel uses **Turso*
 2. **Connect the repo to Vercel** at [vercel.com](https://vercel.com)
    - Import this repository
    - Vercel will use [vercel.json](../vercel.json) for build config
-3. **Add environment variables** in the Vercel project:
-   - `TURSO_DATABASE_URL` – your Turso database URL
-   - `TURSO_AUTH_TOKEN` – your Turso auth token
+3. **Add environment variables** in the Vercel project (Settings → Environment Variables):
+   | Variable | Description |
+   |----------|-------------|
+   | `TURSO_DATABASE_URL` | Turso database URL (e.g. `libsql://your-db.turso.io`) |
+   | `TURSO_AUTH_TOKEN` | Turso auth token |
+
+   See [.env.example](../.env.example) for reference.
 4. **Set `NULLVOID_API_URL`** in GitHub repo variables to your Vercel API URL (e.g. `https://your-project.vercel.app/api`)
 
 ### Local development
