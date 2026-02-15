@@ -60,6 +60,9 @@ jspm_packages/
 .env
 .env.test
 
+# Turborepo cache
+.turbo/
+
 # parcel-bundler cache
 .cache
 .parcel-cache

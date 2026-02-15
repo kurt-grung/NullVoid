@@ -1,6 +1,8 @@
 {
   "name": "nullvoid",
   "version": "2.1.0",
+  "workspaces": ["packages/*", "ts", "js"],
+  "packageManager": "npm@11.6.2",
   "description": "Detect malicious code",
   "main": "ts/dist/scan.js",
   "types": "ts/dist/types/index.d.ts",
@@ -8,7 +10,7 @@
     "nullvoid": "./ts/dist/bin/nullvoid.js"
   },
   "scripts": {
-    "build": "cd ts && npm run build",
+    "build": "turbo run build --filter=!@nullvoid/js --filter=!nullvoid-vscode",
     "build:watch": "cd ts && npm run build:watch",
     "dev": "cd ts && npm run dev",
     "test": "npm run test:js && npm run test:ts",
@@ -27,10 +29,10 @@
     "ml:export": "cd ml-model && node export-features.js --out train.jsonl",
     "ml:export-behavioral": "cd ml-model && node export-behavioral-features.js --out train-behavioral.jsonl",
     "ml:train-behavioral": "cd ml-model && python3 train-behavioral.py --input train-behavioral.jsonl --balance --calibrate",
-    "api:build": "cd packages/api && npm install && npm run build",
-    "api:start": "npm run build && cd packages/api && node dist/index.js",
-    "dashboard:dev": "cd packages/dashboard && npm install && npm run dev",
-    "dashboard:build": "cd packages/dashboard && npm install && npm run build",
+    "api:build": "turbo run build --filter=@nullvoid/api",
+    "api:start": "turbo run build --filter=@nullvoid/api && node packages/api/dist/index.js",
+    "dashboard:dev": "turbo run dev --filter=dashboard",
+    "dashboard:build": "turbo run build --filter=dashboard",
     "ml:scan": "node ts/dist/bin/nullvoid.js scan",
     "badge": "node scripts/generate-badge.js",
     "badge:running": "node -e \"require('./scripts/generate-badge.js').setRunningBadge()\"",
@@ -101,6 +103,7 @@
     "globals": "^15.14.0",
     "ts-jest": "^29.4.4",
     "ts-node": "^10.9.2",
+    "turbo": "^2.3.0",
     "typescript": "^5.9.2"
   },
   "lint-staged": {
