@@ -51,7 +51,7 @@ function main() {
   try {
     report = JSON.parse(fs.readFileSync(inputPath, 'utf8'));
   } catch (e) {
-    console.error('Failed to read or parse input:', e.message);
+    console.error('Failed to read or parse input:', (e && e.message) || String(e));
     process.exit(1);
   }
 

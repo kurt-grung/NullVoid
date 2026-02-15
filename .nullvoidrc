@@ -1,0 +1,25 @@
+{
+  "depth": 10,
+  "DEPENDENCY_CONFUSION_CONFIG": {
+    "ML_DETECTION": {
+      "ML_MODEL_URL": "http://localhost:8000/score",
+      "ML_MODEL_PATH": null,
+      "ML_ANOMALY_THRESHOLD": 0.7,
+      "ML_WEIGHTS": {
+        "timelineAnomaly": 0.4,
+        "scopePrivate": 0.15,
+        "suspiciousPatterns": 0.15,
+        "lowActivityRecent": 0.08,
+        "commitPatternAnomaly": 0.08,
+        "nlpSecurityScore": 0.08,
+        "crossPackageAnomaly": 0.03,
+        "behavioralAnomaly": 0.03,
+        "reviewSecurityScore": 0.05,
+        "popularityScore": 0.02,
+        "trustScore": 0.05
+      }
+    },
+    "NLP_CONFIG": { "ENABLED": true },
+    "COMMUNITY_CONFIG": { "ENABLED": true }
+  }
+}

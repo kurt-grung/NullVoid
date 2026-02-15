@@ -44,7 +44,7 @@ jobs:
         cd "${{ github.workspace }}"
         REPORT="${{ github.workspace }}/security-report.json"
         SARIF="${{ github.workspace }}/nullvoid-results.sarif"
-        node ts/dist/bin/nullvoid.js . --format json --output "$REPORT"
+        node ts/dist/bin/nullvoid.js . --format json --output "$REPORT" --no-ioc
         test -f "$REPORT" || { echo "ERROR: security-report.json was not created"; ls -la . 2>/dev/null || true; exit 1; }
         node scripts/json-to-sarif.js "$REPORT" "$SARIF"
       

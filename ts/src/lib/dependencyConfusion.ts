@@ -1,6 +1,26 @@
+/**
+ * Dependency Confusion Detection Module
+ *
+ * Detects potential dependency confusion attacks by analyzing:
+ * - Git history vs npm registry creation dates
+ * - Scope ownership and namespace conflicts
+ * - Package name similarity patterns
+ * - Timeline-based threat indicators (enhanced timeline, ML scoring)
+ */
+
+import * as fs from 'fs';
+import * as path from 'path';
+import { execSync } from 'child_process';
 import { Threat, createThreat } from '../types/core';
-import * as crypto from 'crypto';
 import { DEPENDENCY_CONFUSION_CONFIG, DETECTION_PATTERNS } from './config';
+import { getPackageCreationDateMulti } from './registries';
+import { analyzeTimeline } from './timelineAnalysis';
+import { runMLDetection } from './mlDetection';
+import { runNlpAnalysis } from './nlpAnalysis';
+import { runCommunityAnalysis } from './communityAnalysis';
+import { getTrustScore } from './trustNetwork';
+import { computeBehavioralAnomaly, computeCrossPackageAnomaly } from './anomalyDetection';
+import { NLP_CONFIG, COMMUNITY_CONFIG, TRUST_CONFIG } from './config';
 
 export interface PackageInfo {
   name: string;
@@ -36,6 +56,11 @@ export interface DependencyConfusionOptions {
   checkGitActivity?: boolean;
 }
 
+export interface PackageToAnalyze {
+  name: string;
+  path: string;
+}
+
 /**
  * Calculate string similarity using Levenshtein distance
  */
@@ -56,12 +81,10 @@ export function levenshteinDistance(str1: string, str2: string): number {
   if (str1.length === 0) return str2.length;
   if (str2.length === 0) return str1.length;
 
-  // Use a simpler approach to avoid TypeScript strict null check issues
   const len1 = str1.length;
   const len2 = str2.length;
   const matrix: number[][] = Array.from({ length: len2 + 1 }, () => Array(len1 + 1).fill(0));
 
-  // Initialize first row and column
   for (let i = 0; i <= len2; i++) {
     matrix[i]![0] = i;
   }
@@ -69,14 +92,13 @@ export function levenshteinDistance(str1: string, str2: string): number {
     matrix[0]![j] = j;
   }
 
-  // Fill the matrix
   for (let i = 1; i <= len2; i++) {
     for (let j = 1; j <= len1; j++) {
       const cost = str2.charAt(i - 1) === str1.charAt(j - 1) ? 0 : 1;
       matrix[i]![j] = Math.min(
-        matrix[i - 1]![j]! + 1, // deletion
-        matrix[i]![j - 1]! + 1, // insertion
-        matrix[i - 1]![j - 1]! + cost // substitution
+        matrix[i - 1]![j]! + 1,
+        matrix[i]![j - 1]! + 1,
+        matrix[i - 1]![j - 1]! + cost
       );
     }
   }
@@ -87,50 +109,62 @@ export function levenshteinDistance(str1: string, str2: string): number {
 /**
  * Get package creation date from npm registry
  */
-export async function getPackageCreationDate(packageName: string): Promise<string | null> {
+export async function getPackageCreationDate(packageName: string): Promise<Date | null> {
   try {
-    // Generate a hash for caching purposes (not used in this implementation)
-    crypto.createHash('sha256').update(packageName).digest('hex');
     const response = await fetch(
-      `${DEPENDENCY_CONFUSION_CONFIG.REGISTRY_ENDPOINTS.npm}/${packageName}`
+      `${DEPENDENCY_CONFUSION_CONFIG.REGISTRY_ENDPOINTS.npm}/${encodeURIComponent(packageName)}`
     );
-    if (!response.ok) {
-      return null;
-    }
+    if (!response.ok) return null;
     const data = (await response.json()) as Record<string, unknown>;
-    return ((data['time'] as Record<string, unknown>)?.['created'] as string) || null;
+    const created = (data['time'] as Record<string, unknown>)?.['created'] as string | undefined;
+    return created ? new Date(created) : null;
   } catch {
     return null;
   }
 }
 
 /**
- * Get git history for a package
+ * Get git history for a package/directory (sync, uses execSync)
  */
-export async function getGitHistory(): Promise<GitHistory> {
+export function getGitHistorySync(packagePath: string): GitHistory {
   try {
-    // Simulate git history analysis
-    const mockCommits = [
-      {
-        date: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        message: 'Initial commit',
-        author: 'developer@example.com',
-      },
-    ];
+    const firstCommit = execSync('git log --reverse -1 --format="%H %ci" -- .', {
+      cwd: packagePath,
+      encoding: 'utf8',
+      timeout: 10000,
+    }).trim();
+
+    if (!firstCommit) {
+      return {
+        commits: [],
+        totalCommits: 0,
+        hasGitHistory: false,
+      };
+    }
+
+    const parts = firstCommit.split(/\s+/);
+    const dateStr = parts.slice(1).join(' ');
+    const firstCommitDate = new Date(dateStr);
+
+    const recentCommitsStr = execSync('git log --format="%ci" --since="1 year ago" -- . | wc -l', {
+      cwd: packagePath,
+      encoding: 'utf8',
+      timeout: 5000,
+    }).trim();
+    const recentCommitCount = parseInt(recentCommitsStr, 10) || 0;
 
     return {
-      commits: mockCommits,
-      totalCommits: mockCommits.length,
-      firstCommitDate: new Date(mockCommits[0]?.date || Date.now()),
-      recentCommitCount: mockCommits.length,
+      commits: [{ date: dateStr, message: '', author: '' }],
+      totalCommits: 1,
+      firstCommitDate,
+      recentCommitCount,
       hasGitHistory: true,
     };
-  } catch (error: unknown) {
+  } catch {
     return {
       commits: [],
       totalCommits: 0,
       hasGitHistory: false,
-      error: error instanceof Error ? error.message : String(error),
     };
   }
 }
@@ -140,42 +174,35 @@ export async function getGitHistory(): Promise<GitHistory> {
  */
 export function analyzePackageName(packageName: string): PackageNameAnalysis {
   const isScoped = packageName.startsWith('@');
-  const scope = isScoped ? packageName.split('/')[0] || null : null;
-  const unscopedName = isScoped ? packageName.split('/')[1] || packageName : packageName;
+  const scope = isScoped ? (packageName.split('/')[0] ?? null) : null;
+  const unscopedName = isScoped ? (packageName.split('/')[1] ?? packageName) : packageName;
 
   const suspiciousPatterns: string[] = [];
 
-  // Check for suspicious patterns
   DEPENDENCY_CONFUSION_CONFIG.SUSPICIOUS_NAME_PATTERNS.forEach((pattern, index) => {
     if (pattern.test(packageName)) {
       suspiciousPatterns.push(`Pattern ${index + 1}`);
     }
   });
 
-  // Calculate similarity to popular packages (simplified)
   const popularPackages = DETECTION_PATTERNS.POPULAR_PACKAGES;
   let maxSimilarity = 0;
-
   popularPackages.forEach((popular) => {
     const similarity = calculateSimilarity(unscopedName, popular);
-    if (similarity > maxSimilarity) {
-      maxSimilarity = similarity;
-    }
+    if (similarity > maxSimilarity) maxSimilarity = similarity;
   });
 
   const riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' =
     suspiciousPatterns.length > 0 ? 'HIGH' : maxSimilarity > 0.8 ? 'MEDIUM' : 'LOW';
 
-  // Determine scope type
   let scopeType: 'PRIVATE' | 'PUBLIC' | 'UNKNOWN' = 'UNKNOWN';
   if (isScoped) {
-    const isPrivateScope = DEPENDENCY_CONFUSION_CONFIG.SCOPE_PATTERNS.PRIVATE_SCOPES.some(
-      (pattern) => pattern.test(packageName)
+    const isPrivateScope = DEPENDENCY_CONFUSION_CONFIG.SCOPE_PATTERNS.PRIVATE_SCOPES.some((p) =>
+      p.test(packageName)
     );
-    const isPublicScope = DEPENDENCY_CONFUSION_CONFIG.SCOPE_PATTERNS.PUBLIC_SCOPES.some((pattern) =>
-      pattern.test(packageName)
+    const isPublicScope = DEPENDENCY_CONFUSION_CONFIG.SCOPE_PATTERNS.PUBLIC_SCOPES.some((p) =>
+      p.test(packageName)
     );
-
     if (isPrivateScope) scopeType = 'PRIVATE';
     else if (isPublicScope) scopeType = 'PUBLIC';
   } else {
@@ -194,145 +221,293 @@ export function analyzePackageName(packageName: string): PackageNameAnalysis {
 }
 
 /**
- * Get package information
+ * Detect dependency confusion threats (with package path for full ML pipeline)
  */
-async function getPackageInfo(packageName: string): Promise<PackageInfo | null> {
-  try {
-    const creationDate = await getPackageCreationDate(packageName);
-    const gitHistory = await getGitHistory();
-    const analysis = analyzePackageName(packageName);
-
-    return {
-      name: packageName,
-      version: '1.0.0',
-      creationDate: creationDate,
-      gitHistory: gitHistory,
-      analysis: analysis,
-    };
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Detect dependency confusion attacks
- */
-export async function detectDependencyConfusion(packageName: string): Promise<Threat[]> {
-  const packageInfo = await getPackageInfo(packageName);
-  if (!packageInfo) {
-    return [];
-  }
-
+export async function detectDependencyConfusionWithPath(
+  packageName: string,
+  packagePath: string
+): Promise<Threat[]> {
   const threats: Threat[] = [];
-  const creationDate = packageInfo.creationDate || new Date().toISOString();
-  const gitHistory = packageInfo.gitHistory;
-  const analysis = packageInfo.analysis;
+  const mlCfg = (DEPENDENCY_CONFUSION_CONFIG as { ML_DETECTION?: { MULTI_REGISTRY?: boolean } })
+    .ML_DETECTION;
+  const useMultiRegistry = mlCfg?.MULTI_REGISTRY !== false;
 
-  // Timeline analysis
-  const daysSinceCreation = creationDate
-    ? (Date.now() - new Date(creationDate).getTime()) / (1000 * 60 * 60 * 24)
-    : 0;
-  const recentCommitCount = gitHistory.commits.filter((commit) => {
-    const commitDate = new Date(commit.date);
-    const daysSinceCommit = (Date.now() - commitDate.getTime()) / (1000 * 60 * 60 * 24);
-    return (
-      daysSinceCommit <= DEPENDENCY_CONFUSION_CONFIG.TIMELINE_THRESHOLDS.RAPID_PUBLISHING_HOURS / 24
-    );
-  }).length;
+  try {
+    let creationDate: Date | null = null;
+    let registryName = 'npm';
 
-  const totalCommits = gitHistory.totalCommits;
+    if (useMultiRegistry) {
+      const multi = await getPackageCreationDateMulti(packageName);
+      if (multi?.created) {
+        creationDate = multi.created;
+        registryName = multi.registryName ?? 'npm';
+      }
+    }
+    if (!creationDate) {
+      creationDate = await getPackageCreationDate(packageName);
+    }
+    if (!creationDate) return threats;
 
-  // Check timeline-based threats
-  if (daysSinceCreation <= DEPENDENCY_CONFUSION_CONFIG.TIMELINE_THRESHOLDS.CRITICAL) {
+    const gitHistory = getGitHistorySync(packagePath);
+    if (!gitHistory.hasGitHistory || !gitHistory.firstCommitDate) {
+      return threats;
+    }
+
+    const nameAnalysis = analyzePackageName(packageName);
+    const timelineResult = analyzeTimeline({
+      registryCreated: creationDate,
+      firstCommitDate: gitHistory.firstCommitDate,
+      recentCommitCount: gitHistory.recentCommitCount ?? 0,
+      scopeType: nameAnalysis.scopeType ?? null,
+    });
+    const daysDifference = timelineResult.daysDifference ?? 0;
+    const timelineRisk = timelineResult.riskLevel;
+
+    let nlpResult = null;
+    let communityResult = null;
+    let crossPackageAnomaly: number | null = null;
+    let behavioralAnomaly: number | null = null;
+
+    let pkgFeatures: {
+      scriptCount: number;
+      scriptTotalLength: number;
+      hasPostinstall: boolean;
+      postinstallLength: number;
+      dependencyCount: number;
+      devDependencyCount: number;
+      rareDependencyCount: number;
+    } | null = null;
+
+    try {
+      const pkgPath = path.join(packagePath, 'package.json');
+      if (fs.existsSync(pkgPath)) {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8')) as Record<string, unknown>;
+        const scripts = (pkg['scripts'] as Record<string, string>) || {};
+        const scriptKeys = Object.keys(scripts);
+        const postinstall = scripts['postinstall'] ?? scripts['install'];
+        pkgFeatures = {
+          scriptCount: scriptKeys.length,
+          scriptTotalLength: scriptKeys.reduce((sum, k) => sum + (scripts[k] ?? '').length, 0),
+          hasPostinstall: !!postinstall,
+          postinstallLength: postinstall ? postinstall.length : 0,
+          dependencyCount: Object.keys((pkg['dependencies'] as object) || {}).length,
+          devDependencyCount: Object.keys((pkg['devDependencies'] as object) || {}).length,
+          rareDependencyCount: 0,
+        };
+        behavioralAnomaly = computeBehavioralAnomaly(pkgFeatures);
+        crossPackageAnomaly = computeCrossPackageAnomaly(pkgFeatures, []);
+      }
+    } catch {
+      /* ignore */
+    }
+
+    let version = 'latest';
+    try {
+      const pkgPath = path.join(packagePath, 'package.json');
+      if (fs.existsSync(pkgPath)) {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8')) as Record<string, unknown>;
+        version = (pkg['version'] as string) || 'latest';
+      }
+    } catch {
+      /* ignore */
+    }
+
+    if (NLP_CONFIG.ENABLED) {
+      try {
+        nlpResult = await runNlpAnalysis(packageName, version, NLP_CONFIG);
+      } catch {
+        /* ignore */
+      }
+    }
+    if (COMMUNITY_CONFIG.ENABLED) {
+      try {
+        communityResult = await runCommunityAnalysis(packageName, version, COMMUNITY_CONFIG);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    let trustScore: number | null = null;
+    if (TRUST_CONFIG.ENABLED) {
+      try {
+        trustScore = await getTrustScore(packageName, version);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    const mlResult = await runMLDetection({
+      creationDate,
+      firstCommitDate: gitHistory.firstCommitDate,
+      recentCommitCount: gitHistory.recentCommitCount ?? 0,
+      scopeType: nameAnalysis.scopeType ?? null,
+      suspiciousPatternsCount: nameAnalysis.suspiciousPatterns?.length ?? 0,
+      registryName,
+      packagePath,
+      nlpResult,
+      communityResult,
+      trustScore,
+      crossPackageAnomaly,
+      behavioralAnomaly,
+    });
+
+    if (timelineRisk !== 'LOW') {
+      const confidence =
+        mlResult.enabled && mlResult.aboveThreshold
+          ? Math.min(95, 70 + Math.round(mlResult.threatScore * 25))
+          : Math.min(95, Math.max(0, 60 + (30 - daysDifference) * 2));
+      threats.push(
+        createThreat(
+          'DEPENDENCY_CONFUSION_TIMELINE',
+          `Package creation date suspiciously close to git history (${Math.round(daysDifference)} days)`,
+          packagePath,
+          'package.json',
+          timelineRisk === 'CRITICAL' ? 'CRITICAL' : timelineRisk === 'HIGH' ? 'HIGH' : 'MEDIUM',
+          `Package created: ${creationDate.toISOString()}, First git commit: ${gitHistory.firstCommitDate!.toISOString()}${registryName !== 'npm' ? ` (registry: ${registryName})` : ''}`,
+          {
+            package: packageName,
+            confidence: confidence / 100,
+            creationDate: creationDate.toISOString(),
+            firstCommitDate: gitHistory.firstCommitDate!.toISOString(),
+            daysDifference: Math.round(daysDifference),
+            timelineRisk,
+            registryName,
+            ...(mlResult.enabled && {
+              mlAnomalyScore: mlResult.anomalyScore,
+              mlThreatScore: mlResult.threatScore,
+            }),
+            ...(mlResult.modelUsed && { mlModelUsed: true }),
+            ...(mlResult.features?.commitPatternAnomaly != null && {
+              commitPatternAnomaly: mlResult.features.commitPatternAnomaly,
+            }),
+          }
+        )
+      );
+    }
+
+    if (timelineRisk === 'LOW' && mlResult.enabled && mlResult.aboveThreshold) {
+      threats.push(
+        createThreat(
+          'DEPENDENCY_CONFUSION_ML_ANOMALY',
+          'ML anomaly score indicates potential dependency confusion risk',
+          packagePath,
+          'package.json',
+          mlResult.threatScore >= 0.8 ? 'HIGH' : 'MEDIUM',
+          `Anomaly score: ${(mlResult.anomalyScore * 100).toFixed(0)}%, Threat score: ${(mlResult.threatScore * 100).toFixed(0)}%`,
+          {
+            package: packageName,
+            confidence: mlResult.threatScore * 0.9,
+            mlAnomalyScore: mlResult.anomalyScore,
+            mlThreatScore: mlResult.threatScore,
+            registryName,
+            ...(mlResult.modelUsed && { mlModelUsed: true }),
+            ...(mlResult.features?.commitPatternAnomaly != null && {
+              commitPatternAnomaly: mlResult.features.commitPatternAnomaly,
+            }),
+          }
+        )
+      );
+    }
+
+    if (
+      timelineRisk === 'LOW' &&
+      mlResult.enabled &&
+      mlResult.predictiveRisk &&
+      !mlResult.aboveThreshold
+    ) {
+      threats.push(
+        createThreat(
+          'DEPENDENCY_CONFUSION_PREDICTIVE_RISK',
+          'Predictive risk: patterns suggest potential dependency confusion risk',
+          packagePath,
+          'package.json',
+          'LOW',
+          `Predictive score: ${(mlResult.predictiveScore * 100).toFixed(0)}% (anomaly: ${(mlResult.anomalyScore * 100).toFixed(0)}%)`,
+          {
+            package: packageName,
+            confidence: mlResult.predictiveScore * 0.6,
+            predictiveScore: mlResult.predictiveScore,
+            mlAnomalyScore: mlResult.anomalyScore,
+            registryName,
+            ...(mlResult.features?.commitPatternAnomaly != null && {
+              commitPatternAnomaly: mlResult.features.commitPatternAnomaly,
+            }),
+          }
+        )
+      );
+    }
+
+    if (nameAnalysis.suspiciousPatterns.length > 0) {
+      threats.push(
+        createThreat(
+          'DEPENDENCY_CONFUSION_PATTERN',
+          'Package name follows suspicious naming patterns',
+          packagePath,
+          'package.json',
+          nameAnalysis.scopeType === 'PRIVATE' ? 'HIGH' : 'MEDIUM',
+          `Suspicious patterns: ${nameAnalysis.suspiciousPatterns.join(', ')}`,
+          {
+            package: packageName,
+            confidence: 0.75,
+            suspiciousPatterns: nameAnalysis.suspiciousPatterns,
+            scopeType: nameAnalysis.scopeType,
+            isScoped: nameAnalysis.isScoped,
+          }
+        )
+      );
+    }
+
+    if (nameAnalysis.scopeType === 'PRIVATE') {
+      threats.push(
+        createThreat(
+          'DEPENDENCY_CONFUSION_SCOPE',
+          'Private scope package may be vulnerable to dependency confusion',
+          packagePath,
+          'package.json',
+          'HIGH',
+          `Private scope '@${nameAnalysis.scope}' detected. Ensure proper npm registry configuration.`,
+          {
+            package: packageName,
+            confidence: 0.85,
+            scope: nameAnalysis.scope,
+            scopeType: nameAnalysis.scopeType,
+            unscopedName: nameAnalysis.unscopedName,
+          }
+        )
+      );
+    }
+
+    if ((gitHistory.recentCommitCount ?? 0) < 5 && daysDifference > 30) {
+      threats.push(
+        createThreat(
+          'DEPENDENCY_CONFUSION_ACTIVITY',
+          'Low git activity may indicate typosquatting or abandoned package',
+          packagePath,
+          'package.json',
+          'MEDIUM',
+          `Only ${gitHistory.recentCommitCount ?? 0} commits in the last year`,
+          {
+            package: packageName,
+            confidence: 0.6,
+            recentCommitCount: gitHistory.recentCommitCount ?? 0,
+            daysDifference: Math.round(daysDifference),
+          }
+        )
+      );
+    }
+  } catch (error) {
     threats.push(
       createThreat(
-        'DEPENDENCY_CONFUSION_TIMELINE',
-        `Package created very recently (${Math.round(daysSinceCreation)} days ago)`,
-        packageName,
-        packageName,
-        'CRITICAL',
-        'Recently created packages may indicate dependency confusion attacks',
+        'DEPENDENCY_CONFUSION_ERROR',
+        `Error analyzing dependency confusion: ${error instanceof Error ? error.message : String(error)}`,
+        packagePath,
+        'package.json',
+        'LOW',
+        (error as Error).stack ?? '',
         {
-          creationDate: creationDate,
-          daysSinceCreation: Math.round(daysSinceCreation),
-          confidence: 0.9,
           package: packageName,
-        }
-      )
-    );
-  } else if (daysSinceCreation <= DEPENDENCY_CONFUSION_CONFIG.TIMELINE_THRESHOLDS.HIGH_RISK) {
-    threats.push(
-      createThreat(
-        'DEPENDENCY_CONFUSION_TIMELINE',
-        `Package created recently (${Math.round(daysSinceCreation)} days ago)`,
-        packageName,
-        packageName,
-        'HIGH',
-        'Recently created packages should be carefully reviewed',
-        {
-          creationDate: creationDate,
-          daysSinceCreation: Math.round(daysSinceCreation),
-          confidence: 0.7,
-          package: packageName,
-        }
-      )
-    );
-  }
-
-  // Check for suspicious name patterns
-  if (analysis.suspiciousPatterns && analysis.suspiciousPatterns.length > 0) {
-    threats.push(
-      createThreat(
-        'DEPENDENCY_CONFUSION_SUSPICIOUS_NAME',
-        `Package name matches suspicious patterns: ${analysis.suspiciousPatterns.join(', ')}`,
-        packageName,
-        packageName,
-        'HIGH',
-        'Package name contains patterns commonly used in malicious packages',
-        {
-          suspiciousPatterns: analysis.suspiciousPatterns,
-          confidence: 0.8,
-          package: packageName,
-        }
-      )
-    );
-  }
-
-  // Check scope-based threats
-  if (analysis.scopeType === 'PRIVATE' && analysis.isScoped) {
-    threats.push(
-      createThreat(
-        'DEPENDENCY_CONFUSION_SCOPE',
-        `Private scoped package may be vulnerable to dependency confusion`,
-        packageName,
-        packageName,
-        'MEDIUM',
-        'Private scoped packages can be targeted by dependency confusion attacks',
-        {
-          scope: analysis.scope,
-          scopeType: analysis.scopeType,
-          confidence: 0.6,
-          package: packageName,
-        }
-      )
-    );
-  }
-
-  // Check git activity patterns
-  if (recentCommitCount > 10 && totalCommits < 20) {
-    threats.push(
-      createThreat(
-        'DEPENDENCY_CONFUSION_GIT_ACTIVITY',
-        `Unusual git activity pattern: ${recentCommitCount} recent commits out of ${totalCommits} total`,
-        packageName,
-        packageName,
-        'MEDIUM',
-        'Unusual commit patterns may indicate automated malicious activity',
-        {
-          recentCommitCount,
-          totalCommits,
-          confidence: 0.5,
-          package: packageName,
+          confidence: 0.1,
+          error: error instanceof Error ? error.message : String(error),
         }
       )
     );
@@ -342,50 +517,77 @@ export async function detectDependencyConfusion(packageName: string): Promise<Th
 }
 
 /**
- * Analyze dependency confusion for a package
+ * Detect dependency confusion (legacy single-package, no path)
  */
-export async function analyzeDependencyConfusion(packageName: string): Promise<Threat[]> {
-  try {
-    return await detectDependencyConfusion(packageName);
-  } catch (error: unknown) {
-    return [
-      createThreat(
-        'DEPENDENCY_CONFUSION_ERROR',
-        `Error analyzing dependency confusion: ${error instanceof Error ? error.message : String(error)}`,
-        packageName,
-        packageName,
-        'LOW',
-        'Failed to analyze package for dependency confusion',
-        {
-          error: error instanceof Error ? error.message : String(error),
-          confidence: 0.1,
-          package: packageName,
-        }
-      ),
-    ];
+export async function detectDependencyConfusion(packageName: string): Promise<Threat[]> {
+  return analyzeDependencyConfusion([{ name: packageName, path: process.cwd() }]);
+}
+
+/**
+ * Analyze dependency confusion for multiple packages
+ */
+export async function analyzeDependencyConfusion(packages: PackageToAnalyze[]): Promise<Threat[]> {
+  const allThreats: Threat[] = [];
+
+  for (const pkg of packages) {
+    if (pkg.name && pkg.path) {
+      try {
+        const threats = await detectDependencyConfusionWithPath(pkg.name, pkg.path);
+        allThreats.push(...threats);
+      } catch (error) {
+        allThreats.push(
+          createThreat(
+            'DEPENDENCY_CONFUSION_ERROR',
+            `Error analyzing dependency confusion: ${error instanceof Error ? error.message : String(error)}`,
+            pkg.path,
+            'package.json',
+            'LOW',
+            'Failed to analyze package for dependency confusion',
+            {
+              package: pkg.name,
+              confidence: 0.1,
+              error: error instanceof Error ? error.message : String(error),
+            }
+          )
+        );
+      }
+    }
   }
+
+  return allThreats;
+}
+
+/**
+ * Get git history (async wrapper for compatibility)
+ */
+export async function getGitHistory(packagePath?: string): Promise<GitHistory> {
+  if (packagePath) {
+    return Promise.resolve(getGitHistorySync(packagePath));
+  }
+  return {
+    commits: [],
+    totalCommits: 0,
+    hasGitHistory: false,
+  };
 }
 
 /**
  * Dependency Confusion Analyzer class
  */
 export class DependencyConfusionAnalyzer {
-  constructor() {
-    // Options are currently not used in the implementation
-  }
-
   async analyze(packageName: string): Promise<Threat[]> {
-    return await analyzeDependencyConfusion(packageName);
+    return analyzeDependencyConfusion([{ name: packageName, path: process.cwd() }]);
   }
 
   async analyzeMultiple(packageNames: string[]): Promise<Threat[]> {
-    const allThreats: Threat[] = [];
+    const packages = packageNames.map((name) => ({
+      name,
+      path: process.cwd(),
+    }));
+    return analyzeDependencyConfusion(packages);
+  }
 
-    for (const packageName of packageNames) {
-      const threats = await this.analyze(packageName);
-      allThreats.push(...threats);
-    }
-
-    return allThreats;
+  async analyzePackages(packages: PackageToAnalyze[]): Promise<Threat[]> {
+    return analyzeDependencyConfusion(packages);
   }
 }

@@ -41,6 +41,8 @@ export interface ScanOptions {
   iocEnabled?: boolean;
   /** Comma-separated list of IoC providers to use (snyk,npm,ghsa,cve) */
   iocProviders?: string;
+  /** Enable dependency confusion analysis (default: true) */
+  dependencyConfusionEnabled?: boolean;
 }
 
 export interface ScanResult {
@@ -157,6 +159,8 @@ export type ThreatType =
   | 'DEPENDENCY_CONFUSION_PATTERN'
   | 'DEPENDENCY_CONFUSION_SCOPE'
   | 'DEPENDENCY_CONFUSION_ACTIVITY'
+  | 'DEPENDENCY_CONFUSION_ML_ANOMALY'
+  | 'DEPENDENCY_CONFUSION_PREDICTIVE_RISK'
   | 'TIMEOUT_EXCEEDED'
   | 'MODULE_LOADING_ATTEMPT'
   | 'CODE_GENERATION_ATTEMPT'

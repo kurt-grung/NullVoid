@@ -6,13 +6,14 @@ Complete guide to configuring NullVoid for optimal performance and security scan
 
 1. [Environment Variables](#environment-variables)
 2. [IoC Provider Configuration](#ioc-provider-configuration)
-3. [Cache Configuration](#cache-configuration)
-4. [Network Configuration](#network-configuration)
-5. [Performance Tuning](#performance-tuning)
-6. [CLI Configuration](#cli-configuration)
-7. [Programmatic Configuration](#programmatic-configuration)
-8. [Pre-commit Integration](#pre-commit-integration)
-9. [Configuration Validation](#configuration-validation)
+3. [ML, NLP, and Community Configuration](#ml-nlp-and-community-configuration)
+4. [Cache Configuration](#cache-configuration)
+5. [Network Configuration](#network-configuration)
+6. [Performance Tuning](#performance-tuning)
+7. [CLI Configuration](#cli-configuration)
+8. [Programmatic Configuration](#programmatic-configuration)
+9. [Pre-commit Integration](#pre-commit-integration)
+10. [Configuration Validation](#configuration-validation)
 
 ## Environment Variables
 
@@ -96,6 +97,49 @@ export NULLVOID_IOC_CVE_CACHE_TTL=86400000  # 24 hours
 2. Fill out the form and submit
 3. Receive API key via email
 4. Set `NVD_API_KEY` environment variable
+
+## ML, NLP, and Community Configuration
+
+### ML Model (Dependency Confusion)
+
+For enhanced dependency confusion detection, you can use a trained ML model:
+
+```bash
+# Optional: External ML model API URL (POST features, expect { score: 0-1 })
+export NULLVOID_ML_MODEL_URL=http://localhost:8000/score
+
+# Optional: Local Node module path exporting score(features) => number
+export NULLVOID_ML_MODEL_PATH=/path/to/model.js
+```
+
+See [ml-model/README.md](../ml-model/README.md) for training and serving instructions.
+
+### NLP Analysis
+
+NLP analyzes package README and GitHub issues for security indicators:
+
+```bash
+# Enable NLP analysis
+export NULLVOID_NLP_ENABLED=true
+
+# Optional: GitHub token for higher rate limits on issue fetching
+export GITHUB_TOKEN=your-github-token
+export NULLVOID_GITHUB_TOKEN=your-github-token  # Alternative
+```
+
+### Community Analysis
+
+Community analysis fetches npm downloads, GitHub stars, and maintenance signals:
+
+```bash
+# Enable community analysis
+export NULLVOID_COMMUNITY_ENABLED=true
+
+# Optional: GitHub token for stars/dependents
+export GITHUB_TOKEN=your-github-token
+```
+
+When both NLP and Community are enabled, the ML feature vector is fully populated for more accurate scoring.
 
 ## Cache Configuration
 

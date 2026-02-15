@@ -21,7 +21,13 @@ import {
   verifyPackageOnChain,
 } from '../lib/blockchainVerification';
 import { verifyPackageConsensus } from '../lib/consensusVerification';
-import { IPFS_CONFIG, TRUST_CONFIG, BLOCKCHAIN_CONFIG, CONSENSUS_CONFIG } from '../lib/config';
+import {
+  IPFS_CONFIG,
+  TRUST_CONFIG,
+  BLOCKCHAIN_CONFIG,
+  CONSENSUS_CONFIG,
+  getRcScanOptions,
+} from '../lib/config';
 import colors from '../colors';
 import * as packageJson from '../../package.json';
 
@@ -623,8 +629,12 @@ async function performScan(target: string | undefined, options: CliOptions) {
   const spinner = ora('🔍 Scanning ...').start();
 
   try {
+    const rc = getRcScanOptions();
+    const defaultDepth = rc.depth ?? 5;
+    const effectiveTarget = target ?? rc.defaultTarget ?? '.';
+
     const scanOptions: ScanOptions = {
-      depth: options.depth ? parseInt(options.depth.toString()) : 5,
+      depth: options.depth ? parseInt(options.depth.toString()) : defaultDepth,
       parallel: options.parallel || false,
       workers:
         options.workers === 'auto'
@@ -669,11 +679,15 @@ async function performScan(target: string | undefined, options: CliOptions) {
       packageName?: string;
     }) => {
       const filePath = progress.packageName || progress.message;
-      const originalScanTarget = target || process.cwd();
+      const originalScanTarget = effectiveTarget;
       const relativePath = path.relative(originalScanTarget, filePath);
       const displayPath = relativePath || path.basename(filePath);
 
       try {
+        // Skip non-file progress updates (e.g. "Scan completed")
+        if (!filePath || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+          return;
+        }
         // Quick threat check for this file (only show HIGH/CRITICAL)
         const content = fs.readFileSync(filePath, 'utf8');
         const threats: string[] = [];
@@ -704,8 +718,52 @@ async function performScan(target: string | undefined, options: CliOptions) {
       }
     };
 
-    const result = await scan(target || '.', scanOptions, progressCallback);
-    spinner.succeed('✅ Scan completed');
+    let result: ScanResult;
+    try {
+      result = await scan(effectiveTarget, scanOptions, progressCallback);
+      spinner.succeed('✅ Scan completed');
+    } catch (scanError) {
+      spinner.fail('❌ Scan failed');
+      // Still write a minimal report when --output is set so CI has something to work with
+      if (options.output) {
+        const errorResult: ScanResult = {
+          threats: [
+            {
+              type: 'SCAN_ERROR',
+              message: `Scan failed: ${(scanError as Error).message}`,
+              filePath: effectiveTarget,
+              filename: path.basename(effectiveTarget) || 'unknown',
+              severity: 'HIGH',
+              details: (scanError as Error).stack ?? '',
+              confidence: 1,
+            },
+          ],
+          metrics: {
+            duration: 0,
+            memoryUsage: 0,
+            cpuUsage: 0,
+            filesPerSecond: 0,
+            packagesPerSecond: 0,
+          },
+          summary: { totalFiles: 0, totalPackages: 0, threatsFound: 1, scanDuration: 0 },
+          packagesScanned: 0,
+          filesScanned: 0,
+          performance: {
+            duration: 0,
+            memoryUsage: 0,
+            cpuUsage: 0,
+            filesPerSecond: 0,
+            packagesPerSecond: 0,
+          },
+          metadata: { target: effectiveTarget, scanTime: new Date().toISOString(), options: {} },
+        };
+        const outPath = path.resolve(options.output);
+        fs.writeFileSync(outPath, JSON.stringify(errorResult, null, 2));
+        console.error('Error:', (scanError as Error).message);
+        process.exit(1);
+      }
+      throw scanError;
+    }
 
     // When format is json and no output file, print JSON only to stdout (machine-readable)
     if (options.format === 'json' && !options.output) {

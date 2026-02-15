@@ -3,7 +3,77 @@
  * Centralizes all configuration values and magic numbers
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
 import { ScanConfig, SecurityConfig, PerformanceConfig } from '../types';
+
+/** Scan options from .nullvoidrc (depth, defaultTarget) */
+export interface RcScanOptions {
+  depth?: number;
+  defaultTarget?: string;
+}
+
+function deepMerge(target: Record<string, unknown>, source: Record<string, unknown>): void {
+  if (!source || typeof source !== 'object') return;
+  for (const key of Object.keys(source)) {
+    const srcVal = source[key];
+    if (srcVal != null && typeof srcVal === 'object' && !Array.isArray(srcVal)) {
+      if (!target[key] || typeof target[key] !== 'object') {
+        (target as Record<string, unknown>)[key] = {};
+      }
+      deepMerge((target[key] as Record<string, unknown>) || {}, srcVal as Record<string, unknown>);
+    } else if (srcVal !== undefined) {
+      (target as Record<string, unknown>)[key] = srcVal;
+    }
+  }
+}
+
+function loadNullvoidRc(): void {
+  const rcPaths = [
+    path.join(process.cwd(), '.nullvoidrc.json'),
+    path.join(process.cwd(), '.nullvoidrc'),
+  ];
+  for (const rcPath of rcPaths) {
+    try {
+      if (fs.existsSync(rcPath)) {
+        const content = fs.readFileSync(rcPath, 'utf8');
+        const rc = JSON.parse(content) as Record<string, unknown>;
+        if (rc['DEPENDENCY_CONFUSION_CONFIG']) {
+          deepMerge(
+            DEPENDENCY_CONFUSION_CONFIG as unknown as Record<string, unknown>,
+            rc['DEPENDENCY_CONFUSION_CONFIG'] as Record<string, unknown>
+          );
+        }
+        break;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+/** Load scan options from .nullvoidrc (depth, defaultTarget) */
+export function getRcScanOptions(): RcScanOptions {
+  const rcPaths = [
+    path.join(process.cwd(), '.nullvoidrc.json'),
+    path.join(process.cwd(), '.nullvoidrc'),
+  ];
+  for (const rcPath of rcPaths) {
+    try {
+      if (fs.existsSync(rcPath)) {
+        const content = fs.readFileSync(rcPath, 'utf8');
+        const rc = JSON.parse(content) as Record<string, unknown>;
+        const opts: RcScanOptions = {};
+        if (typeof rc['depth'] === 'number') opts.depth = rc['depth'];
+        if (typeof rc['defaultTarget'] === 'string') opts.defaultTarget = rc['defaultTarget'];
+        return opts;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return {};
+}
 
 /**
  * Cache configuration
@@ -789,6 +859,29 @@ export const DEPENDENCY_CONFUSION_CONFIG = {
     TIMEOUT_MS: 10000,
     RETRY_ATTEMPTS: 3,
   },
+
+  ML_DETECTION: {
+    MULTI_REGISTRY: true,
+    TIMELINE_ANOMALY: true,
+    ML_SCORING: true,
+    ML_ANOMALY_THRESHOLD: 0.7,
+    ML_WEIGHTS: {
+      timelineAnomaly: 0.4,
+      scopePrivate: 0.15,
+      suspiciousPatterns: 0.15,
+      lowActivityRecent: 0.08,
+      commitPatternAnomaly: 0.08,
+      nlpSecurityScore: 0.08,
+      crossPackageAnomaly: 0.03,
+      behavioralAnomaly: 0.03,
+      reviewSecurityScore: 0.05,
+      popularityScore: 0.02,
+      trustScore: 0.05,
+    },
+    ML_MODEL_URL: null,
+    ML_MODEL_PATH: null,
+    COMMIT_PATTERN_ANALYSIS: true,
+  },
 } as const;
 
 /**
@@ -1211,3 +1304,6 @@ export const CONSENSUS_CONFIG = {
 
 // Initialize configuration from environment
 updateConfigFromEnv();
+
+// Load .nullvoidrc (project-specific overrides for DEPENDENCY_CONFUSION_CONFIG)
+loadNullvoidRc();
