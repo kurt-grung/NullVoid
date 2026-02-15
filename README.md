@@ -239,6 +239,51 @@ nullvoid --verbose --format json --output scan-results.json
 nullvoid . --verbose --format json --output scan-results.json
 ```
 
+## 🤖 ML Training Pipeline
+
+Train an XGBoost model for dependency confusion and malware detection. Supports calibration, explainability, and balanced training. Both `ml:export` and `--train` deduplicate automatically.
+
+### Quick setup
+
+```bash
+# 1. Export benign samples (label 0)
+npm run ml:export
+
+# 2. Add known-bad packages from GitHub Security Advisories (optional)
+node ml-model/export-features.js --from-ghsa --limit 100 --out ml-model/train.jsonl
+
+# 3. Scan malware directory and append threat samples (label 1)
+nullvoid scan /path/to/malware-projects --no-ioc --train
+
+# 4. For balanced training, also export clean packages (label 0)
+nullvoid scan . --export-training ml-model/train.jsonl --export-training-good ml-model/train.jsonl
+
+# 5. Train the model (XGBoost + calibration)
+npm run ml:train
+
+# 6. Start ML server (optional, for live scoring)
+npm run ml:serve
+```
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `npm run ml:export` | Export benign features to `train.jsonl` (dedupes existing) |
+| `node ml-model/export-features.js --from-ghsa` | Fetch known-bad npm packages from GitHub Security Advisories |
+| `nullvoid scan <path> --train` | Append malware samples from scanned threats (dedupes) |
+| `nullvoid scan <path> --export-training-good <file>` | Append clean packages (label 0) for balanced training |
+| `npm run ml:train` | Train XGBoost model from `train.jsonl` → `model.pkl` |
+| `npm run ml:serve` | Start ML server on port 8000 (supports `/score`, `/batch-score`, `/explain`) |
+
+### Alternative (no global nullvoid)
+
+```bash
+npm run ml:scan -- /path/to/malware-projects --no-ioc --train
+```
+
+See [ml-model/README.md](ml-model/README.md) for details.
+
 ## 🛡️ IoC Integration (v2.1.0+)
 
 NullVoid now integrates with multiple vulnerability databases to check packages for known security issues:
@@ -378,7 +423,7 @@ For more details, see [IoC Usage Guide](docs/IOC_USAGE.md).
 - **Vulnerability Display**: Enhanced output with CVE details and CVSS scores
 - **Cache Statistics**: View detailed cache performance metrics
 - **Network Statistics**: Monitor connection pool and request performance
-- **Comprehensive Test Coverage**: 142 tests across 22 test suites
+- **Comprehensive Test Coverage**: 376 tests across 43 test suites
 
 ## 🎯 v2.0.3 - Enhanced Type Safety & Code Quality
 
@@ -476,15 +521,13 @@ npm run build:watch
 ```
 
 ### **ML Model (optional)**
+See [ML Training Pipeline](#-ml-training-pipeline) above for the full setup. Quick reference:
 ```bash
-# Start ML server for dependency confusion scoring
-npm run ml:serve
-
-# Train model (from ml-model/train.jsonl)
-npm run ml:train
-
-# Export features for training
 npm run ml:export
+node ml-model/export-features.js --from-ghsa --out ml-model/train.jsonl
+nullvoid scan /path/to/malware --no-ioc --train
+npm run ml:train
+npm run ml:serve
 ```
 
 ### **Type Definitions**
@@ -518,7 +561,7 @@ NullVoid's TypeScript migration and v2.1.0 optimizations deliver significant per
 - **✅ Zero Warnings**: Enterprise-grade code quality with comprehensive error handling
 - **🎨 Enhanced UX**: Beautiful colored output with professional formatting
 - **🔒 Security Hardened**: Fixed memory leaks and enhanced security measures
-- **🏆 Production Ready**: Comprehensive testing with 142 tests across 22 test suites
+- **🏆 Production Ready**: Comprehensive testing with 376 tests across 43 test suites
 
 ## 🎯 **What Can NullVoid Scan?**
 
@@ -653,6 +696,9 @@ Scanned 15 package(s) in 234ms
 | `--sarif-file <path>` | Write SARIF output to file (requires --output sarif) | - |
 | `--ioc-providers <providers>` | Comma-separated list of IoC providers (npm,ghsa,cve,snyk) | `npm,ghsa,cve` |
 | `--no-ioc` | Disable IoC provider queries | `false` |
+| `--train` | Shorthand for `--export-training ml-model/train.jsonl` | - |
+| `--export-training <file>` | Append feature vectors for packages with threats to JSONL (label 1) | - |
+| `--export-training-good <file>` | Append feature vectors for packages with no threats to JSONL (label 0) for balanced training | - |
 | `--cache-stats` | Show cache statistics | `false` |
 | `--enable-redis` | Enable Redis distributed cache | `false` |
 | `--network-stats` | Show network performance metrics | `false` |
@@ -793,31 +839,9 @@ NullVoid includes advanced **Dependency Confusion Detection** to identify potent
 
 ### **🤖 ML-Powered Threat Scoring**
 
-NullVoid can use a trained ML model for dependency confusion threat scoring. When `ML_MODEL_URL` is configured, scans send feature vectors to the model and incorporate its score into threat detection.
+NullVoid can use a trained XGBoost model for dependency confusion threat scoring. When `ML_MODEL_URL` is configured, scans send feature vectors to the model and incorporate its score into threat detection. Optional `ML_EXPLAIN` enables human-readable reasons and feature importance.
 
-**Quick setup:**
-
-```bash
-# 1. Install Python deps (one-time)
-cd ml-model && pip3 install -r requirements.txt && cd ..
-
-# 2. Train the model
-npm run ml:train
-
-# 3. Start the ML server (keep running in a terminal)
-npm run ml:serve
-
-# 4. Scan (in another terminal)
-nullvoid scan .
-```
-
-**npm scripts:**
-
-| Command | Description |
-|---------|-------------|
-| `npm run ml:serve` | Start ML server on port 8000 |
-| `npm run ml:train` | Train model from `train.jsonl` |
-| `npm run ml:export` | Export features to `train.jsonl` |
+**Setup:** See [ML Training Pipeline](#-ml-training-pipeline) for the full pipeline (`ml:export` → `scan --train` → `ml:train` → `ml:serve`).
 
 Configure via `.nullvoidrc` or environment:
 
@@ -825,7 +849,8 @@ Configure via `.nullvoidrc` or environment:
 {
   "DEPENDENCY_CONFUSION_CONFIG": {
     "ML_DETECTION": {
-      "ML_MODEL_URL": "http://localhost:8000/score"
+      "ML_MODEL_URL": "http://localhost:8000/score",
+      "ML_EXPLAIN": true
     }
   }
 }
@@ -869,7 +894,7 @@ NullVoid has a comprehensive roadmap focusing on advanced threat detection, ente
 - ✅ **Network Optimizations**: Connection pooling, request batching, compression
 
 #### **Enhanced Detection & Developer Experience**
-- ✅ **ML Detection**: ML-based dependency confusion scoring; `npm run ml:serve`, `ml:train`, `ml:export`; see [ml-model/README.md](ml-model/README.md)
+- ✅ **ML Detection**: XGBoost-based dependency confusion scoring; `npm run ml:serve`, `ml:train`, `ml:export`; GHSA auto-labeling, explainability; see [ml-model/README.md](ml-model/README.md)
 - ✅ **Advanced Timeline Analysis**: ML-based timeline analysis and commit pattern analysis
 - **IDE Integration**: [VS Code extension](packages/vscode-extension) (run scan from Command Palette); IntelliJ plugins planned
 - **Pre-commit Hooks**: Optional scan before commit—set `NULLVOID_PRE_COMMIT=1` to enable; commit is **blocked** if threats are found. See [Pre-commit Integration](docs/PRE_COMMIT.md).
@@ -886,10 +911,10 @@ NullVoid has a comprehensive roadmap focusing on advanced threat detection, ente
 - **Trust Network**: Local trust store, `nullvoid trust-status` (`TRUST_CONFIG`)
 - **Consensus Verification**: Multi-source integrity check (npm, GitHub, IPFS); `nullvoid verify-consensus`, `verify-package --consensus` (`CONSENSUS_CONFIG`)
 - **Blockchain Registry**: On-chain package CIDs; `nullvoid register-on-chain`, `nullvoid verify-on-chain` (`BLOCKCHAIN_CONFIG`)
-- ✅ **AI/ML Integration**: ML model for dependency confusion threat scoring (`npm run ml:serve`)
+- ✅ **AI/ML Integration**: XGBoost model for dependency confusion threat scoring (`npm run ml:serve`); GHSA auto-labeling, balanced training, explainability
 - **Blockchain Integration**: Immutable signatures and decentralized verification
 - **Behavioral Analysis**: AI-powered anomaly detection
-- **Predictive Analysis**: Predicting potential security issues
+- ✅ **Predictive Analysis**: Predicting potential security issues based on patterns (`computePredictiveScore`, `DEPENDENCY_CONFUSION_PREDICTIVE_RISK`)
 
 
 ## 📋 SARIF Output for CI/CD Integration
@@ -1065,7 +1090,7 @@ NullVoid is maintained as a focused, security-first tool with a single developme
 ### 🔒 **Security-First Approach**
 - **No External Code**: All code is written and reviewed by the core team
 - **Focused Development**: Single direction ensures consistent security standards
-- **Quality Assurance**: 142+ tests ensure reliability and security
+- **Quality Assurance**: 376+ tests ensure reliability and security
 - **Regular Updates**: Continuous security improvements and threat detection updates
 
 ### 📋 **Issue Guidelines**

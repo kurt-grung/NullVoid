@@ -43,6 +43,10 @@ export interface ScanOptions {
   iocProviders?: string;
   /** Enable dependency confusion analysis (default: true) */
   dependencyConfusionEnabled?: boolean;
+  /** Export training data: append feature vectors for packages with threats to this JSONL file (label 1) */
+  exportTrainingData?: string;
+  /** Export training data: append feature vectors for packages with no threats to this JSONL file (label 0) */
+  exportTrainingGood?: string;
 }
 
 export interface ScanResult {

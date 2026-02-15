@@ -19,9 +19,221 @@ import { analyzeDependencyConfusion } from './lib/dependencyConfusion';
 import { getOptimalWorkerCount, getOptimalChunkSize, chunkPackages } from './lib/parallel';
 import { SCAN_CONFIG, PARALLEL_CONFIG, NLP_CONFIG } from './lib/config';
 import { runNlpAnalysis } from './lib/nlpAnalysis';
+import { runMLDetection, buildFeatureVector } from './lib/mlDetection';
+import { getGitHistorySync } from './lib/dependencyConfusion';
+import { getPackageCreationDate } from './lib/dependencyConfusion';
+import { analyzePackageName } from './lib/dependencyConfusion';
 import type { IoCProviderName } from './types/ioc-types';
 
 const logger = createLogger('scan');
+
+/** Threat types that indicate malware in code (vs meta/scan errors) */
+const CODE_THREAT_TYPES = new Set([
+  'MALICIOUS_CODE',
+  'WALLET_HIJACKING',
+  'OBFUSCATED_CODE',
+  'SUSPICIOUS_SCRIPT',
+  'CRYPTO_MINING',
+  'SUPPLY_CHAIN_ATTACK',
+  'DATA_EXFILTRATION',
+  'PATH_TRAVERSAL',
+  'COMMAND_INJECTION',
+  'DYNAMIC_REQUIRE',
+  'SUSPICIOUS_MODULE',
+  'OBFUSCATED_IOC',
+  'SUSPICIOUS_DEPENDENCY',
+  'MALICIOUS_CODE_STRUCTURE',
+  'SUSPICIOUS_FILE',
+  'DEPENDENCY_CONFUSION',
+  'DEPENDENCY_CONFUSION_PATTERN',
+  'DEPENDENCY_CONFUSION_ML_ANOMALY',
+  'DEPENDENCY_CONFUSION_TIMELINE',
+  'DEPENDENCY_CONFUSION_SCOPE',
+  'DEPENDENCY_CONFUSION_ACTIVITY',
+  'DEPENDENCY_CONFUSION_PREDICTIVE_RISK',
+]);
+
+function findPackageRoot(filePath: string): string | null {
+  let dir = path.isAbsolute(filePath)
+    ? path.dirname(filePath)
+    : path.resolve(path.dirname(filePath));
+  const root = path.parse(dir).root;
+  while (dir && dir !== root) {
+    if (fs.existsSync(path.join(dir, 'package.json'))) return dir;
+    dir = path.dirname(dir);
+  }
+  return null;
+}
+
+async function exportThreatsToTraining(
+  threats: Threat[],
+  outPath: string,
+  options: ScanOptions
+): Promise<number> {
+  const seenPkg = new Set<string>();
+  const seenFeatures = new Set<string>();
+
+  if (fs.existsSync(outPath)) {
+    try {
+      const content = fs.readFileSync(outPath, 'utf8').trim();
+      for (const line of content.split('\n')) {
+        try {
+          const row = JSON.parse(line) as { features?: unknown; label?: number };
+          if (row?.features != null && typeof row.label === 'number') {
+            seenFeatures.add(JSON.stringify({ f: row.features, l: row.label }));
+          }
+        } catch {
+          /* skip invalid lines */
+        }
+      }
+    } catch {
+      /* ignore read errors */
+    }
+  }
+
+  const lines: string[] = [];
+
+  for (const threat of threats) {
+    if (!threat.filePath || !CODE_THREAT_TYPES.has(threat.type)) continue;
+    const pkgRoot = findPackageRoot(threat.filePath);
+    if (!pkgRoot) continue;
+    const pkgRootNorm = path.resolve(pkgRoot);
+    if (seenPkg.has(pkgRootNorm)) continue;
+    seenPkg.add(pkgRootNorm);
+
+    let packageName: string;
+    try {
+      const pkg = JSON.parse(fs.readFileSync(path.join(pkgRoot, 'package.json'), 'utf8')) as {
+        name?: string;
+      };
+      packageName = pkg?.name ?? path.basename(pkgRoot);
+    } catch {
+      continue;
+    }
+
+    try {
+      let features;
+      try {
+        const creationDate = await getPackageCreationDate(packageName);
+        const gitHistory = getGitHistorySync(pkgRoot);
+        const nameAnalysis = analyzePackageName(packageName);
+
+        const result = await runMLDetection({
+          creationDate: creationDate ?? null,
+          recentCommitCount: gitHistory.recentCommitCount ?? 0,
+          scopeType: nameAnalysis.scopeType ?? null,
+          suspiciousPatternsCount: nameAnalysis.suspiciousPatterns.length,
+          registryName: creationDate ? 'npm' : null,
+          firstCommitDate: gitHistory.firstCommitDate ?? null,
+          packagePath: pkgRoot,
+        });
+        features = result.features;
+      } catch {
+        // Fallback: build minimal features when git/registry unavailable (local malware projects)
+        const nameAnalysis = analyzePackageName(packageName);
+        features = buildFeatureVector({
+          daysDifference: 365,
+          recentCommitCount: 0,
+          scopeType: nameAnalysis.scopeType ?? null,
+          suspiciousPatternsCount: nameAnalysis.suspiciousPatterns.length,
+          registryName: null,
+        });
+      }
+      const key = JSON.stringify({ f: features, l: 1 });
+      if (seenFeatures.has(key)) continue;
+      seenFeatures.add(key);
+      lines.push(JSON.stringify({ features, label: 1 }));
+    } catch (err) {
+      if (options.verbose) {
+        logger.warn(`Could not export features for ${packageName}: ${(err as Error).message}`);
+      }
+    }
+  }
+
+  if (lines.length > 0) {
+    fs.appendFileSync(outPath, lines.join('\n') + '\n');
+  }
+  return lines.length;
+}
+
+async function exportGoodPackagesToTraining(
+  packages: Array<{ name: string; path: string }>,
+  outPath: string,
+  options: ScanOptions
+): Promise<number> {
+  const seenPkg = new Set<string>();
+  const seenFeatures = new Set<string>();
+
+  if (fs.existsSync(outPath)) {
+    try {
+      const content = fs.readFileSync(outPath, 'utf8').trim();
+      for (const line of content.split('\n')) {
+        try {
+          const row = JSON.parse(line) as { features?: unknown; label?: number };
+          if (row?.features != null && typeof row.label === 'number') {
+            seenFeatures.add(JSON.stringify({ f: row.features, l: row.label }));
+          }
+        } catch {
+          /* skip invalid lines */
+        }
+      }
+    } catch {
+      /* ignore read errors */
+    }
+  }
+
+  const lines: string[] = [];
+
+  for (const pkg of packages) {
+    const pkgRootNorm = path.resolve(pkg.path);
+    if (seenPkg.has(pkgRootNorm)) continue;
+    seenPkg.add(pkgRootNorm);
+
+    const packageName = pkg.name;
+
+    try {
+      let features;
+      try {
+        const creationDate = await getPackageCreationDate(packageName);
+        const gitHistory = getGitHistorySync(pkg.path);
+        const nameAnalysis = analyzePackageName(packageName);
+
+        const result = await runMLDetection({
+          creationDate: creationDate ?? null,
+          recentCommitCount: gitHistory.recentCommitCount ?? 0,
+          scopeType: nameAnalysis.scopeType ?? null,
+          suspiciousPatternsCount: nameAnalysis.suspiciousPatterns.length,
+          registryName: creationDate ? 'npm' : null,
+          firstCommitDate: gitHistory.firstCommitDate ?? null,
+          packagePath: pkg.path,
+        });
+        features = result.features;
+      } catch {
+        const nameAnalysis = analyzePackageName(packageName);
+        features = buildFeatureVector({
+          daysDifference: 365,
+          recentCommitCount: 0,
+          scopeType: nameAnalysis.scopeType ?? null,
+          suspiciousPatternsCount: nameAnalysis.suspiciousPatterns.length,
+          registryName: null,
+        });
+      }
+      const key = JSON.stringify({ f: features, l: 0 });
+      if (seenFeatures.has(key)) continue;
+      seenFeatures.add(key);
+      lines.push(JSON.stringify({ features, label: 0 }));
+    } catch (err) {
+      if (options.verbose) {
+        logger.warn(`Could not export features for ${packageName}: ${(err as Error).message}`);
+      }
+    }
+  }
+
+  if (lines.length > 0) {
+    fs.appendFileSync(outPath, lines.join('\n') + '\n');
+  }
+  return lines.length;
+}
 
 // Performance metrics
 const performanceMetrics: PerformanceMetrics = {
@@ -280,6 +492,8 @@ export async function scan(
   }
 
   const threats: Threat[] = [];
+  const packagesAnalyzedForDepConfusion: Array<{ name: string; path: string }> = [];
+  const depConfusionThreatPackageRoots = new Set<string>();
   let packagesScanned = 0;
   let filesScanned = 0;
   let directoryStructure: DirectoryStructure | undefined;
@@ -473,8 +687,15 @@ export async function scan(
                   }
                 }
                 if (packagesToAnalyze.length > 0) {
+                  packagesAnalyzedForDepConfusion.push(...packagesToAnalyze);
                   const depConfusionThreats = await analyzeDependencyConfusion(packagesToAnalyze);
                   threats.push(...depConfusionThreats);
+                  for (const t of depConfusionThreats) {
+                    if (t.filePath && CODE_THREAT_TYPES.has(t.type)) {
+                      const root = findPackageRoot(t.filePath);
+                      if (root) depConfusionThreatPackageRoots.add(path.resolve(root));
+                    }
+                  }
                   if (options.verbose && depConfusionThreats.length > 0) {
                     logger.info(
                       `Found ${depConfusionThreats.length} dependency confusion threat(s)`
@@ -551,6 +772,41 @@ export async function scan(
 
   // Filter threats based on options
   const filteredThreats = filterThreatsBySeverity(threats, options.all || false);
+
+  // Export training data for packages with threats (use unfiltered threats)
+  if (options.exportTrainingData && threats.length > 0) {
+    try {
+      const outPath = path.resolve(options.exportTrainingData);
+      const exported = await exportThreatsToTraining(threats, outPath, options);
+      if (exported > 0) {
+        logger.info(`Exported ${exported} threat package(s) to ${outPath} (label 1)`);
+      }
+    } catch (err) {
+      if (options.verbose) {
+        logger.warn(`Export training failed: ${(err as Error).message}`);
+      }
+    }
+  }
+
+  // Export training data for packages with no dependency confusion threats (label 0)
+  if (options.exportTrainingGood && packagesAnalyzedForDepConfusion.length > 0) {
+    try {
+      const goodPackages = packagesAnalyzedForDepConfusion.filter(
+        (p) => !depConfusionThreatPackageRoots.has(path.resolve(p.path))
+      );
+      if (goodPackages.length > 0) {
+        const outPath = path.resolve(options.exportTrainingGood);
+        const exported = await exportGoodPackagesToTraining(goodPackages, outPath, options);
+        if (exported > 0) {
+          logger.info(`Exported ${exported} clean package(s) to ${outPath} (label 0)`);
+        }
+      }
+    } catch (err) {
+      if (options.verbose) {
+        logger.warn(`Export training good failed: ${(err as Error).message}`);
+      }
+    }
+  }
 
   // Calculate directory structure totals
   const totalDirectories = directoryStructure
