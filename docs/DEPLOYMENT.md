@@ -28,4 +28,4 @@ Local development uses SQLite (no Turso needed). The API switches to Turso only 
 
 ### Vercel config
 
-The repo includes [vercel.json](../vercel.json) and [api/index.js](../api/index.js). The build runs `npm ci && npm run build`; the dashboard is at `/`, the API at `/api`.
+The repo includes [vercel.json](../vercel.json) and [api/index.js](../api/index.js). The build runs `npm run api:build` (to produce `packages/api/dist`) then `npm run dashboard:build`; the dashboard is at `/`, the API at `/api`. If you see "No API connected" despite setting env vars, check Vercel → Deployments → Function logs for the API.

@@ -11,7 +11,9 @@ export function isApiUnavailableError(error: unknown): boolean {
     msg.includes('NetworkError') ||
     msg.includes('Ensure NullVoid API') ||
     msg.includes('Database not configured') ||
-    msg.includes('TURSO_DATABASE_URL')
+    msg.includes('TURSO_DATABASE_URL') ||
+    msg.includes('Build output') ||
+    msg.includes('API failed to load')
   );
 }
 
@@ -69,13 +71,11 @@ async function fetchApi<T>(path: string, opts?: RequestInit): Promise<T> {
     if (res.status === 503) {
       try {
         const j = JSON.parse(text) as { hint?: string; message?: string };
-        throw new Error(j.hint ?? j.message ?? 'Database not configured.');
-      } catch (e) {
-        const msg =
-          e instanceof Error && /TURSO|Vercel|Environment Variables/.test(e.message)
-            ? e.message
-            : 'Database not configured. Add TURSO_DATABASE_URL and TURSO_AUTH_TOKEN in Vercel → Settings → Environment Variables.';
+        const msg = j.hint ?? j.message ?? 'Service unavailable.';
         throw new Error(msg);
+      } catch (e) {
+        if (e instanceof Error && e.message !== 'Service unavailable.') throw e;
+        throw new Error('Database not configured. Add TURSO_DATABASE_URL and TURSO_AUTH_TOKEN in Vercel → Settings → Environment Variables.');
       }
     }
     const msg = text.startsWith('<') ? `API error ${res.status}: Ensure NullVoid API is running on port 3001` : text;

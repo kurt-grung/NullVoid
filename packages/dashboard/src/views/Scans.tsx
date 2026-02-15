@@ -12,11 +12,17 @@ export default function Scans() {
 
   const refresh = () => {
     setError(null)
+    setApiUnavailable(false)
     getScans()
       .then((r) => setScans(r.scans))
       .catch((e) => {
-        if (isApiUnavailableError(e)) setApiUnavailable(true)
-        else setError(e.message)
+        const msg = e instanceof Error ? e.message : String(e)
+        if (isApiUnavailableError(e)) {
+          setApiUnavailable(true)
+          if (!/Failed to fetch|NetworkError|API error \d+/.test(msg)) setError(msg)
+        } else {
+          setError(msg)
+        }
       })
       .finally(() => setLoading(false))
   }
@@ -58,10 +64,10 @@ export default function Scans() {
           className="card-minimal border-l-4 border-l-neutral-400 dark:border-l-neutral-500"
           role="status"
         >
-          <p className="text-neutral-600 dark:text-neutral-400 text-sm font-medium">No API connected. Deploy the NullVoid API to view and run scans.</p>
+          <p className="text-neutral-600 dark:text-neutral-400 text-sm font-medium">No API connected. The API could not be reached.</p>
+          {error && <p className="mt-2 text-xs text-neutral-600 dark:text-neutral-400 font-mono">{error}</p>}
           <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-500">
-            If the API is deployed on Vercel, add <code>TURSO_DATABASE_URL</code> and{' '}
-            <code>TURSO_AUTH_TOKEN</code> in Vercel → Settings → Environment Variables.
+            On Vercel: ensure <code>TURSO_DATABASE_URL</code> and <code>TURSO_AUTH_TOKEN</code> are set in Environment Variables. If they are, check Vercel → Deployments → logs for API errors.
           </p>
         </div>
       )}

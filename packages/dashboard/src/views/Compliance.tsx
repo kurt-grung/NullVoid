@@ -71,7 +71,7 @@ export default function Compliance() {
       <h1>Compliance</h1>
       {apiUnavailable && (
         <div className="card-minimal border-l-4 border-l-neutral-400 dark:border-l-neutral-500" role="status">
-          <p className="text-neutral-600 dark:text-neutral-400 text-sm font-medium">No API connected. Deploy the NullVoid API to view compliance data.</p>
+          <p className="text-neutral-600 dark:text-neutral-400 text-sm font-medium">No API connected. On Vercel: set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN, then check deployment logs if issues persist.</p>
         </div>
       )}
       <p className="text-neutral-500 dark:text-neutral-400 text-sm mb-6">

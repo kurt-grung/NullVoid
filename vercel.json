@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "npm ci && VITE_BASE=/ VITE_API_URL=/api npm run build",
+  "buildCommand": "npm ci && npm run api:build && VITE_BASE=/ VITE_API_URL=/api npm run dashboard:build",
   "outputDirectory": "packages/dashboard/dist",
   "rewrites": [
     {"source": "/api/(.*)", "destination": "/api"},

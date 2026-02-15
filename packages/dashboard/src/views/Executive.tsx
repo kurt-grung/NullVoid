@@ -66,7 +66,7 @@ export default function Executive() {
       <h1>Executive Overview</h1>
       {apiUnavailable && (
         <div className="card-minimal border-l-4 border-l-neutral-400 dark:border-l-neutral-500" role="status">
-          <p className="text-neutral-600 dark:text-neutral-400 text-sm font-medium">No API connected. Deploy the NullVoid API to view scan data.</p>
+          <p className="text-neutral-600 dark:text-neutral-400 text-sm font-medium">No API connected. On Vercel: set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN, then check deployment logs if issues persist.</p>
         </div>
       )}
       <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3 mb-6">
