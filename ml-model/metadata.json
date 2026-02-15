@@ -1,0 +1,37 @@
+{
+  "model_type": "xgboost_calibrated",
+  "feature_keys": [
+    "daysDifference",
+    "recentCommitCount",
+    "scopePrivate",
+    "suspiciousPatternsCount",
+    "timelineAnomaly",
+    "registryIsNpm",
+    "authorCount",
+    "totalCommitCount",
+    "dominantAuthorShare",
+    "commitPatternAnomaly",
+    "branchCount",
+    "recentCommitCount90d",
+    "messageAnomalyScore",
+    "diffAnomalyScore",
+    "nlpSecurityScore",
+    "nlpSuspiciousCount",
+    "crossPackageAnomaly",
+    "behavioralAnomaly",
+    "reviewSecurityScore",
+    "popularityScore",
+    "trustScore"
+  ],
+  "training_date": "2026-02-15T15:58:45.451480Z",
+  "dataset_size": 159,
+  "class_distribution": {
+    "good": 2,
+    "bad": 125
+  },
+  "metrics": {
+    "accuracy": 1.0,
+    "precision": 1.0,
+    "recall": 1.0
+  }
+}

@@ -243,6 +243,107 @@ nullvoid . --verbose --format json --output scan-results.json
 
 Train an XGBoost model for dependency confusion and malware detection. Supports calibration, explainability, and balanced training. Both `ml:export` and `--train` deduplicate automatically.
 
+### ML Architecture
+
+NullVoid uses two ML pipelines: **dependency confusion scoring** (timeline, registry, commit patterns) and **behavioral scoring** (package scripts, network usage, eval, child processes).
+
+```mermaid
+flowchart TB
+    subgraph sources [Data Sources]
+        PkgJSON[package.json]
+        Git[Git History]
+        Registry[npm Registry]
+        GHSA[GitHub Security Advisories]
+    end
+
+    subgraph extract [Feature Extraction]
+        Timeline[timelineAnalysis]
+        Commit[commitPatternAnalysis]
+        Anomaly[anomalyDetection]
+        NLP[nlpAnalysis]
+        Community[communityAnalysis]
+        Trust[trustNetwork]
+        AST[AST / Script Analysis]
+    end
+
+    subgraph vector [Feature Vectors]
+        Build[buildFeatureVector]
+        Behavioral[PackageFeatures]
+    end
+
+    subgraph export [Export Pipeline]
+        ExportJS[export-features.js]
+        ExportBehavioral[export-behavioral-features.js]
+        ScanTrain[scan --train]
+        ScanGood[scan --export-training-good]
+    end
+
+    subgraph train [Training]
+        JSONL[train.jsonl]
+        TrainPy[train.py]
+        Model[model.pkl]
+        BehavioralJSONL[train-behavioral.jsonl]
+        TrainBehavioral[train-behavioral.py]
+        BehavioralModel[behavioral-model.pkl]
+    end
+
+    subgraph serve [Serving - serve.py]
+        ServePy[FastAPI Server]
+        API["POST /score"]
+        BehavioralAPI["POST /behavioral-score"]
+    end
+
+    subgraph runtime [Runtime Detection]
+        DepConf[dependencyConfusion]
+        MLDet[runMLDetection]
+    end
+
+    PkgJSON --> Timeline
+    PkgJSON --> Anomaly
+    PkgJSON --> AST
+    Git --> Timeline
+    Git --> Commit
+    Registry --> Timeline
+    AST --> Behavioral
+    Timeline --> Build
+    Commit --> Build
+    Anomaly --> Build
+    NLP --> Build
+    Community --> Build
+    Trust --> Build
+
+    GHSA --> ExportJS
+    GHSA --> ExportBehavioral
+    Registry --> ExportJS
+    Registry --> ExportBehavioral
+    ExportJS --> JSONL
+    ExportBehavioral --> BehavioralJSONL
+    ScanTrain --> JSONL
+    ScanGood --> JSONL
+
+    JSONL --> TrainPy --> Model
+    BehavioralJSONL --> TrainBehavioral --> BehavioralModel
+
+    Model --> ServePy
+    BehavioralModel --> ServePy
+    ServePy --> API
+    ServePy --> BehavioralAPI
+
+    DepConf --> MLDet
+    MLDet --> Build
+    MLDet -->|ML_MODEL_URL| API
+    MLDet -->|fallback| RuleBased[Rule-based weights]
+    DepConf -->|BEHAVIORAL_MODEL_URL| BehavioralAPI
+    DepConf -->|fallback| BehavioralAnomaly[computeBehavioralAnomaly]
+```
+
+**Flow:**
+1. **Feature extraction** – `timelineAnalysis`, `commitPatternAnalysis`, `anomalyDetection`, `nlpAnalysis`, `communityAnalysis`, `trustNetwork` feed into `buildFeatureVector`; AST/script analysis feeds `PackageFeatures` (behavioral).
+2. **Export** – `export-features.js` (GHSA, known-good/bad) or `scan --train` → `train.jsonl`; `export-behavioral-features.js` → `train-behavioral.jsonl`.
+3. **Training** – `train.py` (XGBoost + calibration) → `model.pkl`; `train-behavioral.py` → `behavioral-model.pkl`.
+4. **Serving** – `serve.py` exposes `POST /score`, `POST /behavioral-score`, `POST /batch-score`, `GET /importance`, `POST /explain`.
+5. **Runtime** – `dependencyConfusion` → `runMLDetection` (ML model if `ML_MODEL_URL`) or rule-based; behavioral model (if `BEHAVIORAL_MODEL_URL`) or `computeBehavioralAnomaly`.
+
 ### Quick setup
 
 ```bash
@@ -263,6 +364,10 @@ npm run ml:train
 
 # 6. Start ML server (optional, for live scoring)
 npm run ml:serve
+
+# Optional: Behavioral model (package script analysis)
+npm run ml:export-behavioral && npm run ml:train-behavioral
+# serve.py loads both models when --behavioral-model-dir is set
 ```
 
 ### Commands
@@ -270,11 +375,13 @@ npm run ml:serve
 | Command | Description |
 |---------|-------------|
 | `npm run ml:export` | Export benign features to `train.jsonl` (dedupes existing) |
+| `npm run ml:export-behavioral` | Export behavioral features (scripts, network, eval) to `train-behavioral.jsonl` |
 | `node ml-model/export-features.js --from-ghsa` | Fetch known-bad npm packages from GitHub Security Advisories |
 | `nullvoid scan <path> --train` | Append malware samples from scanned threats (dedupes) |
 | `nullvoid scan <path> --export-training-good <file>` | Append clean packages (label 0) for balanced training |
 | `npm run ml:train` | Train XGBoost model from `train.jsonl` → `model.pkl` |
-| `npm run ml:serve` | Start ML server on port 8000 (supports `/score`, `/batch-score`, `/explain`) |
+| `npm run ml:train-behavioral` | Train behavioral model from `train-behavioral.jsonl` → `behavioral-model.pkl` |
+| `npm run ml:serve` | Start ML server on port 8000 (`/score`, `/behavioral-score`, `/batch-score`, `/explain`) |
 
 ### Alternative (no global nullvoid)
 
@@ -839,7 +946,11 @@ NullVoid includes advanced **Dependency Confusion Detection** to identify potent
 
 ### **🤖 ML-Powered Threat Scoring**
 
-NullVoid can use a trained XGBoost model for dependency confusion threat scoring. When `ML_MODEL_URL` is configured, scans send feature vectors to the model and incorporate its score into threat detection. Optional `ML_EXPLAIN` enables human-readable reasons and feature importance.
+NullVoid can use trained XGBoost models for threat scoring:
+- **Dependency confusion** (`ML_MODEL_URL`): Timeline, registry, commit patterns
+- **Behavioral** (`BEHAVIORAL_MODEL_URL`): Package scripts, network usage, eval, child processes
+
+When configured, scans send feature vectors to the models and incorporate scores into threat detection. Optional `ML_EXPLAIN` enables human-readable reasons and feature importance.
 
 **Setup:** See [ML Training Pipeline](#-ml-training-pipeline) for the full pipeline (`ml:export` → `scan --train` → `ml:train` → `ml:serve`).
 
@@ -850,6 +961,7 @@ Configure via `.nullvoidrc` or environment:
   "DEPENDENCY_CONFUSION_CONFIG": {
     "ML_DETECTION": {
       "ML_MODEL_URL": "http://localhost:8000/score",
+      "BEHAVIORAL_MODEL_URL": "http://localhost:8000/behavioral-score",
       "ML_EXPLAIN": true
     }
   }
@@ -1078,8 +1190,10 @@ NullVoid is maintained as a focused, security-first tool with a single developme
 
 ### 🐛 **Reporting Issues**
 - **Security Issues**: Please report security vulnerabilities privately to `kurtgrung@gmail.com`
-- **Bug Reports**: Open an issue with detailed reproduction steps
-- **Feature Requests**: Open an issue to discuss potential enhancements
+- **Bug Reports**: Open an issue with detailed reproduction steps (use the [bug report template](.github/ISSUE_TEMPLATE/bug_report.md))
+- **Feature Requests**: Open an issue to discuss potential enhancements (use the [feature request template](.github/ISSUE_TEMPLATE/feature_request.md))
+- **Project Board**: Track roadmap, bugs, and updates via [GitHub Projects](https://github.com/kurt-grung/NullVoid/projects) — see [.github/PROJECT_SETUP.md](.github/PROJECT_SETUP.md) for setup
+- **GitHub Pages**: Dashboard deployed at [kurt-grung.github.io/NullVoid](https://kurt-grung.github.io/NullVoid/) — see [.github/PAGES_SETUP.md](.github/PAGES_SETUP.md) to enable
 - **Documentation**: Report documentation issues or suggest improvements
 
 ### 💡 **Getting Help**

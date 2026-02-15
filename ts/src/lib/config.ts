@@ -119,6 +119,23 @@ export const FILE_CONFIG = {
 } as const;
 
 /**
+ * Risk scoring configuration (composite C/I/A model)
+ */
+export const RISK_CONFIG = {
+  SEVERITY_SCORES: {
+    CRITICAL: 1.0,
+    HIGH: 0.75,
+    MEDIUM: 0.5,
+    LOW: 0.25,
+  } as Record<string, number>,
+  CATEGORY_WEIGHTS: {
+    confidentiality: 0.35,
+    integrity: 0.45,
+    availability: 0.2,
+  } as Record<string, number>,
+} as const;
+
+/**
  * Entropy thresholds for different content types
  */
 export const ENTROPY_THRESHOLDS = {
@@ -786,7 +803,7 @@ export const DETECTION_PATTERNS = {
     PACKAGE_NAME_MAX_LENGTH: 214,
     PACKAGE_NAME_MIN_LENGTH: 1,
     VALID_FORMATS: ['json', 'table', 'yaml', 'sarif'],
-    VALID_OUTPUT_FORMATS: ['json', 'table', 'yaml', 'sarif'],
+    VALID_OUTPUT_FORMATS: ['json', 'table', 'yaml', 'sarif', 'html', 'markdown'],
     ALLOWED_EXTENSIONS: ['.js', '.mjs', '.ts', '.jsx', '.tsx', '.json'],
   },
 } as const;
@@ -880,6 +897,7 @@ export const DEPENDENCY_CONFUSION_CONFIG = {
     },
     ML_MODEL_URL: null,
     ML_MODEL_PATH: null,
+    BEHAVIORAL_MODEL_URL: null as string | null,
     COMMIT_PATTERN_ANALYSIS: true,
   },
 } as const;

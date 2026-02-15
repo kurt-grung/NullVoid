@@ -92,7 +92,11 @@ export function isNullVoidCode(packageName: string): boolean {
       packageName.includes('/ml-model/') ||
       packageName.includes('\\ml-model\\') ||
       packageName.includes('packages/vscode-extension/') ||
-      packageName.includes('packages\\vscode-extension\\'))
+      packageName.includes('packages\\vscode-extension\\') ||
+      packageName.includes('packages/dashboard/') ||
+      packageName.includes('packages\\dashboard\\') ||
+      packageName.includes('packages/api/') ||
+      packageName.includes('packages\\api\\'))
   ) {
     return true;
   }

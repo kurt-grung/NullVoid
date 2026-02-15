@@ -33,6 +33,32 @@ feature_keys = None
 metadata = None
 model_dir: Optional[Path] = None
 
+# Behavioral model (package scripts)
+behavioral_model = None
+behavioral_feature_keys: Optional[list] = None
+behavioral_model_dir: Optional[Path] = None
+
+BEHAVIORAL_FEATURE_KEYS = [
+    "scriptCount", "scriptTotalLength", "hasPostinstall", "postinstallLength",
+    "preinstallLength", "postuninstallLength", "networkScriptCount", "evalUsageCount",
+    "childProcessCount", "fileSystemAccessCount", "dependencyCount", "devDependencyCount",
+]
+
+BEHAVIORAL_FEATURE_REASONS: dict[str, str] = {
+    "scriptCount": "Unusual number of lifecycle scripts",
+    "scriptTotalLength": "Large total script content",
+    "hasPostinstall": "Has postinstall script (common attack vector)",
+    "postinstallLength": "Long postinstall script",
+    "preinstallLength": "Long preinstall script",
+    "postuninstallLength": "Long postuninstall script",
+    "networkScriptCount": "Scripts contain network/fetch/curl",
+    "evalUsageCount": "Scripts use eval or Function constructor",
+    "childProcessCount": "Scripts spawn child processes",
+    "fileSystemAccessCount": "Scripts access file system",
+    "dependencyCount": "Dependency count",
+    "devDependencyCount": "Dev dependency count",
+}
+
 # Human-readable reasons for top features (Phase 3.3)
 FEATURE_REASONS: dict[str, str] = {
     "timelineAnomaly": "Package created very recently relative to repo history",
@@ -58,8 +84,14 @@ def get_base_estimator(m):
         if cal and len(cal) > 0:
             first = cal[0]
             if isinstance(first, tuple):
-                return first[0]
-            return first
+                base = first[0]
+            else:
+                base = first
+            # _CalibratedClassifier wraps estimator; unwrap to get XGBoost
+            if hasattr(base, "estimator") and hasattr(base.estimator, "feature_importances_"):
+                return base.estimator
+            if hasattr(base, "feature_importances_"):
+                return base
     return m
 
 
@@ -110,6 +142,40 @@ def load_model(path: Path, dir_path: Optional[Path] = None):
             metadata = json.load(f)
     else:
         metadata = {"model_type": "unknown", "feature_keys": feature_keys}
+
+
+def load_behavioral_model(dir_path: Path):
+    global behavioral_model, behavioral_feature_keys, behavioral_model_dir
+    model_path = dir_path / "behavioral-model.pkl"
+    if not model_path.exists():
+        return
+    behavioral_model = joblib.load(model_path)
+    keys_path = dir_path / "behavioral-feature_keys.pkl"
+    behavioral_feature_keys = (
+        joblib.load(keys_path) if keys_path.exists() else BEHAVIORAL_FEATURE_KEYS
+    )
+    behavioral_model_dir = dir_path
+
+
+def extract_behavioral_vector(feats: dict) -> list[float]:
+    keys = behavioral_feature_keys or BEHAVIORAL_FEATURE_KEYS
+    return [float(feats.get(k, 0)) for k in keys]
+
+
+def get_behavioral_top_reasons(feats: dict, importance: dict[str, float], top_n: int = 5) -> list[str]:
+    sorted_keys = sorted(importance.keys(), key=lambda k: importance.get(k, 0), reverse=True)
+    reasons = []
+    for k in sorted_keys[:top_n]:
+        imp = importance.get(k, 0)
+        if imp <= 0:
+            continue
+        val = feats.get(k, 0)
+        reason = BEHAVIORAL_FEATURE_REASONS.get(k)
+        if reason:
+            reasons.append(f"{k}={val:.2f}: {reason}")
+        else:
+            reasons.append(f"{k}={val:.2f}")
+    return reasons
 
 
 class ScoreRequest(BaseModel):
@@ -217,15 +283,38 @@ def explain_post(req: ScoreRequest) -> dict:
     return {"contributions": top, "reasons": reasons}
 
 
+@app.post("/behavioral-score")
+def behavioral_score(req: ScoreRequest) -> dict:
+    """Score package behavioral features (scripts, network, eval, etc.)."""
+    if behavioral_model is None:
+        return {"score": 0.5, "error": "Behavioral model not loaded"}
+    try:
+        vec = extract_behavioral_vector(req.features)
+        proba = behavioral_model.predict_proba([vec])[0]
+        bad_prob = proba[1] if len(proba) > 1 else proba[0]
+        result: dict[str, Any] = {"score": float(bad_prob)}
+        if req.explain and behavioral_feature_keys:
+            base = get_base_estimator(behavioral_model)
+            if base is not None and hasattr(base, "feature_importances_"):
+                imp = base.feature_importances_
+                importance = {k: float(imp[i]) for i, k in enumerate(behavioral_feature_keys) if i < len(imp)}
+                result["importance"] = importance
+                result["reasons"] = get_behavioral_top_reasons(req.features, importance)
+        return result
+    except Exception as e:
+        return {"score": 0.5, "error": str(e)}
+
+
 @app.get("/health")
 def health():
-    return {"ok": model is not None}
+    return {"ok": model is not None, "behavioral_loaded": behavioral_model is not None}
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", "-m", help="Path to model.pkl")
     ap.add_argument("--model-dir", help="Model directory (model.pkl, feature_keys.pkl, metadata.json)")
+    ap.add_argument("--behavioral-model-dir", help="Behavioral model directory (behavioral-model.pkl, behavioral-feature_keys.pkl)")
     ap.add_argument("--port", "-p", type=int, default=8000)
     args = ap.parse_args()
 
@@ -241,5 +330,13 @@ if __name__ == "__main__":
         load_model(path, dir_path)
     else:
         print(f"Warning: {path} not found. Train first: python train.py --input train.jsonl")
+
+    if args.behavioral_model_dir:
+        bdir = Path(args.behavioral_model_dir)
+        if (bdir / "behavioral-model.pkl").exists():
+            load_behavioral_model(bdir)
+            print("Behavioral model loaded from", bdir)
+        else:
+            print(f"Warning: behavioral model not found in {bdir}")
 
     run(app, host="0.0.0.0", port=args.port)

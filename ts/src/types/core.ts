@@ -20,7 +20,9 @@ export interface ScanOptions {
   /** Output file path */
   outputFile?: string;
   /** Output format */
-  format?: 'json' | 'sarif' | 'text';
+  format?: 'json' | 'sarif' | 'text' | 'html' | 'markdown';
+  /** Compliance framework for report (soc2, iso27001) */
+  compliance?: 'soc2' | 'iso27001';
   /** Enable verbose logging */
   verbose?: boolean;
   /** Enable debug mode */
@@ -47,6 +49,8 @@ export interface ScanOptions {
   exportTrainingData?: string;
   /** Export training data: append feature vectors for packages with no threats to this JSONL file (label 0) */
   exportTrainingGood?: string;
+  /** Save scan result to ~/.nullvoid/history/ for trends */
+  saveHistory?: boolean;
 }
 
 export interface ScanResult {
@@ -77,6 +81,12 @@ export interface ScanResult {
     maxDepth: number;
     packagesWithThreats: number;
     deepDependencies: number;
+  };
+  /** Composite risk assessment (C/I/A model) */
+  riskAssessment?: {
+    overall: number;
+    byCategory: Record<string, number>;
+    bySeverity: Record<string, number>;
   };
 }
 

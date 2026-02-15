@@ -94,6 +94,7 @@ pids
 *.pid.lock
 
 # IDE files
+.cursor/
 .vscode/
 .idea/
 *.swp
@@ -108,6 +109,12 @@ pids
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# API SQLite DB
+nullvoid.db
+
+# PR drafts and notes
+pr/
 
 # Security scan results
 security-report.json

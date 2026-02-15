@@ -6,10 +6,66 @@ import { describe, it, expect } from '@jest/globals';
 import {
   computeCrossPackageAnomaly,
   computeBehavioralAnomaly,
+  extractBehavioralCountsFromScripts,
 } from '../../src/lib/anomalyDetection';
 import type { SimilarPackageStats } from '../../src/lib/anomalyDetection';
 
 describe('Anomaly Detection', () => {
+  describe('extractBehavioralCountsFromScripts', () => {
+    it('should return zeros for empty or invalid input', () => {
+      expect(extractBehavioralCountsFromScripts('')).toEqual({
+        networkScriptCount: 0,
+        evalUsageCount: 0,
+        childProcessCount: 0,
+        fileSystemAccessCount: 0,
+      });
+      expect(extractBehavioralCountsFromScripts(null as any)).toEqual({
+        networkScriptCount: 0,
+        evalUsageCount: 0,
+        childProcessCount: 0,
+        fileSystemAccessCount: 0,
+      });
+    });
+
+    it('should detect network patterns', () => {
+      const result = extractBehavioralCountsFromScripts(
+        'fetch("https://evil.com"); const x = new XMLHttpRequest(); axios.get(url)'
+      );
+      expect(result.networkScriptCount).toBeGreaterThanOrEqual(2);
+    });
+
+    it('should detect eval usage', () => {
+      const result = extractBehavioralCountsFromScripts(
+        'eval(code); new Function("return 1")()'
+      );
+      expect(result.evalUsageCount).toBeGreaterThanOrEqual(2);
+    });
+
+    it('should detect child_process usage', () => {
+      const result = extractBehavioralCountsFromScripts(
+        'require("child_process").exec("ls"); spawn("cmd")'
+      );
+      expect(result.childProcessCount).toBeGreaterThanOrEqual(2);
+    });
+
+    it('should detect filesystem access', () => {
+      const result = extractBehavioralCountsFromScripts(
+        'require("fs"); fs.readFileSync(file); writeFile(path, data)'
+      );
+      expect(result.fileSystemAccessCount).toBeGreaterThanOrEqual(2);
+    });
+
+    it('should return zeros for clean script', () => {
+      const result = extractBehavioralCountsFromScripts(
+        'const x = 1; console.log("hello"); return true;'
+      );
+      expect(result.networkScriptCount).toBe(0);
+      expect(result.evalUsageCount).toBe(0);
+      expect(result.childProcessCount).toBe(0);
+      expect(result.fileSystemAccessCount).toBe(0);
+    });
+  });
+
   describe('computeCrossPackageAnomaly', () => {
     it('should use typical baseline when no similar packages and return deviation score', () => {
       // Empty array triggers typical npm baseline; package deviating from typical gets non-zero score

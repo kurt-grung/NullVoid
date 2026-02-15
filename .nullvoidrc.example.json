@@ -3,6 +3,7 @@
     "ML_DETECTION": {
       "ML_MODEL_URL": "http://localhost:8000/score",
       "ML_MODEL_PATH": null,
+      "BEHAVIORAL_MODEL_URL": "http://localhost:8000",
       "ML_ANOMALY_THRESHOLD": 0.7,
       "ML_WEIGHTS": {
         "timelineAnomaly": 0.4,

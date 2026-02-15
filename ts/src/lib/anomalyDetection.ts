@@ -21,6 +21,18 @@ export interface PackageFeatures {
   hasPostinstall?: boolean;
   /** Postinstall script length */
   postinstallLength?: number;
+  /** Preinstall script length */
+  preinstallLength?: number;
+  /** Postuninstall script length */
+  postuninstallLength?: number;
+  /** Number of scripts that fetch/curl (network) */
+  networkScriptCount?: number;
+  /** Count of eval/Function usage in scripts */
+  evalUsageCount?: number;
+  /** Count of child_process/exec/spawn usage */
+  childProcessCount?: number;
+  /** Count of fs/readFile/writeFile usage */
+  fileSystemAccessCount?: number;
   /** Number of dependencies */
   dependencyCount?: number;
   /** Number of devDependencies */
@@ -29,6 +41,39 @@ export interface PackageFeatures {
   entropyScore?: number;
   /** Rare dependency combination indicator */
   rareDependencyCount?: number;
+}
+
+/** Regex patterns for behavioral feature extraction from script content */
+const BEHAVIORAL_PATTERNS = {
+  network: /fetch\s*\(|XMLHttpRequest|axios\.|request\s*\(|https?\.|curl|wget|download/gi,
+  eval: /eval\s*\(|Function\s*\(|new\s+Function/gi,
+  childProcess: /child_process|exec\s*\(|spawn\s*\(|execSync|spawnSync/gi,
+  fileSystem: /require\s*\(\s*['"]fs['"]|fs\.|readFile|writeFile|unlink|mkdir|rmdir|chmod/gi,
+};
+
+/**
+ * Extract behavioral counts from concatenated script content (regex-based).
+ */
+export function extractBehavioralCountsFromScripts(scriptContent: string): {
+  networkScriptCount: number;
+  evalUsageCount: number;
+  childProcessCount: number;
+  fileSystemAccessCount: number;
+} {
+  if (!scriptContent || typeof scriptContent !== 'string') {
+    return {
+      networkScriptCount: 0,
+      evalUsageCount: 0,
+      childProcessCount: 0,
+      fileSystemAccessCount: 0,
+    };
+  }
+  return {
+    networkScriptCount: (scriptContent.match(BEHAVIORAL_PATTERNS.network) || []).length,
+    evalUsageCount: (scriptContent.match(BEHAVIORAL_PATTERNS.eval) || []).length,
+    childProcessCount: (scriptContent.match(BEHAVIORAL_PATTERNS.childProcess) || []).length,
+    fileSystemAccessCount: (scriptContent.match(BEHAVIORAL_PATTERNS.fileSystem) || []).length,
+  };
 }
 
 export interface SimilarPackageStats {

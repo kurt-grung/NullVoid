@@ -30,6 +30,9 @@ jobs:
     - name: Install dependencies
       run: npm ci
     
+    - name: Install JavaScript dependencies
+      run: cd js && npm ci
+    
     - name: Install TypeScript dependencies
       run: cd ts && npm ci
     
@@ -47,3 +50,4 @@ jobs:
           test-results/
           coverage/
         retention-days: 30
+        if-no-files-found: ignore

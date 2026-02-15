@@ -3,6 +3,7 @@
   "DEPENDENCY_CONFUSION_CONFIG": {
     "ML_DETECTION": {
       "ML_MODEL_URL": "http://localhost:8000/score",
+      "ML_EXPLAIN": true,
       "ML_MODEL_PATH": null,
       "ML_ANOMALY_THRESHOLD": 0.7,
       "ML_WEIGHTS": {
