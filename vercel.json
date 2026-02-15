@@ -1,13 +1,7 @@
 {
   "version": 2,
-  "buildCommand": "npm ci && npm run build",
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api" }
-  ],
-  "functions": {
-    "api/index.js": {
-      "memory": 1024,
-      "maxDuration": 60
-    }
-  }
+  "buildCommand": "npm ci && npm run build && mkdir -p public && echo '<!DOCTYPE html><html><head><meta charset=utf-8><title>NullVoid API</title></head><body><h1>NullVoid API</h1><p><a href=/api>/api</a></p></body></html>' > public/index.html",
+  "outputDirectory": "public",
+  "rewrites": [{"source": "/api/(.*)", "destination": "/api"}],
+  "functions": {"api/index.js": {"memory": 1024, "maxDuration": 60}}
 }
