@@ -52,6 +52,7 @@ interface CliOptions {
   networkStats?: boolean;
   'no-ioc'?: boolean;
   'export-training'?: string;
+  'export-training-good'?: string;
   train?: boolean;
 }
 
@@ -597,6 +598,10 @@ program
     '--export-training <file>',
     'Append feature vectors for packages with threats to JSONL file (label 1) for ML training'
   )
+  .option(
+    '--export-training-good <file>',
+    'Append feature vectors for packages with no threats to JSONL file (label 0) for balanced ML training'
+  )
   .option('--train', 'Shorthand for --export-training ml-model/train.jsonl', false)
   .action(async (target: string | undefined, options: CliOptions) => {
     await performScan(target, options);
@@ -631,6 +636,10 @@ program
   .option(
     '--export-training <file>',
     'Append feature vectors for packages with threats to JSONL file (label 1) for ML training'
+  )
+  .option(
+    '--export-training-good <file>',
+    'Append feature vectors for packages with no threats to JSONL file (label 0) for balanced ML training'
   )
   .option('--train', 'Shorthand for --export-training ml-model/train.jsonl', false)
   .action(async function (
@@ -692,6 +701,9 @@ async function performScan(target: string | undefined, options: CliOptions) {
       scanOptions.exportTrainingData = options['export-training'];
     } else if (options.train) {
       scanOptions.exportTrainingData = 'ml-model/train.jsonl';
+    }
+    if (options['export-training-good']) {
+      scanOptions.exportTrainingGood = options['export-training-good'];
     }
 
     // Progress callback: use stderr when format is json/sarif so stdout is machine-readable

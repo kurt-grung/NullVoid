@@ -40,6 +40,7 @@ const ANOMALY_THRESHOLD = ML_CFG.ML_ANOMALY_THRESHOLD ?? 0.7;
 const ML_WEIGHTS = ML_CFG.ML_WEIGHTS ?? DEFAULT_ML_WEIGHTS;
 const ML_MODEL_URL = ML_CFG.ML_MODEL_URL || null;
 const ML_MODEL_PATH = ML_CFG.ML_MODEL_PATH || null;
+const ML_EXPLAIN = ML_CFG.ML_EXPLAIN === true;
 const COMMIT_PATTERN_ENABLED = ML_CFG.COMMIT_PATTERN_ANALYSIS !== false;
 const MODEL_TIMEOUT = 5000;
 
@@ -49,6 +50,7 @@ export interface MLDetectionConfig {
   ML_WEIGHTS?: Record<string, number>;
   ML_MODEL_URL?: string | null;
   ML_MODEL_PATH?: string | null;
+  ML_EXPLAIN?: boolean;
   COMMIT_PATTERN_ANALYSIS?: boolean;
 }
 
@@ -102,6 +104,10 @@ export interface MLDetectionResult {
   predictiveRisk: boolean;
   features: FeatureVector;
   modelUsed: boolean;
+  /** Human-readable reasons when explain requested and model supports it */
+  reasons?: string[];
+  /** Feature importance when explain requested */
+  importance?: Record<string, number>;
 }
 
 /**
@@ -209,14 +215,16 @@ export function computeThreatScore(
 
 /**
  * Call external ML model API (POST features, expect { score: 0-1 })
+ * When explain is true, sends { features, explain: true } and may receive { score, reasons?, importance? }
  */
 function fetchModelScoreFromUrl(
   url: string,
   features: FeatureVector,
-  timeout: number = MODEL_TIMEOUT
-): Promise<number | null> {
+  timeout: number = MODEL_TIMEOUT,
+  explain: boolean = false
+): Promise<{ score: number | null; reasons?: string[]; importance?: Record<string, number> }> {
   return new Promise((resolve) => {
-    const payload = JSON.stringify({ features });
+    const payload = JSON.stringify({ features, explain });
     const u = new URL(url);
     const options = {
       hostname: u.hostname,
@@ -240,16 +248,22 @@ function fetchModelScoreFromUrl(
         try {
           const json = data ? JSON.parse(data) : null;
           const score = json != null && typeof json.score === 'number' ? json.score : null;
-          resolve(score != null ? Math.max(0, Math.min(1, score)) : null);
+          const clamped = score != null ? Math.max(0, Math.min(1, score)) : null;
+          resolve({
+            score: clamped,
+            reasons: Array.isArray(json?.reasons) ? json.reasons : undefined,
+            importance:
+              json?.importance && typeof json.importance === 'object' ? json.importance : undefined,
+          });
         } catch {
-          resolve(null);
+          resolve({ score: null });
         }
       });
     });
-    req.on('error', () => resolve(null));
+    req.on('error', () => resolve({ score: null }));
     req.setTimeout(timeout, () => {
       req.destroy();
-      resolve(null);
+      resolve({ score: null });
     });
     req.write(payload);
     req.end();
@@ -287,16 +301,18 @@ async function getModelScoreFromPath(
 /**
  * Get threat score from configured ML model (API or local module), or null to use rule-based
  */
-async function computeThreatScoreFromModel(features: FeatureVector): Promise<number | null> {
+async function computeThreatScoreFromModel(
+  features: FeatureVector
+): Promise<{ score: number | null; reasons?: string[]; importance?: Record<string, number> }> {
   if (ML_MODEL_URL) {
-    const score = await fetchModelScoreFromUrl(ML_MODEL_URL, features);
-    if (score != null) return score;
+    const result = await fetchModelScoreFromUrl(ML_MODEL_URL, features, MODEL_TIMEOUT, ML_EXPLAIN);
+    if (result.score != null) return result;
   }
   if (ML_MODEL_PATH) {
     const score = await getModelScoreFromPath(ML_MODEL_PATH, features);
-    if (score != null) return score;
+    if (score != null) return { score };
   }
-  return null;
+  return { score: null };
 }
 
 /**
@@ -348,9 +364,14 @@ export async function runMLDetection(params: MLDetectionParams): Promise<MLDetec
 
   let threatScore: number | null = null;
   let modelUsed = false;
+  let reasons: string[] | undefined;
+  let importance: Record<string, number> | undefined;
   if (ML_MODEL_URL || ML_MODEL_PATH) {
-    threatScore = await computeThreatScoreFromModel(features);
+    const result = await computeThreatScoreFromModel(features);
+    threatScore = result.score;
     if (threatScore != null) modelUsed = true;
+    reasons = result.reasons;
+    importance = result.importance;
   }
   if (threatScore == null) threatScore = computeThreatScore(features);
 
@@ -368,6 +389,8 @@ export async function runMLDetection(params: MLDetectionParams): Promise<MLDetec
     predictiveRisk,
     features,
     modelUsed,
+    ...(reasons && { reasons }),
+    ...(importance && { importance }),
   };
 }
 

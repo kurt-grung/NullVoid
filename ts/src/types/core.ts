@@ -45,6 +45,8 @@ export interface ScanOptions {
   dependencyConfusionEnabled?: boolean;
   /** Export training data: append feature vectors for packages with threats to this JSONL file (label 1) */
   exportTrainingData?: string;
+  /** Export training data: append feature vectors for packages with no threats to this JSONL file (label 0) */
+  exportTrainingGood?: string;
 }
 
 export interface ScanResult {
