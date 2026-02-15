@@ -311,11 +311,12 @@ def health():
 
 
 if __name__ == "__main__":
+    import os
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", "-m", help="Path to model.pkl")
     ap.add_argument("--model-dir", help="Model directory (model.pkl, feature_keys.pkl, metadata.json)")
     ap.add_argument("--behavioral-model-dir", help="Behavioral model directory (behavioral-model.pkl, behavioral-feature_keys.pkl)")
-    ap.add_argument("--port", "-p", type=int, default=8000)
+    ap.add_argument("--port", "-p", type=int, default=int(os.environ.get("PORT", "8000")))
     args = ap.parse_args()
 
     path = None

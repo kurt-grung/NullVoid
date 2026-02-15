@@ -1075,7 +1075,7 @@ NullVoid has a comprehensive roadmap focusing on advanced threat detection, ente
 #### **Enterprise Features & Advanced Analytics**
 - **Multi-tenant Support**: Organization-level scanning and reporting
 - ✅ **Advanced Reporting**: Executive dashboard, compliance (C/I/A), scan reports (HTML/Markdown), ML controls
-- **API Integration**: REST API for scans, reports, organizations, teams; deploy to Vercel
+- **API Integration**: REST API for scans, reports, organizations, teams; deploy to Vercel or Railway
 - **Custom Rule Engine**: User-defined detection patterns
 
 #### **AI/ML Integration & Blockchain Features**
@@ -1256,7 +1256,7 @@ NullVoid is built and maintained by [Kurt Grüng](https://kurtgrung.com) as a fo
 - **Bug Reports**: Open an issue with detailed reproduction steps (use the [bug report template](.github/ISSUE_TEMPLATE/bug_report.md))
 - **Feature Requests**: Open an issue to discuss potential enhancements (use the [feature request template](.github/ISSUE_TEMPLATE/feature_request.md))
 - **Project Board**: Track roadmap, bugs, and updates via [GitHub Projects](https://github.com/kurt-grung/NullVoid/projects) — see [.github/PROJECT_SETUP.md](.github/PROJECT_SETUP.md) for setup
-- **Dashboard + API**: Deploy to Vercel with Turso — see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md); enhancement roadmap: [docs/dashboard-enhancement-plan.md](docs/dashboard-enhancement-plan.md)
+- **Dashboard + API**: Deploy to Vercel or Railway — see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md); Railway setup: [docs/RAILWAY.md](docs/RAILWAY.md); enhancement roadmap: [docs/dashboard-enhancement-plan.md](docs/dashboard-enhancement-plan.md)
 - **Documentation**: Report documentation issues or suggest improvements
 
 ### 💡 **Getting Help**

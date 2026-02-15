@@ -19,9 +19,13 @@ The ML page (Export, Train) works in Codespaces. Use SQLite (no Turso needed). O
 ### Notes
 
 - Codespaces is ephemeral—not for 24/7 production
-- For production deployment, use [Vercel](#vercel-dashboard--api)
+- For production deployment, use [Vercel](#vercel-dashboard--api) or [Railway](#railway-api--ml).
 
-## Vercel (Dashboard + API)
+## Railway (API + ML)
+
+Deploy the **API** and **ML** scoring service on [Railway](https://railway.app) with branch-based deployments. Both services run as separate Railway services; the API uses Turso, and the ML service serves risk scores via FastAPI.
+
+See **[docs/RAILWAY.md](RAILWAY.md)** for full setup: creating the project, adding API and ML services, configuring branch triggers, and environment variables.
 
 A single Vercel project serves the **Dashboard** at `/` and the **API** at `/api`. The API deploys when you connect this repository. Vercel uses **Turso** (serverless SQLite) for the database—SQLite files do not work on Vercel's read-only filesystem.
 
