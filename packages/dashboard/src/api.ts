@@ -91,6 +91,17 @@ export async function getScans(orgId?: string, teamId?: string): Promise<{ scans
   return fetchApi(`/scans?limit=100`, { headers });
 }
 
+/** Report URL for a completed scan (?format=html|markdown&compliance=soc2|iso27001) */
+export function getReportUrl(
+  scanId: string,
+  format: 'html' | 'markdown' = 'html',
+  compliance?: 'soc2' | 'iso27001'
+): string {
+  const params = new URLSearchParams({ format });
+  if (compliance) params.set('compliance', compliance);
+  return `${API_BASE}/report/${scanId}?${params}`;
+}
+
 export async function getScan(id: string, orgId?: string, teamId?: string): Promise<ScanDetail> {
   const headers: Record<string, string> = {};
   if (orgId) headers['X-Organization-Id'] = orgId;
@@ -117,4 +128,36 @@ export async function getOrganizations(): Promise<{ organizations: Organization[
 
 export async function getTeams(orgId?: string): Promise<{ teams: Team[] }> {
   return fetchApi(orgId ? `/teams?organizationId=${encodeURIComponent(orgId)}` : '/teams');
+}
+
+export async function getMlStatus(): Promise<{ available: boolean; hint?: string }> {
+  return fetchApi('/ml/status');
+}
+
+export async function runMlExport(): Promise<{ ok: boolean; stdout?: string; stderr?: string; error?: string }> {
+  const res = await fetch(`${API_BASE}/ml/export`, { method: 'POST' });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? data.hint ?? 'Export failed');
+  return data;
+}
+
+export async function runMlTrain(): Promise<{ ok: boolean; stdout?: string; stderr?: string; error?: string }> {
+  const res = await fetch(`${API_BASE}/ml/train`, { method: 'POST' });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? data.hint ?? 'Train failed');
+  return data;
+}
+
+export async function runMlExportBehavioral(): Promise<{ ok: boolean; stdout?: string; stderr?: string; error?: string }> {
+  const res = await fetch(`${API_BASE}/ml/export-behavioral`, { method: 'POST' });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? data.hint ?? 'Export behavioral failed');
+  return data;
+}
+
+export async function runMlTrainBehavioral(): Promise<{ ok: boolean; stdout?: string; stderr?: string; error?: string }> {
+  const res = await fetch(`${API_BASE}/ml/train-behavioral`, { method: 'POST' });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? data.hint ?? 'Train behavioral failed');
+  return data;
 }

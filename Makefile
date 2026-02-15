@@ -1,4 +1,4 @@
-.PHONY: all help build build-api api dashboard dev test lint install ml-serve ml-train
+.PHONY: all help build build-api api dashboard dev test lint install ml-serve ml-train kill
 
 all: dashboard
 
@@ -16,6 +16,7 @@ help:
 	@echo "  make install    - Install dependencies"
 	@echo "  make ml-serve   - Start ML model server (port 8000)"
 	@echo "  make ml-train   - Train ML model"
+	@echo "  make kill       - Kill API (3001), dashboard (5174), ML server (8000)"
 	@echo ""
 
 build:
@@ -47,3 +48,9 @@ ml-serve:
 
 ml-train:
 	npm run ml:train
+
+kill:
+	@-lsof -ti :3001 | xargs kill -9 2>/dev/null; true
+	@-lsof -ti :5174 | xargs kill -9 2>/dev/null; true
+	@-lsof -ti :8000 | xargs kill -9 2>/dev/null; true
+	@echo "Killed processes on ports 3001, 5174, 8000"

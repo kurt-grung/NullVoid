@@ -7,6 +7,10 @@
 
 import express, { Request, Response } from 'express';
 import * as path from 'path';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 import {
   createOrganization,
   listOrganizations,
@@ -83,6 +87,7 @@ app.get('/', (_req: Request, res: Response) => {
       scans: 'GET /api/scans',
       scan: 'GET /api/scan/:id',
       triggerScan: 'POST /api/scan',
+      report: 'GET /api/report/:scanId?format=html|markdown&compliance=soc2|iso27001',
       organizations: 'GET /api/organizations',
       teams: 'GET /api/teams',
     },
@@ -206,6 +211,50 @@ app.get(
   })
 );
 
+/** GET /report/:scanId - HTML or Markdown report (?format=html|markdown&compliance=soc2|iso27001) */
+app.get(
+  '/report/:scanId',
+  asyncHandler(async (req: Request, res: Response) => {
+    const row = await getScan(req.params.scanId);
+    if (!row) {
+      res.status(404).json({ error: 'Scan not found' });
+      return;
+    }
+    if (!enforceTenantAccess(req, row.organization_id, row.team_id)) {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
+    const result = row.result_json ? (JSON.parse(row.result_json) as Record<string, unknown>) : undefined;
+    if (!result || row.status !== 'completed') {
+      res.status(400).json({ error: 'Scan not completed or no result' });
+      return;
+    }
+    if (!result.metadata) result.metadata = {};
+    (result.metadata as Record<string, unknown>)['target'] = (result.metadata as Record<string, unknown>)['target'] ?? row.target;
+
+    const format = (req.query.format as string) || 'html';
+    const compliance = req.query.compliance as 'soc2' | 'iso27001' | undefined;
+    const opts = compliance ? { compliance } : undefined;
+
+    const tsDist = path.resolve(__dirname, '../../../ts/dist');
+    const reporting = require(path.join(tsDist, 'lib/reporting')) as {
+      generateHtmlReport: (r: unknown, o?: { compliance?: 'soc2' | 'iso27001' }) => string;
+      generateMarkdownReport: (r: unknown, o?: { compliance?: 'soc2' | 'iso27001' }) => string;
+    };
+
+    if (format === 'markdown') {
+      const md = reporting.generateMarkdownReport(result, opts);
+      res.setHeader('Content-Type', 'text/markdown');
+      res.setHeader('Content-Disposition', `attachment; filename="nullvoid-${String(row.target).replace(/[^a-zA-Z0-9.-]/g, '_')}-report.md"`);
+      res.send(md);
+    } else {
+      const html = reporting.generateHtmlReport(result, opts);
+      res.setHeader('Content-Type', 'text/html');
+      res.send(html);
+    }
+  })
+);
+
 /** GET /organizations - list organizations */
 app.get(
   '/organizations',
@@ -286,6 +335,125 @@ app.post(
 /** GET /health */
 app.get('/health', (_req: Request, res: Response) => {
   res.json({ ok: true });
+});
+
+/** ML commands - only available when API runs locally (not on Vercel) */
+const ML_AVAILABLE = process.env['VERCEL'] !== '1';
+const ROOT = path.resolve(__dirname, '../../..');
+
+async function runMlCommand(cmd: string): Promise<{ stdout: string; stderr: string }> {
+  const { stdout, stderr } = await execAsync(cmd, {
+    cwd: ROOT,
+    maxBuffer: 10 * 1024 * 1024,
+  });
+  return { stdout, stderr };
+}
+
+app.post(
+  '/ml/export',
+  requireAuth,
+  asyncHandler(async (_req: Request, res: Response) => {
+    if (!ML_AVAILABLE) {
+      res.status(503).json({
+        error: 'ML commands only available when running API locally',
+        hint: 'Run `make api` and use the dashboard at localhost:5174',
+      });
+      return;
+    }
+    try {
+      const { stdout, stderr } = await runMlCommand('npm run ml:export');
+      res.json({ ok: true, stdout: stdout.trim(), stderr: stderr.trim() });
+    } catch (err) {
+      const e = err as { stdout?: string; stderr?: string; message?: string };
+      res.status(500).json({
+        error: e.message ?? 'Export failed',
+        stdout: e.stdout?.trim(),
+        stderr: e.stderr?.trim(),
+      });
+    }
+  })
+);
+
+app.post(
+  '/ml/train',
+  requireAuth,
+  asyncHandler(async (_req: Request, res: Response) => {
+    if (!ML_AVAILABLE) {
+      res.status(503).json({
+        error: 'ML commands only available when running API locally',
+        hint: 'Run `make api` and use the dashboard at localhost:5174',
+      });
+      return;
+    }
+    try {
+      const { stdout, stderr } = await runMlCommand('npm run ml:train');
+      res.json({ ok: true, stdout: stdout.trim(), stderr: stderr.trim() });
+    } catch (err) {
+      const e = err as { stdout?: string; stderr?: string; message?: string };
+      res.status(500).json({
+        error: e.message ?? 'Train failed',
+        stdout: e.stdout?.trim(),
+        stderr: e.stderr?.trim(),
+      });
+    }
+  })
+);
+
+app.post(
+  '/ml/export-behavioral',
+  requireAuth,
+  asyncHandler(async (_req: Request, res: Response) => {
+    if (!ML_AVAILABLE) {
+      res.status(503).json({
+        error: 'ML commands only available when running API locally',
+        hint: 'Run `make api` and use the dashboard at localhost:5174',
+      });
+      return;
+    }
+    try {
+      const { stdout, stderr } = await runMlCommand('npm run ml:export-behavioral');
+      res.json({ ok: true, stdout: stdout.trim(), stderr: stderr.trim() });
+    } catch (err) {
+      const e = err as { stdout?: string; stderr?: string; message?: string };
+      res.status(500).json({
+        error: e.message ?? 'Export behavioral failed',
+        stdout: e.stdout?.trim(),
+        stderr: e.stderr?.trim(),
+      });
+    }
+  })
+);
+
+app.post(
+  '/ml/train-behavioral',
+  requireAuth,
+  asyncHandler(async (_req: Request, res: Response) => {
+    if (!ML_AVAILABLE) {
+      res.status(503).json({
+        error: 'ML commands only available when running API locally',
+        hint: 'Run `make api` and use the dashboard at localhost:5174',
+      });
+      return;
+    }
+    try {
+      const { stdout, stderr } = await runMlCommand('npm run ml:train-behavioral');
+      res.json({ ok: true, stdout: stdout.trim(), stderr: stderr.trim() });
+    } catch (err) {
+      const e = err as { stdout?: string; stderr?: string; message?: string };
+      res.status(500).json({
+        error: e.message ?? 'Train behavioral failed',
+        stdout: e.stdout?.trim(),
+        stderr: e.stderr?.trim(),
+      });
+    }
+  })
+);
+
+app.get('/ml/status', (_req: Request, res: Response) => {
+  res.json({
+    available: ML_AVAILABLE,
+    hint: ML_AVAILABLE ? undefined : 'ML commands only work when API runs locally (make api)',
+  });
 });
 
 /** Error handler: return 503 for missing Turso config on Vercel */
