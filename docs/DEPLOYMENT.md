@@ -1,16 +1,10 @@
 # Deployment
 
-Both the **Frontend** (dashboard) and **API** deploy automatically when changes are merged to `main`.
+Both the **Dashboard** and **API** deploy to **Vercel** when you connect this repository.
 
-## Frontend (GitHub Pages)
+## Vercel (Dashboard + API)
 
-The dashboard deploys to `https://<user>.github.io/NullVoid/` via the [pages.yml](../.github/workflows/pages.yml) workflow. No setup required.
-
-To show real scan data instead of "No API connected", set the `NULLVOID_API_URL` repository variable (Settings → Secrets and variables → Actions → Variables) to your deployed API URL.
-
-## API (Vercel)
-
-The API deploys to Vercel when you connect this repository. Vercel uses **Turso** (serverless SQLite) for the database—SQLite files do not work on Vercel’s read-only filesystem.
+A single Vercel project serves the **Dashboard** at `/` and the **API** at `/api`. The API deploys when you connect this repository. Vercel uses **Turso** (serverless SQLite) for the database—SQLite files do not work on Vercel's read-only filesystem.
 
 ### Setup
 
@@ -26,7 +20,7 @@ The API deploys to Vercel when you connect this repository. Vercel uses **Turso*
    | `TURSO_AUTH_TOKEN` | Turso auth token |
 
    See [.env.example](../.env.example) for reference.
-4. **Set `NULLVOID_API_URL`** in GitHub repo variables to your Vercel API URL (e.g. `https://your-project.vercel.app/api`)
+4. The dashboard uses `/api` (same origin) by default—no extra config needed.
 
 ### Local development
 
@@ -34,4 +28,8 @@ Local development uses SQLite (no Turso needed). The API switches to Turso only 
 
 ### Vercel config
 
-The repo includes [vercel.json](../vercel.json) and [api/index.js](../api/index.js). The build runs `npm ci && npm run build`; the API is served from `/api`.
+The repo includes [vercel.json](../vercel.json) and [api/index.js](../api/index.js). The build runs `npm ci && npm run build`; the dashboard is at `/`, the API at `/api`.
+
+### GitHub Pages (optional)
+
+To deploy the dashboard to GitHub Pages instead, use [pages.yml](../.github/workflows/pages.yml) with `VITE_BASE=/NullVoid/` and set `NULLVOID_API_URL` to your API.

@@ -1,7 +1,10 @@
 {
   "version": 2,
-  "buildCommand": "npm ci && npm run build",
-  "outputDirectory": "public",
-  "rewrites": [{"source": "/api/(.*)", "destination": "/api"}],
-  "functions": {"api/index.js": {"memory": 1024, "maxDuration": 60}}
+  "buildCommand": "npm ci && VITE_BASE=/ VITE_API_URL=/api npm run build",
+  "outputDirectory": "packages/dashboard/dist",
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api" },
+    { "source": "/((?!api/|assets/|vite\\.svg).*)", "destination": "/index.html" }
+  ],
+  "functions": { "api/index.js": { "memory": 1024, "maxDuration": 60 } }
 }
