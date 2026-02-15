@@ -1,18 +1,22 @@
 import { useEffect, useState } from 'react'
-import { getScans, getScan, type ScanDetail } from '../api'
+import { getScans, getScan, isApiUnavailableError, type ScanDetail } from '../api'
 
 export default function Compliance() {
   const [scans, setScans] = useState<{ id: string; status: string }[]>([])
   const [riskData, setRiskData] = useState<Array<{ target: string; overall: number; byCategory: Record<string, number> }>>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [apiUnavailable, setApiUnavailable] = useState(false)
 
   useEffect(() => {
     getScans()
       .then((r) => {
         setScans(r.scans.filter((s) => s.status === 'completed'))
       })
-      .catch((e) => setError(e.message))
+      .catch((e) => {
+        if (isApiUnavailableError(e)) setApiUnavailable(true)
+        else setError(e.message)
+      })
       .finally(() => setLoading(false))
   }, [])
 
@@ -34,7 +38,7 @@ export default function Compliance() {
   }, [scans.length])
 
   if (loading) return <div className="loading">Loading...</div>
-  if (error) return <div className="error">{error}</div>
+  if (error && !apiUnavailable) return <div className="error">{error}</div>
 
   const avgRisk = riskData.length > 0
     ? riskData.reduce((a, r) => a + r.overall, 0) / riskData.length
@@ -59,6 +63,11 @@ export default function Compliance() {
   return (
     <>
       <h1>Compliance</h1>
+      {apiUnavailable && (
+        <div className="api-unavailable" role="status">
+          No API connected. Deploy the NullVoid API to view compliance data.
+        </div>
+      )}
       <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>
         Control coverage and gap analysis based on scan risk assessments (C/I/A model).
       </p>
