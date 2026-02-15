@@ -29,7 +29,3 @@ Local development uses SQLite (no Turso needed). The API switches to Turso only 
 ### Vercel config
 
 The repo includes [vercel.json](../vercel.json) and [api/index.js](../api/index.js). The build runs `npm ci && npm run build`; the dashboard is at `/`, the API at `/api`.
-
-### GitHub Pages (optional)
-
-To deploy the dashboard to GitHub Pages instead, use [pages.yml](../.github/workflows/pages.yml) with `VITE_BASE=/NullVoid/` and set `NULLVOID_API_URL` to your API.

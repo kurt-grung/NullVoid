@@ -1222,8 +1222,7 @@ NullVoid is maintained as a focused, security-first tool with a single developme
 - **Bug Reports**: Open an issue with detailed reproduction steps (use the [bug report template](.github/ISSUE_TEMPLATE/bug_report.md))
 - **Feature Requests**: Open an issue to discuss potential enhancements (use the [feature request template](.github/ISSUE_TEMPLATE/feature_request.md))
 - **Project Board**: Track roadmap, bugs, and updates via [GitHub Projects](https://github.com/kurt-grung/NullVoid/projects) — see [.github/PROJECT_SETUP.md](.github/PROJECT_SETUP.md) for setup
-- **GitHub Pages**: Dashboard deployed at [kurt-grung.github.io/NullVoid](https://kurt-grung.github.io/NullVoid/) — see [.github/PAGES_SETUP.md](.github/PAGES_SETUP.md) to enable
-- **API deployment**: Deploy API to Vercel with Turso (free tier) — see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+- **Dashboard + API**: Deploy to Vercel with Turso — see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 - **Documentation**: Report documentation issues or suggest improvements
 
 ### 💡 **Getting Help**
