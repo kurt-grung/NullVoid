@@ -50,6 +50,7 @@ export interface MLDetectionConfig {
   ML_WEIGHTS?: Record<string, number>;
   ML_MODEL_URL?: string | null;
   ML_MODEL_PATH?: string | null;
+  BEHAVIORAL_MODEL_URL?: string | null;
   ML_EXPLAIN?: boolean;
   COMMIT_PATTERN_ANALYSIS?: boolean;
 }

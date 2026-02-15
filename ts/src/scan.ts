@@ -18,6 +18,7 @@ import { queryIoCProviders, mergeIoCThreats } from './lib/iocScanIntegration';
 import { analyzeDependencyConfusion } from './lib/dependencyConfusion';
 import { getOptimalWorkerCount, getOptimalChunkSize, chunkPackages } from './lib/parallel';
 import { SCAN_CONFIG, PARALLEL_CONFIG, NLP_CONFIG } from './lib/config';
+import { computeCompositeRisk } from './lib/riskScoring';
 import { runNlpAnalysis } from './lib/nlpAnalysis';
 import { runMLDetection, buildFeatureVector } from './lib/mlDetection';
 import { getGitHistorySync } from './lib/dependencyConfusion';
@@ -773,6 +774,9 @@ export async function scan(
   // Filter threats based on options
   const filteredThreats = filterThreatsBySeverity(threats, options.all || false);
 
+  // Compute composite risk assessment
+  const riskAssessment = computeCompositeRisk(filteredThreats);
+
   // Export training data for packages with threats (use unfiltered threats)
   if (options.exportTrainingData && threats.length > 0) {
     try {
@@ -854,5 +858,6 @@ export async function scan(
       packagesWithThreats: filteredThreats.length > 0 ? 1 : 0,
       deepDependencies: 0, // Placeholder
     },
+    riskAssessment,
   };
 }

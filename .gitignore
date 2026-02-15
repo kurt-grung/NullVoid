@@ -109,6 +109,9 @@ pids
 ehthumbs.db
 Thumbs.db
 
+# API SQLite DB
+nullvoid.db
+
 # Security scan results
 security-report.json
 dependency-scan.json

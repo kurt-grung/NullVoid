@@ -9,6 +9,8 @@
  */
 
 import * as fs from 'fs';
+import * as http from 'http';
+import * as https from 'https';
 import * as path from 'path';
 import { execSync } from 'child_process';
 import { Threat, createThreat } from '../types/core';
@@ -19,8 +21,55 @@ import { runMLDetection } from './mlDetection';
 import { runNlpAnalysis } from './nlpAnalysis';
 import { runCommunityAnalysis } from './communityAnalysis';
 import { getTrustScore } from './trustNetwork';
-import { computeBehavioralAnomaly, computeCrossPackageAnomaly } from './anomalyDetection';
+import {
+  computeBehavioralAnomaly,
+  computeCrossPackageAnomaly,
+  extractBehavioralCountsFromScripts,
+} from './anomalyDetection';
 import { NLP_CONFIG, COMMUNITY_CONFIG, TRUST_CONFIG } from './config';
+
+const BEHAVIORAL_MODEL_TIMEOUT = 5000;
+
+async function fetchBehavioralScoreFromUrl(
+  baseUrl: string,
+  features: Record<string, number>,
+  timeout: number = BEHAVIORAL_MODEL_TIMEOUT
+): Promise<number | null> {
+  const url = baseUrl.replace(/\/$/, '') + '/behavioral-score';
+  return new Promise((resolve) => {
+    const payload = JSON.stringify({ features, explain: false });
+    const u = new URL(url);
+    const options = {
+      hostname: u.hostname,
+      port: u.port || (u.protocol === 'https:' ? 443 : 80),
+      path: u.pathname + u.search,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
+      timeout,
+    };
+    const mod = u.protocol === 'https:' ? https : http;
+    const req = mod.request(options, (res: http.IncomingMessage) => {
+      let data = '';
+      res.on('data', (chunk) => (data += chunk));
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          if (typeof json.score === 'number') resolve(json.score);
+          else resolve(null);
+        } catch {
+          resolve(null);
+        }
+      });
+    });
+    req.on('error', () => resolve(null));
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(null);
+    });
+    req.write(payload);
+    req.end();
+  });
+}
 
 export interface PackageInfo {
   name: string;
@@ -273,6 +322,12 @@ export async function detectDependencyConfusionWithPath(
       scriptTotalLength: number;
       hasPostinstall: boolean;
       postinstallLength: number;
+      preinstallLength: number;
+      postuninstallLength: number;
+      networkScriptCount: number;
+      evalUsageCount: number;
+      childProcessCount: number;
+      fileSystemAccessCount: number;
       dependencyCount: number;
       devDependencyCount: number;
       rareDependencyCount: number;
@@ -285,16 +340,56 @@ export async function detectDependencyConfusionWithPath(
         const scripts = (pkg['scripts'] as Record<string, string>) || {};
         const scriptKeys = Object.keys(scripts);
         const postinstall = scripts['postinstall'] ?? scripts['install'];
+        const preinstall = scripts['preinstall'];
+        const postuninstall = scripts['postuninstall'];
+        const allScriptContent = Object.values(scripts).join('\n');
+        const behavioralCounts = extractBehavioralCountsFromScripts(allScriptContent);
         pkgFeatures = {
           scriptCount: scriptKeys.length,
           scriptTotalLength: scriptKeys.reduce((sum, k) => sum + (scripts[k] ?? '').length, 0),
           hasPostinstall: !!postinstall,
           postinstallLength: postinstall ? postinstall.length : 0,
+          preinstallLength: preinstall ? preinstall.length : 0,
+          postuninstallLength: postuninstall ? postuninstall.length : 0,
+          networkScriptCount: behavioralCounts.networkScriptCount,
+          evalUsageCount: behavioralCounts.evalUsageCount,
+          childProcessCount: behavioralCounts.childProcessCount,
+          fileSystemAccessCount: behavioralCounts.fileSystemAccessCount,
           dependencyCount: Object.keys((pkg['dependencies'] as object) || {}).length,
           devDependencyCount: Object.keys((pkg['devDependencies'] as object) || {}).length,
           rareDependencyCount: 0,
         };
-        behavioralAnomaly = computeBehavioralAnomaly(pkgFeatures);
+        const mlCfg = (
+          DEPENDENCY_CONFUSION_CONFIG as { ML_DETECTION?: { BEHAVIORAL_MODEL_URL?: string | null } }
+        ).ML_DETECTION;
+        const behavioralModelUrl = mlCfg?.BEHAVIORAL_MODEL_URL;
+        if (behavioralModelUrl) {
+          try {
+            const score = await fetchBehavioralScoreFromUrl(
+              behavioralModelUrl,
+              {
+                scriptCount: pkgFeatures.scriptCount,
+                scriptTotalLength: pkgFeatures.scriptTotalLength,
+                hasPostinstall: pkgFeatures.hasPostinstall ? 1 : 0,
+                postinstallLength: pkgFeatures.postinstallLength,
+                preinstallLength: pkgFeatures.preinstallLength,
+                postuninstallLength: pkgFeatures.postuninstallLength,
+                networkScriptCount: pkgFeatures.networkScriptCount,
+                evalUsageCount: pkgFeatures.evalUsageCount,
+                childProcessCount: pkgFeatures.childProcessCount,
+                fileSystemAccessCount: pkgFeatures.fileSystemAccessCount,
+                dependencyCount: pkgFeatures.dependencyCount,
+                devDependencyCount: pkgFeatures.devDependencyCount,
+              },
+              5000
+            );
+            if (score != null) behavioralAnomaly = score;
+          } catch {
+            behavioralAnomaly = computeBehavioralAnomaly(pkgFeatures);
+          }
+        } else {
+          behavioralAnomaly = computeBehavioralAnomaly(pkgFeatures);
+        }
         crossPackageAnomaly = computeCrossPackageAnomaly(pkgFeatures, []);
       }
     } catch {

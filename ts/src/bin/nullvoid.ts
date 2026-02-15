@@ -7,6 +7,8 @@ import ora from 'ora';
 import { scan } from '../scan';
 import { ScanOptions, ScanResult } from '../types/core';
 import { generateSarifOutput } from '../lib/sarif';
+import { generateHtmlReport, generateMarkdownReport } from '../lib/reporting';
+import { saveScanToHistory, loadScanHistory, formatTrendsReport } from '../lib/scanHistory';
 import { detectMalware, filterThreatsBySeverity } from '../lib/detection';
 import { DISPLAY_PATTERNS } from '../lib/config';
 import { getIoCManager } from '../lib/iocIntegration';
@@ -38,7 +40,8 @@ interface CliOptions {
   'include-dev'?: boolean;
   'skip-cache'?: boolean;
   output?: string;
-  format?: 'json' | 'sarif' | 'text';
+  format?: 'json' | 'sarif' | 'text' | 'html' | 'markdown';
+  compliance?: 'soc2' | 'iso27001';
   verbose?: boolean;
   debug?: boolean;
   rules?: string;
@@ -54,6 +57,7 @@ interface CliOptions {
   'export-training'?: string;
   'export-training-good'?: string;
   train?: boolean;
+  'save-history'?: boolean;
 }
 
 program.name('nullvoid').description('NullVoid Security Scanner').version(packageJson.version);
@@ -311,6 +315,28 @@ program
         }
       }
       process.exit(result.verified ? 0 : 1);
+    } catch (error) {
+      console.error(colors.red('Error:'), (error as Error).message);
+      process.exit(1);
+    }
+  });
+
+// Trends command
+program
+  .command('trends')
+  .description('Show scan trends from history (threats over time, severity distribution)')
+  .option('-n, --limit <n>', 'Number of history entries to show', '50')
+  .option('-j, --json', 'Output as JSON')
+  .action(async (options: { limit?: string; json?: boolean }) => {
+    try {
+      const limit = parseInt(options.limit ?? '50', 10) || 50;
+      const entries = loadScanHistory(limit);
+      if (options.json) {
+        console.log(JSON.stringify(entries, null, 2));
+      } else {
+        console.log(formatTrendsReport(entries));
+      }
+      process.exit(0);
     } catch (error) {
       console.error(colors.red('Error:'), (error as Error).message);
       process.exit(1);
@@ -579,7 +605,11 @@ program
   .option('--include-dev', 'Include development dependencies')
   .option('--skip-cache', 'Skip cache')
   .option('-o, --output <file>', 'Output file path')
-  .option('-f, --format <format>', 'Output format', 'json')
+  .option('-f, --format <format>', 'Output format (json, sarif, text, html, markdown)', 'json')
+  .option(
+    '--compliance <framework>',
+    'Add compliance section (soc2, iso27001) to html/markdown reports'
+  )
   .option('-v, --verbose', 'Enable verbose logging')
   .option('--debug', 'Enable debug mode')
   .option('-r, --rules <file>', 'Custom rules file')
@@ -603,6 +633,7 @@ program
     'Append feature vectors for packages with no threats to JSONL file (label 0) for balanced ML training'
   )
   .option('--train', 'Shorthand for --export-training ml-model/train.jsonl', false)
+  .option('--save-history', 'Save scan to ~/.nullvoid/history/ for trends')
   .action(async (target: string | undefined, options: CliOptions) => {
     await performScan(target, options);
   });
@@ -618,7 +649,11 @@ program
   .option('--include-dev', 'Include development dependencies')
   .option('--skip-cache', 'Skip cache')
   .option('-o, --output <file>', 'Output file path')
-  .option('-f, --format <format>', 'Output format', 'json')
+  .option('-f, --format <format>', 'Output format (json, sarif, text, html, markdown)', 'json')
+  .option(
+    '--compliance <framework>',
+    'Add compliance section (soc2, iso27001) to html/markdown reports'
+  )
   .option('-v, --verbose', 'Enable verbose logging')
   .option('--debug', 'Enable debug mode')
   .option('-r, --rules <file>', 'Custom rules file')
@@ -642,6 +677,7 @@ program
     'Append feature vectors for packages with no threats to JSONL file (label 0) for balanced ML training'
   )
   .option('--train', 'Shorthand for --export-training ml-model/train.jsonl', false)
+  .option('--save-history', 'Save scan to ~/.nullvoid/history/ for trends')
   .action(async function (
     this: { opts: () => CliOptions },
     target: string | undefined,
@@ -691,6 +727,9 @@ async function performScan(target: string | undefined, options: CliOptions) {
     if (options.format) {
       scanOptions.format = options.format;
     }
+    if (options.compliance === 'soc2' || options.compliance === 'iso27001') {
+      scanOptions.compliance = options.compliance;
+    }
     if (options.rules) {
       scanOptions.rulesFile = options.rules;
     }
@@ -704,6 +743,13 @@ async function performScan(target: string | undefined, options: CliOptions) {
     }
     if (options['export-training-good']) {
       scanOptions.exportTrainingGood = options['export-training-good'];
+    }
+    if (
+      process.argv.includes('--save-history') ||
+      options['save-history'] ||
+      (options as { saveHistory?: boolean }).saveHistory
+    ) {
+      scanOptions.saveHistory = true;
     }
 
     // Progress callback: use stderr when format is json/sarif so stdout is machine-readable
@@ -803,7 +849,17 @@ async function performScan(target: string | undefined, options: CliOptions) {
     }
 
     // When format is json and no output file, print JSON only to stdout (machine-readable)
-    if (options.format === 'json' && !options.output) {
+    const isJsonNoOutput = (options.format === 'json' || !options.format) && !options.output;
+    if (isJsonNoOutput) {
+      const shouldSave = scanOptions.saveHistory || process.argv.includes('--save-history');
+      if (shouldSave) {
+        try {
+          const saved = saveScanToHistory(result, effectiveTarget);
+          console.error(colors.green(`History saved to ${saved}`));
+        } catch (err) {
+          if (options.verbose) console.error(`Failed to save history: ${(err as Error).message}`);
+        }
+      }
       console.log(JSON.stringify(result, null, 2));
       return;
     }
@@ -811,8 +867,29 @@ async function performScan(target: string | undefined, options: CliOptions) {
     // Write output file immediately (before displayResults) so CI always has the report
     if (options.output) {
       const outPath = path.resolve(options.output);
-      fs.writeFileSync(outPath, JSON.stringify(result, null, 2));
+      const fmt = options.format ?? 'json';
+      const reportOpts =
+        options.compliance === 'soc2' || options.compliance === 'iso27001'
+          ? { compliance: options.compliance }
+          : undefined;
+      if (fmt === 'html') {
+        fs.writeFileSync(outPath, generateHtmlReport(result, reportOpts));
+      } else if (fmt === 'markdown') {
+        fs.writeFileSync(outPath, generateMarkdownReport(result, reportOpts));
+      } else {
+        fs.writeFileSync(outPath, JSON.stringify(result, null, 2));
+      }
       console.log(`Results written to ${outPath}`);
+    }
+
+    const shouldSaveHistory = scanOptions.saveHistory || process.argv.includes('--save-history');
+    if (shouldSaveHistory) {
+      try {
+        const saved = saveScanToHistory(result, effectiveTarget);
+        console.log(colors.green(`History saved to ${saved}`));
+      } catch (err) {
+        if (options.verbose) console.error(`Failed to save history: ${(err as Error).message}`);
+      }
     }
 
     // Display results

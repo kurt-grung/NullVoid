@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://github.com/kurt-grung/NullVoid#readme
+    about: Check the README and docs
+  - name: Roadmap
+    url: https://github.com/kurt-grung/NullVoid/blob/main/docs/ROADMAP.md
+    about: See planned features and timeline
