@@ -44,7 +44,7 @@ export default function ML() {
 
   if (apiUnavailable) {
     return (
-      <div className="card-minimal border-l-4 border-l-neutral-400 dark:border-l-neutral-500" role="status">
+      <div className="alert-info mb-6" role="status">
         <p className="text-neutral-600 dark:text-neutral-400 text-sm font-medium">
           No API connected. Run <code>make api</code> and ensure the dashboard proxies to it.
         </p>
@@ -60,7 +60,7 @@ export default function ML() {
       </p>
 
       {available === false && !apiUnavailable && (
-        <div className="card-minimal border-l-4 border-l-amber-500 mb-6">
+        <div className="alert-warning mb-6">
           <p className="text-neutral-600 dark:text-neutral-400 text-sm font-medium">
             ML commands are not available on this deployment. Run the API locally with <code>make api</code> and open the dashboard at localhost:5174.
           </p>
@@ -125,7 +125,7 @@ export default function ML() {
       </div>
 
       {error && (
-        <div className="card-minimal border-l-4 border-l-red-500 text-red-600 dark:text-red-400 text-sm">
+        <div className="alert-error mb-6">
           {error}
         </div>
       )}

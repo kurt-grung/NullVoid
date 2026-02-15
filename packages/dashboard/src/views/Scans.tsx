@@ -34,12 +34,22 @@ export default function Scans() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setSubmitting(true)
+    const optimisticScan: ScanSummary = {
+      id: `scan-${Date.now()}-pending`,
+      status: 'running',
+      target,
+      createdAt: new Date().toISOString(),
+    }
+    setScans((prev) => [optimisticScan, ...prev])
     triggerScan(target)
       .then(() => {
         setTarget('.')
         refresh()
       })
-      .catch((e) => setError(e.message))
+      .catch((e) => {
+        setError(e.message)
+        setScans((prev) => prev.filter((s) => s.id !== optimisticScan.id))
+      })
       .finally(() => setSubmitting(false))
   }
 
@@ -60,10 +70,7 @@ export default function Scans() {
     <>
       <h1>Scans</h1>
       {apiUnavailable && (
-        <div
-          className="card-minimal border-l-4 border-l-neutral-400 dark:border-l-neutral-500"
-          role="status"
-        >
+        <div className="alert-info mb-6" role="status">
           <p className="text-neutral-600 dark:text-neutral-400 text-sm font-medium">No API connected. The API could not be reached.</p>
           {error && <p className="mt-2 text-xs text-neutral-600 dark:text-neutral-400 font-mono">{error}</p>}
           <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-500">
@@ -72,7 +79,7 @@ export default function Scans() {
         </div>
       )}
       {error && !apiUnavailable && (
-        <div className="card-minimal border-l-4 border-l-red-500 text-red-600 dark:text-red-400 text-sm">
+        <div className="alert-error mb-6">
           {error}
         </div>
       )}
@@ -102,15 +109,27 @@ export default function Scans() {
         <ul className="list-none p-0 m-0 mt-3">
           {scans.map((s) => (
             <li key={s.id} className="list-item-minimal">
-              <Link to={`/scans/${s.id}`} className="text-inherit no-underline hover:no-underline">
-                <span className={`badge-minimal ${statusClass(s.status)}`}>{s.status}</span>
-                {' '}
-                <code>{s.target}</code>
-                {' '}
-                <span className="text-neutral-500 dark:text-neutral-400 text-xs">
-                  {new Date(s.createdAt).toLocaleString()}
-                </span>
-              </Link>
+              {s.id.endsWith('-pending') ? (
+                <>
+                  <span className={`badge-minimal ${statusClass(s.status)}`}>{s.status}</span>
+                  {' '}
+                  <code>{s.target}</code>
+                  {' '}
+                  <span className="text-neutral-500 dark:text-neutral-400 text-xs">
+                    {new Date(s.createdAt).toLocaleString()}
+                  </span>
+                </>
+              ) : (
+                <Link to={`/scans/${s.id}`} className="text-inherit no-underline hover:no-underline">
+                  <span className={`badge-minimal ${statusClass(s.status)}`}>{s.status}</span>
+                  {' '}
+                  <code>{s.target}</code>
+                  {' '}
+                  <span className="text-neutral-500 dark:text-neutral-400 text-xs">
+                    {new Date(s.createdAt).toLocaleString()}
+                  </span>
+                </Link>
+              )}
             </li>
           ))}
         </ul>

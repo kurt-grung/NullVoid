@@ -41,7 +41,7 @@ export default function Compliance() {
     <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">Loading...</div>
   )
   if (error && !apiUnavailable) return (
-    <div className="card-minimal border-l-4 border-l-red-500 text-red-600 dark:text-red-400 text-sm">
+    <div className="alert-error mb-6">
       {error}
     </div>
   )
@@ -70,7 +70,7 @@ export default function Compliance() {
     <>
       <h1>Compliance</h1>
       {apiUnavailable && (
-        <div className="card-minimal border-l-4 border-l-neutral-400 dark:border-l-neutral-500" role="status">
+        <div className="alert-info mb-6" role="status">
           <p className="text-neutral-600 dark:text-neutral-400 text-sm font-medium">No API connected. On Vercel: set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN, then check deployment logs if issues persist.</p>
         </div>
       )}

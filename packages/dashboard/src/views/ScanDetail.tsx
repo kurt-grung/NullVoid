@@ -20,12 +20,12 @@ export default function ScanDetailView() {
     <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">Loading...</div>
   )
   if (error) return (
-    <div className="card-minimal border-l-4 border-l-red-500 text-red-600 dark:text-red-400 text-sm">
+    <div className="alert-error mb-6">
       {error}
     </div>
   )
   if (!scan) return (
-    <div className="card-minimal border-l-4 border-l-red-500 text-red-600 dark:text-red-400 text-sm">
+    <div className="alert-error mb-6">
       Scan not found
     </div>
   )
@@ -58,7 +58,7 @@ export default function ScanDetailView() {
       </div>
 
       {scan.error && (
-        <div className="card-minimal border-l-4 border-l-red-500 text-red-600 dark:text-red-400 text-sm mb-4">
+        <div className="alert-error mb-4">
           {scan.error}
         </div>
       )}

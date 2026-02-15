@@ -11,11 +11,11 @@ let client: ReturnType<typeof createClient> | null = null;
 
 function getClient() {
   if (!client) {
-    const url = process.env['TURSO_DATABASE_URL'];
-    const authToken = process.env['TURSO_AUTH_TOKEN'];
+    const url = (process.env['TURSO_DATABASE_URL'] ?? '').trim();
+    const authToken = (process.env['TURSO_AUTH_TOKEN'] ?? '').trim();
     if (!url || !authToken) {
       const err = new Error(
-        'TURSO_DATABASE_URL and TURSO_AUTH_TOKEN required. Add them in Vercel → Settings → Environment Variables.'
+        'TURSO_DATABASE_URL and TURSO_AUTH_TOKEN required. Add them in Vercel → Settings → Environment Variables (Production + Preview).'
       ) as Error & { code?: string };
       err.code = 'TURSO_CONFIG_MISSING';
       throw err;

@@ -28,4 +28,15 @@ Local development uses SQLite (no Turso needed). The API switches to Turso only 
 
 ### Vercel config
 
-The repo includes [vercel.json](../vercel.json) and [api/index.js](../api/index.js). The build runs `npm run api:build` (to produce `packages/api/dist`) then `npm run dashboard:build`; the dashboard is at `/`, the API at `/api`. If you see "No API connected" despite setting env vars, check Vercel → Deployments → Function logs for the API.
+The repo includes [vercel.json](../vercel.json) and [api/index.js](../api/index.js). The build runs `npm run api:build` (to produce `packages/api/dist`) then `npm run dashboard:build`; the dashboard is at `/`, the API at `/api`.
+
+### Diagnosing 503 on /api/scans
+
+1. **Check `/api/health`** – If `https://your-app.vercel.app/api/health` returns `{"ok":true}`, the API loaded. The 503 is from the database layer.
+2. **Check `/api/`** – If the root returns JSON with endpoints, the API loaded.
+3. **If both 503** – The API failed to load (e.g. missing `packages/api/dist`). Check Vercel build logs; ensure `api:build` runs and succeeds.
+4. **If health OK but /scans 503** – Turso config issue:
+   - Ensure `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` are set for **Production** (and Preview if using preview deployments).
+   - No leading/trailing spaces; values must be non-empty.
+   - Create a database at [turso.tech](https://turso.tech) and use the libSQL URL + auth token.
+5. **Vercel Function logs** – Deployments → your deployment → Functions → `api` to see the actual error.
