@@ -103,6 +103,14 @@ export function isNullVoidCode(packageName: string): boolean {
     return true;
   }
 
+  // Vercel serverless entry (api/index.js) at repo root - whitelist when not in node_modules
+  if (
+    (packageName.endsWith('/api/index.js') || packageName.endsWith('\\api\\index.js')) &&
+    !packageName.includes('node_modules')
+  ) {
+    return true;
+  }
+
   return false;
 }
 
