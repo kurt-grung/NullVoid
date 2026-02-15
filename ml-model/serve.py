@@ -58,8 +58,14 @@ def get_base_estimator(m):
         if cal and len(cal) > 0:
             first = cal[0]
             if isinstance(first, tuple):
-                return first[0]
-            return first
+                base = first[0]
+            else:
+                base = first
+            # _CalibratedClassifier wraps estimator; unwrap to get XGBoost
+            if hasattr(base, "estimator") and hasattr(base.estimator, "feature_importances_"):
+                return base.estimator
+            if hasattr(base, "feature_importances_"):
+                return base
     return m
 
 
