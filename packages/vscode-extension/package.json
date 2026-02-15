@@ -41,6 +41,7 @@
     }
   },
   "scripts": {
+    "build": "tsc -p .",
     "compile": "tsc -p .",
     "watch": "tsc -watch -p .",
     "package": "npm run compile && npx @vscode/vsce package --no-dependencies"

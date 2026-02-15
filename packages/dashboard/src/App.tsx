@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 import Executive from './views/Executive'
 import ScanDetail from './views/ScanDetail'
 import Scans from './views/Scans'
@@ -33,6 +34,7 @@ function App() {
             <Route path="/compliance" element={<Compliance />} />
           </Routes>
         </main>
+        <SpeedInsights />
       </div>
     </BrowserRouter>
   )

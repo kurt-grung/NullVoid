@@ -33,9 +33,11 @@ jobs:
         run: npm ci
 
       - name: Build dashboard
-        run: npm run dashboard:build
+        run: npx turbo run build --filter=dashboard
         env:
           VITE_BASE: /NullVoid/
+          # Set NULLVOID_API_URL in repo Settings > Secrets and variables > Actions if you deploy the API
+          VITE_API_URL: ${{ vars.NULLVOID_API_URL }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

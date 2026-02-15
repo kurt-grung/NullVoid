@@ -9,6 +9,7 @@
     "dev": "ts-node src/index.ts"
   },
   "dependencies": {
+    "@libsql/client": "^0.14.0",
     "better-sqlite3": "^12.6.2",
     "express": "^4.18.2"
   },

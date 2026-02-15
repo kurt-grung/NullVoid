@@ -96,7 +96,17 @@ export function isNullVoidCode(packageName: string): boolean {
       packageName.includes('packages/dashboard/') ||
       packageName.includes('packages\\dashboard\\') ||
       packageName.includes('packages/api/') ||
-      packageName.includes('packages\\api\\'))
+      packageName.includes('packages\\api\\') ||
+      packageName.includes('/api/index.js') ||
+      packageName.includes('\\api\\index.js'))
+  ) {
+    return true;
+  }
+
+  // Vercel serverless entry (api/index.js) at repo root - whitelist when not in node_modules
+  if (
+    (packageName.endsWith('/api/index.js') || packageName.endsWith('\\api\\index.js')) &&
+    !packageName.includes('node_modules')
   ) {
     return true;
   }

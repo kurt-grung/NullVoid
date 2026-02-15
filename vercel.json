@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "buildCommand": "npm ci && npm run build",
+  "outputDirectory": "public",
+  "rewrites": [{"source": "/api/(.*)", "destination": "/api"}],
+  "functions": {"api/index.js": {"memory": 1024, "maxDuration": 60}}
+}

@@ -1,5 +1,5 @@
 {
-  "name": "nullvoid",
+  "name": "@nullvoid/ts",
   "version": "2.1.0",
   "description": "Detect malicious code",
   "main": "dist/scan.js",
