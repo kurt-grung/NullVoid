@@ -1,14 +1,17 @@
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
 
-/** Detect when API is unavailable (404, CORS, network) - show friendly empty state instead of error */
+/** Detect when API is unavailable (404, CORS, network, 503 config) - show friendly empty state */
 export function isApiUnavailableError(error: unknown): boolean {
   const msg = error instanceof Error ? error.message : String(error);
   return (
     msg.includes('API error') ||
     msg.includes('404') ||
+    msg.includes('503') ||
     msg.includes('Failed to fetch') ||
     msg.includes('NetworkError') ||
-    msg.includes('Ensure NullVoid API')
+    msg.includes('Ensure NullVoid API') ||
+    msg.includes('Database not configured') ||
+    msg.includes('TURSO_DATABASE_URL')
   );
 }
 
@@ -63,6 +66,18 @@ async function fetchApi<T>(path: string, opts?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text();
+    if (res.status === 503) {
+      try {
+        const j = JSON.parse(text) as { hint?: string; message?: string };
+        throw new Error(j.hint ?? j.message ?? 'Database not configured.');
+      } catch (e) {
+        const msg =
+          e instanceof Error && /TURSO|Vercel|Environment Variables/.test(e.message)
+            ? e.message
+            : 'Database not configured. Add TURSO_DATABASE_URL and TURSO_AUTH_TOKEN in Vercel → Settings → Environment Variables.';
+        throw new Error(msg);
+      }
+    }
     const msg = text.startsWith('<') ? `API error ${res.status}: Ensure NullVoid API is running on port 3001` : text;
     throw new Error(msg);
   }

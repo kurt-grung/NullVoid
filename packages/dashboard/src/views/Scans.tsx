@@ -44,7 +44,11 @@ export default function Scans() {
       <h1>Scans</h1>
       {apiUnavailable && (
         <div className="api-unavailable" role="status">
-          No API connected. Deploy the NullVoid API to view and run scans.
+          <p>No API connected. Deploy the NullVoid API to view and run scans.</p>
+          <p style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
+            If the API is deployed on Vercel, add <code>TURSO_DATABASE_URL</code> and{' '}
+            <code>TURSO_AUTH_TOKEN</code> in Vercel → Settings → Environment Variables.
+          </p>
         </div>
       )}
       {error && !apiUnavailable && <div className="error">{error}</div>}

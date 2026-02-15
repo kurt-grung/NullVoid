@@ -1,12 +1,14 @@
 /**
  * DB layer: SQLite (local) or Turso (Vercel)
- * Uses Turso when TURSO_DATABASE_URL is set
+ * Uses Turso when TURSO_DATABASE_URL is set.
+ * On Vercel, Turso is required—SQLite (better-sqlite3) fails on serverless (read-only fs, native deps).
  */
 
 import type { Organization, Team, ScanRow } from './types';
 export type { Organization, Team, ScanRow } from './types';
 
-const useTurso = !!process.env['TURSO_DATABASE_URL'];
+/** On Vercel, always use Turso—SQLite fails on serverless (read-only fs, native deps). */
+const useTurso = !!process.env['TURSO_DATABASE_URL'] || process.env['VERCEL'] === '1';
 
 async function getSqliteDb() {
   const mod = await import('./sqlite');
