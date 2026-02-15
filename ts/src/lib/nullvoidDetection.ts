@@ -54,6 +54,7 @@ export function isNullVoidCode(packageName: string): boolean {
       packageName.includes('/NullVoid/bin/') ||
       packageName.includes('/NullVoid/scripts/') ||
       packageName.includes('/NullVoid/src/') ||
+      packageName.includes('/NullVoid/ml-model/') ||
       packageName.includes('/NullVoid/scan.js') ||
       packageName.includes('/NullVoid/scan.ts') ||
       packageName.includes('/NullVoid/package.json'))
@@ -67,6 +68,7 @@ export function isNullVoidCode(packageName: string): boolean {
       packageName.includes('\\NullVoid\\bin\\') ||
       packageName.includes('\\NullVoid\\scripts\\') ||
       packageName.includes('\\NullVoid\\src\\') ||
+      packageName.includes('\\NullVoid\\ml-model\\') ||
       packageName.includes('\\NullVoid\\scan.js') ||
       packageName.includes('\\NullVoid\\scan.ts') ||
       packageName.includes('\\NullVoid\\package.json'))
@@ -87,6 +89,8 @@ export function isNullVoidCode(packageName: string): boolean {
       packageName.includes('\\ts\\src\\') ||
       packageName.includes('/js/lib/') ||
       packageName.includes('\\js\\lib\\') ||
+      packageName.includes('/ml-model/') ||
+      packageName.includes('\\ml-model\\') ||
       packageName.includes('packages/vscode-extension/') ||
       packageName.includes('packages\\vscode-extension\\'))
   ) {

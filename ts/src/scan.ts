@@ -15,6 +15,7 @@ import { isNullVoidCode } from './lib/nullvoidDetection';
 import { detectMalware } from './lib/detection';
 import { filterThreatsBySeverity } from './lib/detection';
 import { queryIoCProviders, mergeIoCThreats } from './lib/iocScanIntegration';
+import { analyzeDependencyConfusion } from './lib/dependencyConfusion';
 import { getOptimalWorkerCount, getOptimalChunkSize, chunkPackages } from './lib/parallel';
 import { SCAN_CONFIG, PARALLEL_CONFIG, NLP_CONFIG } from './lib/config';
 import { runNlpAnalysis } from './lib/nlpAnalysis';
@@ -44,6 +45,19 @@ function isScanableFile(name: string): boolean {
   return SCANABLE_EXTENSIONS.some((ext) => name.endsWith(ext));
 }
 
+const SKIP_DIRS = [
+  'node_modules',
+  '.git',
+  '.vscode',
+  '.idea',
+  'dist',
+  'build',
+  'coverage',
+  '.nyc_output',
+  'fixtures',
+  'out',
+];
+
 /**
  * Recursively collect all scanable file paths and directory structure
  */
@@ -54,18 +68,6 @@ function collectScanablePaths(
   const paths: string[] = [];
   const files: string[] = [];
   const directories: string[] = [];
-  const skipDirs = [
-    'node_modules',
-    '.git',
-    '.vscode',
-    '.idea',
-    'dist',
-    'build',
-    'coverage',
-    '.nyc_output',
-    'fixtures', // intentionally malicious test files
-    'out', // compiled output (e.g. vscode extension)
-  ];
 
   try {
     const entries = fs.readdirSync(dirPath, { withFileTypes: true });
@@ -74,7 +76,7 @@ function collectScanablePaths(
       const fullPath = path.resolve(path.join(dirPath, entry.name));
 
       if (entry.isDirectory()) {
-        if (skipDirs.includes(entry.name)) {
+        if (SKIP_DIRS.includes(entry.name)) {
           continue;
         }
         directories.push(entry.name);
@@ -110,6 +112,38 @@ function collectScanablePaths(
       totalDirectories: directories.length,
     },
   };
+}
+
+/**
+ * Recursively find all directories containing package.json (for dependency confusion + ML)
+ */
+function collectPackageJsonDirs(
+  dirPath: string,
+  options: ScanOptions,
+  maxPackages: number = 50
+): string[] {
+  const found: string[] = [];
+  const depth = options.depth ?? 5;
+
+  function walk(currentPath: string, remainingDepth: number): void {
+    if (found.length >= maxPackages || remainingDepth <= 0) return;
+    try {
+      const pkgPath = path.join(currentPath, 'package.json');
+      if (fs.existsSync(pkgPath)) {
+        found.push(currentPath);
+      }
+      const entries = fs.readdirSync(currentPath, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory() || SKIP_DIRS.includes(entry.name)) continue;
+        walk(path.join(currentPath, entry.name), remainingDepth - 1);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  walk(dirPath, depth);
+  return found;
 }
 
 /**
@@ -273,9 +307,14 @@ export async function scan(
       packagesScanned = directoryResult.packagesScanned;
       directoryStructure = directoryResult.directoryStructure;
 
-      // Also scan package.json if it exists
-      const packageJsonPath = path.join(target, 'package.json');
-      if (fs.existsSync(packageJsonPath)) {
+      // Find all package.json dirs (root + subdirs) and run dependency analysis + ML on each
+      const packageDirs = collectPackageJsonDirs(target, options);
+      const MAX_IOC_QUERIES_PER_SCAN = 30; // Cap to avoid rate limits and hangs
+      let iocQueriesUsed = 0;
+
+      for (const packageDir of packageDirs) {
+        const packageJsonPath = path.join(packageDir, 'package.json');
+        if (!fs.existsSync(packageJsonPath)) continue;
         try {
           const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
           const dependencies: Record<string, string> = {
@@ -327,8 +366,8 @@ export async function scan(
                   });
                 }
 
-                // Query IoC providers for vulnerabilities (if enabled)
-                if (options.iocEnabled !== false) {
+                // Query IoC providers for vulnerabilities (if enabled, capped to avoid rate limits)
+                if (options.iocEnabled !== false && iocQueriesUsed < MAX_IOC_QUERIES_PER_SCAN) {
                   // Extract version from semver range (e.g., "^1.0.0" -> "1.0.0")
                   const cleanVersion = depVersion.replace(/^[\^~>=<]+\s*/, '');
 
@@ -346,6 +385,7 @@ export async function scan(
                   iocQueries.push(
                     queryIoCProviders(depName, cleanVersion, providerNames, packageJsonPath)
                   );
+                  iocQueriesUsed++;
                 }
 
                 // NLP analysis on dependencies (if enabled, limit to avoid rate limits)
@@ -403,6 +443,50 @@ export async function scan(
             }
             const mergedThreats = mergeIoCThreats(dependencyThreats, allExtraThreats);
             threats.push(...mergedThreats);
+
+            // Dependency confusion analysis (root package + node_modules when available)
+            if (options.dependencyConfusionEnabled !== false) {
+              try {
+                if (options.verbose) {
+                  logger.info('Analyzing dependency confusion patterns...');
+                }
+                const packagesToAnalyze: Array<{ name: string; path: string }> = [];
+                const rootName = packageJson.name as string | undefined;
+                if (rootName) {
+                  packagesToAnalyze.push({ name: rootName, path: packageDir });
+                }
+                const nodeModulesPath = path.join(packageDir, 'node_modules');
+                const MAX_DEP_CONFUSION_PACKAGES = 30;
+                if (fs.existsSync(nodeModulesPath)) {
+                  const deps = {
+                    ...((packageJson.dependencies as Record<string, string>) || {}),
+                    ...(options.includeDevDependencies !== false
+                      ? (packageJson.devDependencies as Record<string, string>) || {}
+                      : {}),
+                  };
+                  for (const depName of Object.keys(deps)) {
+                    if (packagesToAnalyze.length >= MAX_DEP_CONFUSION_PACKAGES) break;
+                    const depPath = path.join(nodeModulesPath, depName);
+                    if (fs.existsSync(depPath)) {
+                      packagesToAnalyze.push({ name: depName, path: depPath });
+                    }
+                  }
+                }
+                if (packagesToAnalyze.length > 0) {
+                  const depConfusionThreats = await analyzeDependencyConfusion(packagesToAnalyze);
+                  threats.push(...depConfusionThreats);
+                  if (options.verbose && depConfusionThreats.length > 0) {
+                    logger.info(
+                      `Found ${depConfusionThreats.length} dependency confusion threat(s)`
+                    );
+                  }
+                }
+              } catch (error) {
+                if (options.verbose) {
+                  logger.warn(`Dependency confusion analysis failed: ${(error as Error).message}`);
+                }
+              }
+            }
           }
         } catch (error) {
           if (options.verbose) {

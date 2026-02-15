@@ -1,7 +1,7 @@
 {
   "DEPENDENCY_CONFUSION_CONFIG": {
     "ML_DETECTION": {
-      "ML_MODEL_URL": "https://api.example.com/score",
+      "ML_MODEL_URL": "http://localhost:8000/score",
       "ML_MODEL_PATH": null,
       "ML_ANOMALY_THRESHOLD": 0.7,
       "ML_WEIGHTS": {
@@ -14,11 +14,12 @@
         "crossPackageAnomaly": 0.03,
         "behavioralAnomaly": 0.03,
         "reviewSecurityScore": 0.05,
-        "popularityScore": 0.02
+        "popularityScore": 0.02,
+        "trustScore": 0.05
       }
     },
     "NLP_CONFIG": {
-      "ENABLED": false,
+      "ENABLED": true,
       "GITHUB_TOKEN": null,
       "MAX_ISSUES": 30,
       "SKIP_IF_NO_REPO": true,
@@ -32,7 +33,7 @@
       "ALGORITHM": "sha2-256"
     },
     "COMMUNITY_CONFIG": {
-      "ENABLED": false,
+      "ENABLED": true,
       "GITHUB_TOKEN": null,
       "TIMEOUT_MS": 10000,
       "USE_DOWNLOADS": true,
@@ -53,7 +54,11 @@
     },
     "CONSENSUS_CONFIG": {
       "ENABLED": false,
-      "SOURCES": ["npm", "github", "ipfs"],
+      "SOURCES": [
+        "npm",
+        "github",
+        "ipfs"
+      ],
       "MIN_AGREEMENT": 2,
       "GITHUB_TOKEN": null
     }

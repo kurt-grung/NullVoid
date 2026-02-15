@@ -21,7 +21,13 @@ import {
   verifyPackageOnChain,
 } from '../lib/blockchainVerification';
 import { verifyPackageConsensus } from '../lib/consensusVerification';
-import { IPFS_CONFIG, TRUST_CONFIG, BLOCKCHAIN_CONFIG, CONSENSUS_CONFIG } from '../lib/config';
+import {
+  IPFS_CONFIG,
+  TRUST_CONFIG,
+  BLOCKCHAIN_CONFIG,
+  CONSENSUS_CONFIG,
+  getRcScanOptions,
+} from '../lib/config';
 import colors from '../colors';
 import * as packageJson from '../../package.json';
 
@@ -623,8 +629,12 @@ async function performScan(target: string | undefined, options: CliOptions) {
   const spinner = ora('🔍 Scanning ...').start();
 
   try {
+    const rc = getRcScanOptions();
+    const defaultDepth = rc.depth ?? 5;
+    const effectiveTarget = target ?? rc.defaultTarget ?? '.';
+
     const scanOptions: ScanOptions = {
-      depth: options.depth ? parseInt(options.depth.toString()) : 5,
+      depth: options.depth ? parseInt(options.depth.toString()) : defaultDepth,
       parallel: options.parallel || false,
       workers:
         options.workers === 'auto'
@@ -669,7 +679,7 @@ async function performScan(target: string | undefined, options: CliOptions) {
       packageName?: string;
     }) => {
       const filePath = progress.packageName || progress.message;
-      const originalScanTarget = target || process.cwd();
+      const originalScanTarget = effectiveTarget;
       const relativePath = path.relative(originalScanTarget, filePath);
       const displayPath = relativePath || path.basename(filePath);
 
@@ -704,7 +714,7 @@ async function performScan(target: string | undefined, options: CliOptions) {
       }
     };
 
-    const result = await scan(target || '.', scanOptions, progressCallback);
+    const result = await scan(effectiveTarget, scanOptions, progressCallback);
     spinner.succeed('✅ Scan completed');
 
     // When format is json and no output file, print JSON only to stdout (machine-readable)
