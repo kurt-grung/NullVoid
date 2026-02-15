@@ -102,7 +102,7 @@ function enforceTenantAccess(
   return true;
 }
 
-/** POST /scan - trigger scan, return job ID */
+/** POST /scan - run scan synchronously (required for Vercel serverless; no background jobs) */
 app.post(
   '/scan',
   requireAuth,
@@ -112,6 +112,7 @@ app.post(
     const teamId = req.headers['x-team-id'] as string | undefined;
 
     const id = `scan-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const createdAt = new Date().toISOString();
     await insertScan({
       id,
       organizationId,
@@ -119,25 +120,42 @@ app.post(
       target,
       status: 'pending',
     });
-    res.status(202).json({ id, status: 'pending', target });
 
-    void updateScan(id, { status: 'running' });
+    await updateScan(id, { status: 'running' });
     const scan = getScanFn();
-    scan(target, { depth: 5 })
-      .then(async (result) => {
-        await updateScan(id, {
-          status: 'completed',
-          resultJson: JSON.stringify(result),
-          completedAt: new Date().toISOString(),
-        });
-      })
-      .catch(async (err) => {
-        await updateScan(id, {
-          status: 'failed',
-          error: (err as Error).message,
-          completedAt: new Date().toISOString(),
-        });
+    try {
+      const result = await scan(target, { depth: 5 });
+      const completedAt = new Date().toISOString();
+      await updateScan(id, {
+        status: 'completed',
+        resultJson: JSON.stringify(result),
+        completedAt,
       });
+      res.status(200).json({
+        id,
+        status: 'completed',
+        target,
+        result,
+        createdAt,
+        completedAt,
+      });
+    } catch (err) {
+      const msg = (err as Error).message;
+      const completedAt = new Date().toISOString();
+      await updateScan(id, {
+        status: 'failed',
+        error: msg,
+        completedAt,
+      });
+      res.status(500).json({
+        id,
+        status: 'failed',
+        target,
+        error: msg,
+        createdAt,
+        completedAt,
+      });
+    }
   })
 );
 
@@ -282,6 +300,16 @@ app.use((err: unknown, _req: Request, res: Response, next: (err?: unknown) => vo
     return;
   }
   next(err);
+});
+
+/** Final error handler: always send response to prevent FUNCTION_INVOCATION_FAILED */
+app.use((err: unknown, _req: Request, res: Response, _next: () => void) => {
+  if (res.headersSent) return;
+  const e = err as Error;
+  res.status(500).json({
+    error: 'Internal server error',
+    message: process.env['VERCEL'] ? 'Check Vercel logs for details.' : (e?.message ?? 'Unknown error'),
+  });
 });
 
 // Export for Vercel serverless; listen when running standalone
