@@ -30,12 +30,6 @@ jobs:
     - name: Install dependencies
       run: npm ci
     
-    - name: Install JavaScript dependencies
-      run: cd js && npm ci
-    
-    - name: Install TypeScript dependencies
-      run: cd ts && npm ci
-    
     - name: Run tests
       run: npm test
       env:
