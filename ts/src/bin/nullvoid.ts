@@ -684,6 +684,10 @@ async function performScan(target: string | undefined, options: CliOptions) {
       const displayPath = relativePath || path.basename(filePath);
 
       try {
+        // Skip non-file progress updates (e.g. "Scan completed")
+        if (!filePath || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+          return;
+        }
         // Quick threat check for this file (only show HIGH/CRITICAL)
         const content = fs.readFileSync(filePath, 'utf8');
         const threats: string[] = [];
