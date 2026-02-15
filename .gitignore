@@ -113,6 +113,9 @@ Thumbs.db
 # API SQLite DB
 nullvoid.db
 
+# PR drafts and notes
+pr/
+
 # Security scan results
 security-report.json
 dependency-scan.json

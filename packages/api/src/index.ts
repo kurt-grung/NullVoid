@@ -25,7 +25,7 @@ const tsDist = path.resolve(__dirname, '../../../ts/dist');
 const scanModule = require(path.join(tsDist, 'scan'));
 const scan: (target: string, options?: object) => Promise<unknown> = scanModule.scan;
 
-const PORT = parseInt(process.env['NULLVOID_API_PORT'] ?? '3000', 10);
+const PORT = parseInt(process.env['NULLVOID_API_PORT'] ?? '3001', 10);
 const API_KEY = process.env['NULLVOID_API_KEY'] ?? null;
 
 const app = express();
