@@ -8,7 +8,7 @@
     "nullvoid": "./dist/bin/nullvoid.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && chmod +x dist/bin/nullvoid.js",
     "build:watch": "tsc --watch",
     "dev": "ts-node src/bin/nullvoid.ts",
     "test": "jest --maxWorkers=1",

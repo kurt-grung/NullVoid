@@ -89,23 +89,49 @@ async function main() {
     }
   }
 
-  const lines = [];
+  const fs = await import('fs');
+  const path = await import('path');
+  const outPath = path.resolve(outFile);
+
+  const seen = new Set();
+  const rows = [];
+
+  function addRow(row) {
+    const key = JSON.stringify({ f: row.features, l: row.label });
+    if (seen.has(key)) return;
+    seen.add(key);
+    rows.push(row);
+  }
+
+  if (fs.existsSync(outPath)) {
+    const existing = fs.readFileSync(outPath, 'utf8').trim();
+    if (existing) {
+      for (const line of existing.split('\n')) {
+        try {
+          const row = JSON.parse(line);
+          if (row && typeof row.label === 'number') addRow(row);
+        } catch {
+          /* skip invalid lines */
+        }
+      }
+    }
+  }
 
   for (const name of goodPkgs) {
     const data = await fetchNpmMetadata(name);
     const row = buildMinimalFeatures(name, data, 0);
-    lines.push(JSON.stringify(row));
+    addRow(row);
   }
 
   for (const name of badPkgs) {
     const data = await fetchNpmMetadata(name);
     const row = buildMinimalFeatures(name, data, 1);
-    lines.push(JSON.stringify(row));
+    addRow(row);
   }
 
-  const fs = await import('fs');
-  fs.writeFileSync(outFile, lines.join('\n') + '\n');
-  console.log(`Wrote ${lines.length} rows to ${outFile}`);
+  const lines = rows.map((r) => JSON.stringify(r));
+  fs.writeFileSync(outPath, lines.join('\n') + '\n');
+  console.log(`Wrote ${lines.length} rows to ${outFile} (duplicates removed)`);
 }
 
 main().catch(console.error);

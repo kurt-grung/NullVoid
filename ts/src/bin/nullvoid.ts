@@ -51,6 +51,8 @@ interface CliOptions {
   'network-stats'?: boolean;
   networkStats?: boolean;
   'no-ioc'?: boolean;
+  'export-training'?: string;
+  train?: boolean;
 }
 
 program.name('nullvoid').description('NullVoid Security Scanner').version(packageJson.version);
@@ -591,6 +593,11 @@ program
   .option('--enable-redis', 'Enable Redis distributed cache (L3)')
   .option('--network-stats', 'Show network performance metrics')
   .option('--no-ioc', 'Disable IoC provider queries')
+  .option(
+    '--export-training <file>',
+    'Append feature vectors for packages with threats to JSONL file (label 1) for ML training'
+  )
+  .option('--train', 'Shorthand for --export-training ml-model/train.jsonl', false)
   .action(async (target: string | undefined, options: CliOptions) => {
     await performScan(target, options);
   });
@@ -621,8 +628,21 @@ program
   .option('--enable-redis', 'Enable Redis distributed cache (L3)')
   .option('--network-stats', 'Show network performance metrics')
   .option('--no-ioc', 'Disable IoC provider queries')
-  .action(async (target: string | undefined, options: CliOptions) => {
-    await performScan(target, options);
+  .option(
+    '--export-training <file>',
+    'Append feature vectors for packages with threats to JSONL file (label 1) for ML training'
+  )
+  .option('--train', 'Shorthand for --export-training ml-model/train.jsonl', false)
+  .action(async function (
+    this: { opts: () => CliOptions },
+    target: string | undefined,
+    options: CliOptions
+  ) {
+    const opts = this.opts() as CliOptions;
+    const merged: CliOptions = { ...options, ...opts };
+    // Commander subcommand may not parse --train; fallback to argv check
+    if (process.argv.includes('--train') && !merged.train) merged.train = true;
+    await performScan(target, merged);
   });
 
 async function performScan(target: string | undefined, options: CliOptions) {
@@ -667,6 +687,11 @@ async function performScan(target: string | undefined, options: CliOptions) {
     }
     if (options.sarif) {
       scanOptions.sarifFile = options.sarif;
+    }
+    if (options['export-training']) {
+      scanOptions.exportTrainingData = options['export-training'];
+    } else if (options.train) {
+      scanOptions.exportTrainingData = 'ml-model/train.jsonl';
     }
 
     // Progress callback: use stderr when format is json/sarif so stdout is machine-readable

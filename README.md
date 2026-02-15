@@ -239,6 +239,43 @@ nullvoid --verbose --format json --output scan-results.json
 nullvoid . --verbose --format json --output scan-results.json
 ```
 
+## 🤖 ML Training Pipeline
+
+Train the ML model for dependency confusion and malware detection. Both `ml:export` and `--train` deduplicate automatically.
+
+### Quick setup
+
+```bash
+# 1. Export benign samples (label 0)
+npm run ml:export
+
+# 2. Scan malware directory and append threat samples (label 1)
+nullvoid scan /path/to/malware-projects --no-ioc --train
+
+# 3. Train the model
+npm run ml:train
+
+# 4. Start ML server (optional, for live scoring)
+npm run ml:serve
+```
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `npm run ml:export` | Export benign features to `train.jsonl` (dedupes existing) |
+| `nullvoid scan <path> --train` | Append malware samples from scanned threats (dedupes) |
+| `npm run ml:train` | Train model from `train.jsonl` → `model.pkl` |
+| `npm run ml:serve` | Start ML server on port 8000 for live scoring |
+
+### Alternative (no global nullvoid)
+
+```bash
+npm run ml:scan -- /path/to/malware-projects --no-ioc --train
+```
+
+See [ml-model/README.md](ml-model/README.md) for details.
+
 ## 🛡️ IoC Integration (v2.1.0+)
 
 NullVoid now integrates with multiple vulnerability databases to check packages for known security issues:
@@ -476,15 +513,12 @@ npm run build:watch
 ```
 
 ### **ML Model (optional)**
+See [ML Training Pipeline](#-ml-training-pipeline) above for the full setup. Quick reference:
 ```bash
-# Start ML server for dependency confusion scoring
-npm run ml:serve
-
-# Train model (from ml-model/train.jsonl)
-npm run ml:train
-
-# Export features for training
 npm run ml:export
+nullvoid scan /path/to/malware --no-ioc --train
+npm run ml:train
+npm run ml:serve
 ```
 
 ### **Type Definitions**
@@ -653,6 +687,8 @@ Scanned 15 package(s) in 234ms
 | `--sarif-file <path>` | Write SARIF output to file (requires --output sarif) | - |
 | `--ioc-providers <providers>` | Comma-separated list of IoC providers (npm,ghsa,cve,snyk) | `npm,ghsa,cve` |
 | `--no-ioc` | Disable IoC provider queries | `false` |
+| `--train` | Shorthand for `--export-training ml-model/train.jsonl` | - |
+| `--export-training <file>` | Append feature vectors for packages with threats to JSONL (label 1) | - |
 | `--cache-stats` | Show cache statistics | `false` |
 | `--enable-redis` | Enable Redis distributed cache | `false` |
 | `--network-stats` | Show network performance metrics | `false` |
@@ -795,29 +831,7 @@ NullVoid includes advanced **Dependency Confusion Detection** to identify potent
 
 NullVoid can use a trained ML model for dependency confusion threat scoring. When `ML_MODEL_URL` is configured, scans send feature vectors to the model and incorporate its score into threat detection.
 
-**Quick setup:**
-
-```bash
-# 1. Install Python deps (one-time)
-cd ml-model && pip3 install -r requirements.txt && cd ..
-
-# 2. Train the model
-npm run ml:train
-
-# 3. Start the ML server (keep running in a terminal)
-npm run ml:serve
-
-# 4. Scan (in another terminal)
-nullvoid scan .
-```
-
-**npm scripts:**
-
-| Command | Description |
-|---------|-------------|
-| `npm run ml:serve` | Start ML server on port 8000 |
-| `npm run ml:train` | Train model from `train.jsonl` |
-| `npm run ml:export` | Export features to `train.jsonl` |
+**Setup:** See [ML Training Pipeline](#-ml-training-pipeline) for the full pipeline (`ml:export` → `scan --train` → `ml:train` → `ml:serve`).
 
 Configure via `.nullvoidrc` or environment:
 

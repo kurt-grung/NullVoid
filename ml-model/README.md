@@ -13,6 +13,9 @@ cd ml-model && pip3 install -r requirements.txt && cd ..
 # 2. Export features (optional; train.jsonl may already exist)
 npm run ml:export
 
+# Or export from malware projects you've scanned (appends packages with threats as label 1):
+nullvoid scan /path/to/malware-projects --train
+
 # 3. Train the model
 npm run ml:train
 

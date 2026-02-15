@@ -84,26 +84,43 @@ def main():
     X = [extract_features(r) for r in rows]
     y = [int(r.get("label", 0)) for r in rows]
 
-    can_stratify = len(set(y)) > 1 and all(y.count(c) >= 2 for c in set(y))
-    stratify = y if can_stratify else None
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=args.test_size, random_state=42, stratify=stratify
-    )
+    classes = set(y)
+    if len(classes) < 2:
+        print(
+            "Error: Training data has only one class (label 0 = benign). "
+            "Add malware samples by running:\n"
+            "  nullvoid scan /path/to/malware --no-ioc --train\n"
+            "Or: node ts/dist/bin/nullvoid.js scan /path/to/malware --no-ioc --train",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    can_stratify = len(classes) > 1 and all(y.count(c) >= 2 for c in classes)
+    if can_stratify:
+        stratify = y
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=args.test_size, random_state=42, stratify=stratify
+        )
+    else:
+        X_train, y_train = X, y
+        X_test, y_test = [], []
 
     model = LogisticRegression(max_iter=1000, random_state=42)
     model.fit(X_train, y_train)
 
-    y_pred = model.predict(X_test)
-    acc = accuracy_score(y_test, y_pred)
-    print(f"Accuracy: {acc:.2%}")
-    print(classification_report(y_test, y_pred, target_names=["good", "bad"], labels=[0, 1], zero_division=0))
-
-    if len(set(y_test)) > 1:
-        try:
-            auc = roc_auc_score(y_test, model.predict_proba(X_test)[:, 1])
-            print(f"ROC AUC: {auc:.3f}")
-        except Exception:
-            pass
+    if X_test and y_test:
+        y_pred = model.predict(X_test)
+        acc = accuracy_score(y_test, y_pred)
+        print(f"Accuracy: {acc:.2%}")
+        print(classification_report(y_test, y_pred, target_names=["good", "bad"], labels=[0, 1], zero_division=0))
+        if len(set(y_test)) > 1:
+            try:
+                auc = roc_auc_score(y_test, model.predict_proba(X_test)[:, 1])
+                print(f"ROC AUC: {auc:.3f}")
+            except Exception:
+                pass
+    else:
+        print("Trained on all data (no test split; add more samples for evaluation)")
 
     joblib.dump(model, args.output)
     joblib.dump(FEATURE_KEYS, "feature_keys.pkl")
