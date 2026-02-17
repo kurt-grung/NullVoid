@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getScans, getReportUrl, isApiUnavailableError, type ScanSummary } from '../api'
+import { useOrgTeam } from '../context/OrgTeamContext'
 
 export default function Reports() {
+  const { organizationId, teamId } = useOrgTeam()
   const [scans, setScans] = useState<ScanSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -10,14 +12,14 @@ export default function Reports() {
   const [compliance, setCompliance] = useState<'soc2' | 'iso27001' | undefined>(undefined)
 
   useEffect(() => {
-    getScans()
+    getScans(organizationId ?? undefined, teamId ?? undefined)
       .then((r) => setScans(r.scans.filter((s) => s.status === 'completed')))
       .catch((e) => {
         if (isApiUnavailableError(e)) setApiUnavailable(true)
         else setError(e.message)
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [organizationId, teamId])
 
   if (loading) return (
     <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">Loading...</div>

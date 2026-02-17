@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { getScans, getScan, isApiUnavailableError, type ScanSummary, type ScanDetail } from '../api'
+import { useOrgTeam } from '../context/OrgTeamContext'
 
 export default function Executive() {
+  const { organizationId, teamId } = useOrgTeam()
   const [scans, setScans] = useState<ScanSummary[]>([])
   const [totalThreats, setTotalThreats] = useState(0)
   const [severityCounts, setSeverityCounts] = useState<Record<string, number>>({ CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 })
@@ -10,33 +12,46 @@ export default function Executive() {
   const [apiUnavailable, setApiUnavailable] = useState(false)
 
   useEffect(() => {
-    getScans()
+    getScans(organizationId ?? undefined, teamId ?? undefined)
       .then((r) => setScans(r.scans))
       .catch((e) => {
         if (isApiUnavailableError(e)) setApiUnavailable(true)
         else setScans([])
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [organizationId, teamId])
 
   const completed = scans.filter((s) => s.status === 'completed')
 
+  const [threatTypes, setThreatTypes] = useState<Record<string, number>>({})
+
   useEffect(() => {
-    if (completed.length === 0) return
+    if (completed.length === 0) {
+      setTotalThreats(0)
+      setSeverityCounts({ CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 })
+      setPackageThreats({})
+      setThreatTypes({})
+      return
+    }
     let cancelled = false
     const load = async () => {
       let threats = 0
       const sev: Record<string, number> = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 }
       const pkg: Record<string, number> = {}
-      for (const s of completed.slice(0, 20)) {
+      const types: Record<string, number> = {}
+      const toLoad = completed.slice(0, 20)
+      for (const s of toLoad) {
         if (cancelled) return
         try {
-          const d = (await getScan(s.id)) as ScanDetail
+          const d = (await getScan(s.id, organizationId ?? undefined, teamId ?? undefined)) as ScanDetail
           if (d.result?.threats) {
             threats += d.result.threats.length
             for (const t of d.result.threats) {
-              sev[t.severity] = (sev[t.severity] ?? 0) + 1
+              const sevKey = t.severity ?? 'UNKNOWN'
+              sev[sevKey] = (sev[sevKey] ?? 0) + 1
               if (t.package) pkg[t.package] = (pkg[t.package] ?? 0) + 1
+              const typeKey = t.type ?? 'UNKNOWN'
+              types[typeKey] = (types[typeKey] ?? 0) + 1
             }
           }
         } catch {
@@ -47,11 +62,12 @@ export default function Executive() {
         setTotalThreats(threats)
         setSeverityCounts(sev)
         setPackageThreats(pkg)
+        setThreatTypes(types)
       }
     }
     load()
     return () => { cancelled = true }
-  }, [completed.length])
+  }, [scans, organizationId, teamId])
 
   if (loading) return (
     <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">Loading...</div>
@@ -60,6 +76,10 @@ export default function Executive() {
   const topPackages = Object.entries(packageThreats)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
+
+  const topThreatTypes = Object.entries(threatTypes)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
 
   return (
     <>
@@ -93,6 +113,19 @@ export default function Executive() {
           <span className="text-green-600 dark:text-green-400">LOW: {severityCounts.LOW ?? 0}</span>
         </div>
       </div>
+
+      {topThreatTypes.length > 0 && (
+        <div className="card-minimal">
+          <h3>Threats by Type</h3>
+          <ul className="list-none p-0 m-0 mt-3">
+            {topThreatTypes.map(([type, count]) => (
+              <li key={type} className="list-item-minimal">
+                <code>{type}</code> — {count} threat{count !== 1 ? 's' : ''}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="card-minimal">
         <h3>Top Packages by Threat Count</h3>
