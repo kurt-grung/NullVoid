@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { getScans, triggerScan, isApiUnavailableError, type ScanSummary } from '../api'
+import { getScans, getScan, triggerScan, isApiUnavailableError, type ScanSummary, type ScanDetail } from '../api'
 import { useOrgTeam } from '../context/OrgTeamContext'
 
 type StatusFilter = 'all' | 'completed' | 'failed' | 'running' | 'pending'
@@ -18,6 +18,7 @@ export default function Scans() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => (searchParams.get('status') as StatusFilter) || 'all')
   const [dateFilter, setDateFilter] = useState<DateFilter>(() => (searchParams.get('days') as DateFilter) || 'all')
   const [targetSearch, setTargetSearch] = useState(() => searchParams.get('target') || '')
+  const [exporting, setExporting] = useState(false)
 
   const refresh = () => {
     setError(null)
@@ -100,6 +101,44 @@ export default function Scans() {
     setSearchParams(next, { replace: true })
   }
 
+  const handleExportCsv = async () => {
+    if (filteredScans.length === 0) return
+    setExporting(true)
+    try {
+      const rows: Array<Record<string, string>> = []
+      for (const s of filteredScans) {
+        let threatsFound = ''
+        if (!s.id.endsWith('-pending')) {
+          try {
+            const d = (await getScan(s.id, organizationId ?? undefined, teamId ?? undefined)) as ScanDetail
+            threatsFound = String(d.result?.threats?.length ?? d.result?.summary?.threatsFound ?? '')
+          } catch {
+            threatsFound = ''
+          }
+        }
+        rows.push({
+          id: s.id,
+          target: s.target ?? '',
+          status: s.status,
+          createdAt: s.createdAt,
+          completedAt: s.completedAt ?? '',
+          threatsFound,
+        })
+      }
+      const headers = ['id', 'target', 'status', 'createdAt', 'completedAt', 'threatsFound']
+      const csv = [headers.join(','), ...rows.map((r) => headers.map((h) => `"${String(r[h] ?? '').replace(/"/g, '""')}"`).join(','))].join('\n')
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `nullvoid-scans-${new Date().toISOString().slice(0, 10)}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   if (loading) return (
     <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">Loading...</div>
   )
@@ -152,7 +191,19 @@ export default function Scans() {
       </div>
 
       <div className="card-minimal">
-        <h3>Recent Scans</h3>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <h3 className="mb-0">Recent Scans</h3>
+          {filteredScans.length > 0 && (
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              disabled={exporting}
+              className="px-4 py-2 text-sm font-medium rounded-md border border-surface-border dark:border-dark-border text-neutral-700 dark:text-neutral-300 hover:bg-surface-muted dark:hover:bg-dark-muted transition-colors disabled:opacity-50"
+            >
+              {exporting ? 'Exporting...' : 'Export CSV'}
+            </button>
+          )}
+        </div>
         <div className="flex flex-wrap gap-3 mt-3 mb-4">
           <select
             value={statusFilter}

@@ -106,11 +106,12 @@ async function fetchApi<T>(path: string, opts?: RequestInit): Promise<T> {
   return res.json();
 }
 
-export async function getScans(orgId?: string, teamId?: string): Promise<{ scans: ScanSummary[] }> {
+export async function getScans(orgId?: string, teamId?: string, limit = 100): Promise<{ scans: ScanSummary[] }> {
   const headers: Record<string, string> = {};
   if (orgId) headers['X-Organization-Id'] = orgId;
   if (teamId) headers['X-Team-Id'] = teamId;
-  return fetchApi(`/scans?limit=100`, { headers });
+  const l = Math.min(Math.max(1, limit), 200)
+  return fetchApi(`/scans?limit=${l}`, { headers });
 }
 
 /** Report URL for a completed scan (?format=html|markdown&compliance=soc2|iso27001) */

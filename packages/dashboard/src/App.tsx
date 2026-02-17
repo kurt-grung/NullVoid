@@ -9,6 +9,8 @@ import Compliance from './views/Compliance'
 import Reports from './views/Reports'
 import ML from './views/ML'
 import Settings from './views/Settings'
+import Trends from './views/Trends'
+import Search from './views/Search'
 import { getHealth, getOrganizations, getTeams } from './api'
 import { useOrgTeam } from './context/OrgTeamContext'
 import './index.css'
@@ -99,6 +101,22 @@ function NavWithHealth() {
           Reports
         </NavLink>
         <NavLink
+          to="/trends"
+          className={({ isActive }) =>
+            `text-sm font-medium transition-colors ${isActive ? 'text-black dark:text-white no-underline' : 'text-neutral-500 dark:text-neutral-400 hover:text-black dark:hover:text-white no-underline'}`
+          }
+        >
+          Trends
+        </NavLink>
+        <NavLink
+          to="/search"
+          className={({ isActive }) =>
+            `text-sm font-medium transition-colors ${isActive ? 'text-black dark:text-white no-underline' : 'text-neutral-500 dark:text-neutral-400 hover:text-black dark:hover:text-white no-underline'}`
+          }
+        >
+          Search
+        </NavLink>
+        <NavLink
           to="/ml"
           className={({ isActive }) =>
             `text-sm font-medium transition-colors ${isActive ? 'text-black dark:text-white no-underline' : 'text-neutral-500 dark:text-neutral-400 hover:text-black dark:hover:text-white no-underline'}`
@@ -183,6 +201,8 @@ function App() {
               <Route path="/scans/:id" element={<ScanDetail />} />
               <Route path="/compliance" element={<Compliance />} />
               <Route path="/reports" element={<Reports />} />
+              <Route path="/trends" element={<Trends />} />
+              <Route path="/search" element={<Search />} />
               <Route path="/ml" element={<ML />} />
               <Route path="/settings" element={<Settings />} />
             </Routes>
