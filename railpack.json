@@ -1,0 +1,14 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "steps": {
+    "install": {
+      "commands": ["npm ci"]
+    },
+    "build": {
+      "commands": ["npm run api:build"]
+    }
+  },
+  "deploy": {
+    "startCommand": "node packages/api/dist/index.js"
+  }
+}

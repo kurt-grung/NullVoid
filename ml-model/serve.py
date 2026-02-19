@@ -11,6 +11,7 @@ Usage:
 """
 
 import argparse
+import os
 from pathlib import Path
 from typing import Any, Optional
 
@@ -315,8 +316,9 @@ if __name__ == "__main__":
     ap.add_argument("--model", "-m", help="Path to model.pkl")
     ap.add_argument("--model-dir", help="Model directory (model.pkl, feature_keys.pkl, metadata.json)")
     ap.add_argument("--behavioral-model-dir", help="Behavioral model directory (behavioral-model.pkl, behavioral-feature_keys.pkl)")
-    ap.add_argument("--port", "-p", type=int, default=8000)
+    ap.add_argument("--port", "-p", type=int, default=None)
     args = ap.parse_args()
+    port = args.port if args.port is not None else int(os.environ.get("PORT", 8000))
 
     path = None
     dir_path = None
@@ -339,4 +341,4 @@ if __name__ == "__main__":
         else:
             print(f"Warning: behavioral model not found in {bdir}")
 
-    run(app, host="0.0.0.0", port=args.port)
+    run(app, host="0.0.0.0", port=port)

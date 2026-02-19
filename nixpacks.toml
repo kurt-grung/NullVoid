@@ -1,0 +1,3 @@
+# Override Nixpacks build: API needs @nullvoid/ts + @nullvoid/api
+[phases.build]
+cmds = ["npm run api:build"]

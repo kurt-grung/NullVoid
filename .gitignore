@@ -117,6 +117,9 @@ Thumbs.db
 # API SQLite DB
 nullvoid.db
 
+# NullVoid IoC cache (optional, regenerated on scan)
+.nullvoid-cache/
+
 # PR drafts and notes
 pr/
 

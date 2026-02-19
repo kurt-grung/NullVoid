@@ -1,6 +1,6 @@
 # Deployment
 
-Both the **Dashboard** and **API** deploy to **Vercel** when you connect this repository.
+Both the **Dashboard** and **API** deploy to **Vercel** when you connect this repository. For API + ML services with ML commands, you can also deploy to **Railway** alongside Vercel.
 
 ## Vercel (Dashboard + API)
 
@@ -40,3 +40,9 @@ The repo includes [vercel.json](../vercel.json) and [api/index.js](../api/index.
    - No leading/trailing spaces; values must be non-empty.
    - Create a database at [turso.tech](https://turso.tech) and use the libSQL URL + auth token.
 5. **Vercel Function logs** – Deployments → your deployment → Functions → `api` to see the actual error.
+
+## Railway (API + ML)
+
+Railway runs the API and ML scoring service as long-running processes. ML commands (`/ml/export`, `/ml/train`, etc.) are available on Railway but not on Vercel serverless.
+
+See [RAILWAY.md](RAILWAY.md) for full setup: project creation, adding API and ML services, env vars, and troubleshooting.
