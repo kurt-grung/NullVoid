@@ -1,105 +1,106 @@
-# Railway Deployment
+# Deploying NullVoid API and ML on Railway
 
-Railway runs the **API** and **ML** services alongside Vercel. The API detects Railway via `RAILWAY_PROJECT_ID` / `RAILWAY_ENVIRONMENT_ID` and enables ML commands, platform-specific error messages, and Turso support.
+This guide explains how to deploy the NullVoid API and ML scoring service on [Railway](https://railway.app) using branch-based deployments.
 
 ## Overview
 
-| Service | Root | Config | Purpose |
-|---------|------|--------|---------|
-| API | `/` | [railway.json](../railway.json) | REST API, scans, organizations, teams, ML commands |
-| ML | `ml-model` | [ml-model/railway.json](../ml-model/railway.json) | Risk scoring (`/score`, `/behavioral-score`, etc.) |
+- **API service**: Node.js REST API (Express) for scans, organizations, teams, and ML commands
+- **ML service**: Python FastAPI server for risk scoring (`/score`, `/behavioral-score`, etc.)
+
+Both services run as separate Railway services in the same project. You can deploy a specific git branch (e.g. `feat/codespaces` or `main`) to a Railway environment.
+
+## Prerequisites
+
+- [Railway account](https://railway.app)
+- GitHub repo connected to Railway
+- Turso database (for API) – [create one](https://turso.tech) if needed
 
 ## Setup
 
-### 1. Create a Railway Project
+### 1. Create a Railway project
 
-1. Go to [railway.app](https://railway.app) and create a project
-2. Deploy from GitHub: connect your repo and select the branch (e.g. `main` or `feat/railway`)
+1. Go to [railway.app/new](https://railway.app/new)
+2. Choose **Deploy from GitHub repo**
+3. Select your NullVoid repository
+4. Railway will detect the monorepo; you'll add two services manually
 
-### 2. Add the API Service
+### 2. Add the API service
 
-1. In the project, add a new service → **Deploy from GitHub repo**
-2. Select the same repo and branch
-3. **Root directory**: `/` (repository root)
-4. Build/start: [railpack.json](../railpack.json) configures:
-   - Install: `npm ci`
-   - Build: `npm run api:build` (builds @nullvoid/ts + @nullvoid/api)
-   - Start: `node packages/api/dist/index.js`
-   - Health: `GET /health`
+1. In your project, click **+ New** → **GitHub Repo**
+2. Select the same repo again (or use **+ New** → **Empty Service** and connect the repo in settings)
+3. For the API service:
+   - **Root Directory**: leave empty (uses repo root)
+   - **Config file path**: `/railway.json` (or leave default if `railway.json` is at root)
+   - **Branch**: choose the branch to deploy (e.g. `feat/codespaces` or `main`)
 
-   **Note:** Railway uses Nixpacks. [nixpacks.toml](../nixpacks.toml) overrides the build to `npm run api:build`. Or in Railway → API service → Settings → Build, set **Build Command** to `npm run api:build`.
-5. Add **Variables**:
-   | Variable | Description |
-   |----------|-------------|
-   | `TURSO_DATABASE_URL` | Turso database URL (e.g. `libsql://your-db.turso.io`) |
-   | `TURSO_AUTH_TOKEN` | Turso auth token |
-   | `NULLVOID_API_KEY` | Optional: require `X-API-Key` header for protected routes |
+4. Add environment variables:
+   - `TURSO_DATABASE_URL` – your Turso database URL
+   - `TURSO_AUTH_TOKEN` – your Turso auth token
+   - `NULLVOID_API_KEY` (optional) – API key for protected endpoints
+   - `PORT` – set by Railway automatically
 
-6. Generate a **public domain** for the API (Settings → Networking → Generate Domain)
+5. Generate a domain: **Settings** → **Networking** → **Generate Domain**
 
-### 3. Add the ML Service
+### 3. Add the ML service
 
-1. Add another service → **Deploy from GitHub repo**
-2. Same repo and branch
-3. **Root directory**: `ml-model`
-4. Railway uses [ml-model/railway.json](../ml-model/railway.json):
-   - Build: `pip install -r requirements.txt`
-   - Start: `python serve.py` (reads `PORT` from env automatically)
-   - Health: `GET /health`
-5. Generate a **public domain** for the ML service
-6. No extra variables required unless you use a custom model path
+1. Click **+ New** → **GitHub Repo** (or **Empty Service**)
+2. Select the same repo
+3. For the ML service:
+   - **Root Directory**: `ml-model`
+   - **Config file path**: `/ml-model/railway.json`
+   - **Branch**: same branch as the API
 
-### 4. Branch Triggers (Optional)
+4. Add environment variables:
+   - `PORT` – set by Railway automatically
 
-In each service’s Settings → Source, set the branch to deploy (e.g. `main` or `feat/railway`). Railway deploys on push to that branch.
+5. Generate a domain: **Settings** → **Networking** → **Generate Domain**
 
-## Environment Variables
+### 4. Connect API to ML (optional)
 
-### API Service
+If the API should call the ML service for scoring, set the ML service URL in the API:
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `TURSO_DATABASE_URL` | Yes | Turso libSQL URL |
-| `TURSO_AUTH_TOKEN` | Yes | Turso auth token |
-| `NULLVOID_API_KEY` | No | If set, `X-API-Key` required for POST /scan, /ml/*, etc. |
+- `ML_SERVICE_URL` – e.g. `https://your-ml-service.up.railway.app`
 
-### ML Service
+(Only needed if you wire the API to call the ML service; the API's ML endpoints run commands locally when not on Vercel.)
 
-Railway sets `PORT` automatically. No additional variables needed for basic deployment.
+## Branch deployments
 
-## Platform Detection
+Railway uses **environments** (e.g. Production, Staging) and **branch triggers**:
 
-The API detects Railway when `RAILWAY_PROJECT_ID` or `RAILWAY_ENVIRONMENT_ID` is set (Railway sets these automatically). When detected:
+1. **Settings** → **Environments** → create or edit an environment
+2. Under **Source**, set **Branch** to the git branch to deploy (e.g. `feat/codespaces`)
+3. Pushes to that branch will deploy both services
 
-- ML commands (`/ml/export`, `/ml/train`, etc.) are available
-- Error messages reference Railway logs and Variables
-- `GET /health?platform=1` returns `{ "ok": true, "platform": "railway" }`
+To deploy a different branch:
 
-## Vercel vs Railway
+- Create a new environment (e.g. `staging`) and set its branch
+- Or change the branch in the existing environment
 
-| | Vercel | Railway |
-|---|--------|---------|
-| Dashboard | Yes (at `/`) | No (use Vercel dashboard or point to Railway API) |
-| API | Yes (serverless at `/api`) | Yes (long-running) |
-| ML commands | No | Yes |
-| ML service | No | Yes (separate service) |
-| Database | Turso | Turso |
+## Config files
 
-Both can share the same Turso database. Vercel config ([vercel.json](../vercel.json)) is unchanged.
+| Service | Config path       | Root directory |
+|---------|-------------------|----------------|
+| API     | `/railway.json`   | `/` (default)  |
+| ML      | `/ml-model/railway.json` | `ml-model` |
+
+## ML model files
+
+The ML service expects `model.pkl` (and optionally `behavioral-model.pkl`) in `ml-model/`. If they're missing, the service starts but returns a default score of 0.5.
+
+To train and include models:
+
+1. Train locally: `npm run ml:train` and `npm run ml:train-behavioral`
+2. Commit `model.pkl`, `feature_keys.pkl`, `metadata.json` (and behavioral equivalents) to the repo
+3. Or use a build step / artifact to produce them before deploy
+
+## Health checks
+
+- API: `GET /health` → `{"ok": true}`
+- ML: `GET /health` → `{"ok": true, "behavioral_loaded": true/false}`
 
 ## Troubleshooting
 
-### API returns 503 on /scans
-
-- Ensure `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` are set in Railway → Variables
-- Check Railway logs for `TURSO_CONFIG_MISSING` or connection errors
-
-### ML service fails to start
-
-- Verify `ml-model/requirements.txt` installs successfully
-- Ensure `model.pkl` exists (train locally first: `npm run ml:train`) or the service will start but return `{"ok": false}` from `/health` until a model is present
-
-### Health check fails
-
-- API: `GET /health` must return `{"ok": true}`
-- ML: `GET /health` returns `{"ok": true, "behavioral_loaded": ...}` when model is loaded
+- **API build fails**: Ensure `npm run build` completes (Turbo builds `ts` and other packages). Check Node version (≥18). If using Dockerfile, Railway builds from that.
+- **ML build fails**: Ensure `requirements.txt` is valid and Python 3.9+ is used.
+- **Database errors**: Verify `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` in the API service.
+- **ML returns "Model not loaded"**: Train the model and commit the `.pkl` files, or accept the default score.

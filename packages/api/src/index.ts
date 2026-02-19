@@ -45,6 +45,18 @@ const API_KEY = process.env['NULLVOID_API_KEY'] ?? null;
 const isRailway = !!(process.env['RAILWAY_PROJECT_ID'] ?? process.env['RAILWAY_ENVIRONMENT_ID']);
 
 const app = express();
+// CORS: allow dashboard on Vercel (or other origins) to call API on Railway
+const corsOrigin = process.env['CORS_ORIGIN'] ?? '*';
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', corsOrigin);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key, X-Organization-Id, X-Team-Id');
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(204);
+    return;
+  }
+  next();
+});
 // Strip /api prefix when behind Vercel proxy (requests come as /api/scan, etc.)
 app.use((req, _res, next) => {
   if (req.url.startsWith('/api')) {
@@ -456,17 +468,31 @@ app.post(
   })
 );
 
-app.get('/ml/status', (_req: Request, res: Response) => {
-  const hint = !ML_AVAILABLE
-    ? 'Run `make api` and use the dashboard at localhost:5174'
-    : isRailway
-      ? 'ML commands available on Railway. Use the dashboard pointing to your Railway API URL.'
-      : undefined;
-  res.json({
-    available: ML_AVAILABLE,
-    hint,
-  });
-});
+app.get(
+  '/ml/status',
+  asyncHandler(async (_req: Request, res: Response) => {
+    const mlServiceUrl = process.env['ML_SERVICE_URL']?.replace(/\/$/, '');
+    let serveAvailable = false;
+    let serveHint: string | undefined;
+    if (mlServiceUrl) {
+      try {
+        const r = await fetch(`${mlServiceUrl}/health`, { signal: AbortSignal.timeout(3000) });
+        serveAvailable = r.ok;
+        if (!r.ok) serveHint = `ML service at ${mlServiceUrl} returned ${r.status}`;
+      } catch {
+        serveHint = `ML service at ${mlServiceUrl} is not reachable`;
+      }
+    } else {
+      serveHint = 'Set ML_SERVICE_URL (e.g. https://your-ml.up.railway.app) or run make ml-serve locally';
+    }
+    res.json({
+      available: ML_AVAILABLE,
+      hint: ML_AVAILABLE ? undefined : 'ML commands only work when API runs locally (make api)',
+      serveAvailable,
+      serveHint: serveAvailable ? undefined : serveHint,
+    });
+  })
+);
 
 /** Error handler: return 503 for missing Turso config on Vercel/Railway */
 app.use((err: unknown, _req: Request, res: Response, next: (err?: unknown) => void) => {

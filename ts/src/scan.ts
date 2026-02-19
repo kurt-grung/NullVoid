@@ -272,6 +272,20 @@ const SKIP_DIRS = [
   'out',
 ];
 
+function loadNullvoidIgnore(rootPath: string): string[] {
+  const ignorePath = path.join(rootPath, '.nullvoidignore');
+  if (!fs.existsSync(ignorePath)) return [];
+  try {
+    const content = fs.readFileSync(ignorePath, 'utf8');
+    return content
+      .split('\n')
+      .map((line) => line.replace(/#.*$/, '').trim())
+      .filter((name) => name.length > 0 && !name.startsWith('/'));
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Recursively collect all scanable file paths and directory structure
  */
@@ -290,7 +304,8 @@ function collectScanablePaths(
       const fullPath = path.resolve(path.join(dirPath, entry.name));
 
       if (entry.isDirectory()) {
-        if (SKIP_DIRS.includes(entry.name)) {
+        const skipDirs = [...SKIP_DIRS, ...(options.ignoreDirs ?? [])];
+        if (skipDirs.includes(entry.name)) {
           continue;
         }
         directories.push(entry.name);
@@ -347,8 +362,9 @@ function collectPackageJsonDirs(
         found.push(currentPath);
       }
       const entries = fs.readdirSync(currentPath, { withFileTypes: true });
+      const skipDirs = [...SKIP_DIRS, ...(options.ignoreDirs ?? [])];
       for (const entry of entries) {
-        if (!entry.isDirectory() || SKIP_DIRS.includes(entry.name)) continue;
+        if (!entry.isDirectory() || skipDirs.includes(entry.name)) continue;
         walk(path.join(currentPath, entry.name), remainingDepth - 1);
       }
     } catch {
@@ -516,8 +532,10 @@ export async function scan(
 
     // Check if target is a directory
     if (fs.existsSync(target) && fs.statSync(target).isDirectory()) {
-      // Scan directory
-      const directoryResult = await scanDirectory(target, options, progressCallback);
+      const rootPath = path.resolve(target);
+      const ignoreDirs = loadNullvoidIgnore(rootPath);
+      const scanOptions = ignoreDirs.length > 0 ? { ...options, ignoreDirs } : options;
+      const directoryResult = await scanDirectory(target, scanOptions, progressCallback);
       threats.push(...directoryResult.threats);
       filesScanned = directoryResult.filesScanned;
       packagesScanned = directoryResult.packagesScanned;

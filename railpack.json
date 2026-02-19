@@ -1,11 +1,14 @@
 {
   "$schema": "https://schema.railpack.com",
+  "packages": {
+    "python": "3.11"
+  },
   "steps": {
     "install": {
-      "commands": ["npm ci && npm run api:build"]
+      "commands": ["...", "pip install -r ml-model/requirements.txt"]
     },
     "build": {
-      "commands": ["true"]
+      "commands": ["npm run api:build"]
     }
   },
   "deploy": {

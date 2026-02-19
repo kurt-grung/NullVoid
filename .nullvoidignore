@@ -1,0 +1,5 @@
+# NullVoid scanner's own source - exclude when scanning this repo
+ts
+js
+packages
+ml-model

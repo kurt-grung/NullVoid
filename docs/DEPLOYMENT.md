@@ -1,48 +1,68 @@
 # Deployment
 
-Both the **Dashboard** and **API** deploy to **Vercel** when you connect this repository. For API + ML services with ML commands, you can also deploy to **Railway** alongside Vercel.
+## Vercel + Railway (recommended)
 
-## Vercel (Dashboard + API)
+Deploy the **Dashboard** on Vercel and the **API** on Railway. The dashboard calls the Railway API over HTTPS.
 
-A single Vercel project serves the **Dashboard** at `/` and the **API** at `/api`. The API deploys when you connect this repository. Vercel uses **Turso** (serverless SQLite) for the database—SQLite files do not work on Vercel's read-only filesystem.
+### Prerequisites
+
+- [Railway](https://railway.app) – API already deployed (see [RAILWAY.md](RAILWAY.md))
+- [Vercel](https://vercel.com) account
 
 ### Setup
 
-1. **Create a Turso database** at [turso.tech](https://turso.tech)
-   - Create a database and get the URL and auth token
-2. **Connect the repo to Vercel** at [vercel.com](https://vercel.com)
+1. **Connect the repo to Vercel** at [vercel.com](https://vercel.com)
    - Import this repository
-   - Vercel will use [vercel.json](../vercel.json) for build config
-3. **Add environment variables** in the Vercel project (Settings → Environment Variables):
-   | Variable | Description |
-   |----------|-------------|
-   | `TURSO_DATABASE_URL` | Turso database URL (e.g. `libsql://your-db.turso.io`) |
-   | `TURSO_AUTH_TOKEN` | Turso auth token |
+   - Vercel uses [vercel.json](../vercel.json) for build config
 
-   See [.env.example](../.env.example) for reference.
-4. The dashboard uses `/api` (same origin) by default—no extra config needed.
+2. **Add environment variable** in Vercel (Settings → Environment Variables):
 
-### Local development
+   | Variable        | Description                                                                 |
+   |-----------------|-----------------------------------------------------------------------------|
+   | `VITE_API_URL`  | Railway API URL, e.g. `https://nullvoidapi-production.up.railway.app/api`   |
 
-Local development uses SQLite (no Turso needed). The API switches to Turso only when `TURSO_DATABASE_URL` is set.
+   Set this for **Production**, **Preview**, and **Development** so all deployments use the Railway API.
 
-### Vercel config
+3. **Deploy** – Push to your branch; Vercel builds the dashboard and deploys it.
 
-The repo includes [vercel.json](../vercel.json) and [api/index.js](../api/index.js). The build runs `npm run api:build` (to produce `packages/api/dist`) then `npm run dashboard:build`; the dashboard is at `/`, the API at `/api`.
+4. **(Optional) Restrict CORS on Railway** – In Railway, add `CORS_ORIGIN` = `https://your-app.vercel.app` to limit API access to your dashboard. Default is `*` (any origin).
 
-### Diagnosing 503 on /api/scans
+### Result
 
-1. **Check `/api/health`** – If `https://your-app.vercel.app/api/health` returns `{"ok":true}`, the API loaded. The 503 is from the database layer.
-2. **Check `/api/`** – If the root returns JSON with endpoints, the API loaded.
-3. **If both 503** – The API failed to load (e.g. missing `packages/api/dist`). Check Vercel build logs; ensure `api:build` runs and succeeds.
-4. **If health OK but /scans 503** – Turso config issue:
-   - Ensure `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` are set for **Production** (and Preview if using preview deployments).
-   - No leading/trailing spaces; values must be non-empty.
-   - Create a database at [turso.tech](https://turso.tech) and use the libSQL URL + auth token.
-5. **Vercel Function logs** – Deployments → your deployment → Functions → `api` to see the actual error.
+- **Dashboard**: `https://your-app.vercel.app` (Vercel)
+- **API**: `https://nullvoidapi-production.up.railway.app` (Railway)
+
+---
+
+## GitHub Codespaces (Demo)
+
+Run NullVoid in the cloud for demos or development—100% free (60 hours/month), no credit card. The `.devcontainer` config installs Node, Python, and dependencies automatically.
+
+### Setup
+
+1. Open the repo on GitHub → **Code** → **Codespaces** → **Create codespace on main**
+2. Wait for the container to build (postCreateCommand runs `npm install`, `pip install`, `npm run build`)
+3. API and Dashboard start automatically (postStartCommand). Open the forwarded port **5174** (Dashboard) in your browser
+
+### ML Pipeline
+
+The ML page (Export, Train) works in Codespaces. Use SQLite (no Turso needed). Optional: `make ml-serve` for the scoring API on port 8000.
+
+### Notes
+
+- Codespaces is ephemeral—not for 24/7 production
+- For production deployment, use [Vercel + Railway](#vercel--railway-recommended).
 
 ## Railway (API + ML)
 
-Railway runs the API and ML scoring service as long-running processes. ML commands (`/ml/export`, `/ml/train`, etc.) are available on Railway but not on Vercel serverless.
+Deploy the **API** and **ML** scoring service on [Railway](https://railway.app) with branch-based deployments. Both services run as separate Railway services; the API uses Turso, and the ML service serves risk scores via FastAPI.
 
-See [RAILWAY.md](RAILWAY.md) for full setup: project creation, adding API and ML services, env vars, and troubleshooting.
+See **[docs/RAILWAY.md](RAILWAY.md)** for full setup: creating the project, adding API and ML services, configuring branch triggers, and environment variables.
+
+### API environment variables (Railway)
+
+| Variable              | Description                                      |
+|-----------------------|--------------------------------------------------|
+| `TURSO_DATABASE_URL`  | Turso database URL (e.g. `libsql://your-db.turso.io`) |
+| `TURSO_AUTH_TOKEN`    | Turso auth token                                 |
+| `CORS_ORIGIN`         | (Optional) Restrict CORS, e.g. `https://your-app.vercel.app`. Default `*` |

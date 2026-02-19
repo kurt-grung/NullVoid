@@ -51,6 +51,8 @@ export interface ScanOptions {
   exportTrainingGood?: string;
   /** Save scan result to ~/.nullvoid/history/ for trends */
   saveHistory?: boolean;
+  /** Additional directory names to skip (from .nullvoidignore) */
+  ignoreDirs?: string[];
 }
 
 export interface ScanResult {

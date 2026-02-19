@@ -159,7 +159,12 @@ export async function getHealth(): Promise<{ ok: boolean }> {
   return res.json();
 }
 
-export async function getMlStatus(): Promise<{ available: boolean; hint?: string }> {
+export async function getMlStatus(): Promise<{
+  available: boolean;
+  hint?: string;
+  serveAvailable?: boolean;
+  serveHint?: string;
+}> {
   return fetchApi('/ml/status');
 }
 
