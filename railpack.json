@@ -2,10 +2,10 @@
   "$schema": "https://schema.railpack.com",
   "steps": {
     "install": {
-      "commands": ["npm ci"]
+      "commands": ["npm ci && npm run api:build"]
     },
     "build": {
-      "commands": ["npm run api:build"]
+      "commands": ["true"]
     }
   },
   "deploy": {
