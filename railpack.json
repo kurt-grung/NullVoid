@@ -4,8 +4,11 @@
     "python": "3.11"
   },
   "steps": {
+    "install": {
+      "commands": ["...", "pip install -r ml-model/requirements.txt"]
+    },
     "build": {
-      "commands": ["npm run api:build", "pip install -r ml-model/requirements.txt"]
+      "commands": ["npm run api:build"]
     }
   }
 }
