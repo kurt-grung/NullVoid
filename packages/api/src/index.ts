@@ -41,6 +41,9 @@ function getScanFn(): (target: string, options?: object) => Promise<unknown> {
 const PORT = parseInt(process.env['PORT'] ?? process.env['NULLVOID_API_PORT'] ?? '3001', 10);
 const API_KEY = process.env['NULLVOID_API_KEY'] ?? null;
 
+/** Platform detection: Railway sets RAILWAY_PROJECT_ID / RAILWAY_ENVIRONMENT_ID */
+const isRailway = !!(process.env['RAILWAY_PROJECT_ID'] ?? process.env['RAILWAY_ENVIRONMENT_ID']);
+
 const app = express();
 // CORS: allow dashboard on Vercel (or other origins) to call API on Railway
 const corsOrigin = process.env['CORS_ORIGIN'] ?? '*';
@@ -344,12 +347,16 @@ app.post(
   })
 );
 
-/** GET /health */
-app.get('/health', (_req: Request, res: Response) => {
-  res.json({ ok: true });
+/** GET /health - optional ?platform=1 for platform info */
+app.get('/health', (req: Request, res: Response) => {
+  const body: { ok: boolean; platform?: string } = { ok: true };
+  if (req.query.platform === '1') {
+    body.platform = isRailway ? 'railway' : process.env['VERCEL'] === '1' ? 'vercel' : 'local';
+  }
+  res.json(body);
 });
 
-/** ML commands - only available when API runs locally (not on Vercel) */
+/** ML commands - only available when API runs locally or on Railway (not on Vercel) */
 const ML_AVAILABLE = process.env['VERCEL'] !== '1';
 const ROOT = path.resolve(__dirname, '../../..');
 
@@ -487,14 +494,17 @@ app.get(
   })
 );
 
-/** Error handler: return 503 for missing Turso config on Vercel */
+/** Error handler: return 503 for missing Turso config on Vercel/Railway */
 app.use((err: unknown, _req: Request, res: Response, next: (err?: unknown) => void) => {
   const e = err as Error & { code?: string };
   if (e?.code === 'TURSO_CONFIG_MISSING') {
+    const tursoHint = isRailway
+      ? 'Add TURSO_DATABASE_URL and TURSO_AUTH_TOKEN in Railway → Variables.'
+      : 'Add TURSO_DATABASE_URL and TURSO_AUTH_TOKEN in Vercel → Settings → Environment Variables.';
     res.status(503).json({
       error: 'Database not configured',
       message: e.message,
-      hint: 'Add TURSO_DATABASE_URL and TURSO_AUTH_TOKEN in Vercel → Settings → Environment Variables.',
+      hint: tursoHint,
     });
     return;
   }
@@ -505,9 +515,10 @@ app.use((err: unknown, _req: Request, res: Response, next: (err?: unknown) => vo
 app.use((err: unknown, _req: Request, res: Response, _next: () => void) => {
   if (res.headersSent) return;
   const e = err as Error;
+  const logHint = isRailway ? 'Check Railway logs for details.' : process.env['VERCEL'] ? 'Check Vercel logs for details.' : (e?.message ?? 'Unknown error');
   res.status(500).json({
     error: 'Internal server error',
-    message: process.env['VERCEL'] ? 'Check Vercel logs for details.' : (e?.message ?? 'Unknown error'),
+    message: logHint,
   });
 });
 

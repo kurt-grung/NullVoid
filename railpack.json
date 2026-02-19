@@ -10,5 +10,8 @@
     "build": {
       "commands": ["npm run api:build"]
     }
+  },
+  "deploy": {
+    "startCommand": "node packages/api/dist/index.js"
   }
 }

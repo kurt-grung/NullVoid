@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { getScans, getScan, isApiUnavailableError, type ScanDetail } from '../api'
+import { useOrgTeam } from '../context/OrgTeamContext'
 
 export default function Compliance() {
+  const { organizationId, teamId } = useOrgTeam()
   const [scans, setScans] = useState<{ id: string; status: string }[]>([])
   const [riskData, setRiskData] = useState<Array<{ target: string; overall: number; byCategory: Record<string, number> }>>([])
   const [loading, setLoading] = useState(true)
@@ -9,7 +11,7 @@ export default function Compliance() {
   const [apiUnavailable, setApiUnavailable] = useState(false)
 
   useEffect(() => {
-    getScans()
+    getScans(organizationId ?? undefined, teamId ?? undefined)
       .then((r) => {
         setScans(r.scans.filter((s) => s.status === 'completed'))
       })
@@ -18,11 +20,11 @@ export default function Compliance() {
         else setError(e.message)
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [organizationId, teamId])
 
   useEffect(() => {
     if (scans.length === 0) return
-    Promise.all(scans.slice(0, 10).map((s) => getScan(s.id)))
+    Promise.all(scans.slice(0, 10).map((s) => getScan(s.id, organizationId ?? undefined, teamId ?? undefined)))
       .then((details) => {
         setRiskData(
           details
@@ -35,7 +37,7 @@ export default function Compliance() {
         )
       })
       .catch(() => {})
-  }, [scans.length])
+  }, [scans.length, organizationId, teamId])
 
   if (loading) return (
     <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">Loading...</div>

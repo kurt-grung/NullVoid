@@ -1,19 +1,29 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { getScans, triggerScan, isApiUnavailableError, type ScanSummary } from '../api'
+import { useEffect, useState, useMemo } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { getScans, getScan, triggerScan, isApiUnavailableError, type ScanSummary, type ScanDetail } from '../api'
+import { useOrgTeam } from '../context/OrgTeamContext'
+
+type StatusFilter = 'all' | 'completed' | 'failed' | 'running' | 'pending'
+type DateFilter = 'all' | '7' | '30' | '90'
 
 export default function Scans() {
+  const { organizationId, teamId } = useOrgTeam()
   const [scans, setScans] = useState<ScanSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [apiUnavailable, setApiUnavailable] = useState(false)
-  const [target, setTarget] = useState('.')
+  const [target, setTarget] = useState(() => localStorage.getItem('nullvoid-default-scan-target') || '.')
   const [submitting, setSubmitting] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => (searchParams.get('status') as StatusFilter) || 'all')
+  const [dateFilter, setDateFilter] = useState<DateFilter>(() => (searchParams.get('days') as DateFilter) || 'all')
+  const [targetSearch, setTargetSearch] = useState(() => searchParams.get('target') || '')
+  const [exporting, setExporting] = useState(false)
 
   const refresh = () => {
     setError(null)
     setApiUnavailable(false)
-    getScans()
+    getScans(organizationId ?? undefined, teamId ?? undefined)
       .then((r) => setScans(r.scans))
       .catch((e) => {
         const msg = e instanceof Error ? e.message : String(e)
@@ -29,7 +39,7 @@ export default function Scans() {
 
   useEffect(() => {
     refresh()
-  }, [])
+  }, [organizationId, teamId])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,9 +51,9 @@ export default function Scans() {
       createdAt: new Date().toISOString(),
     }
     setScans((prev) => [optimisticScan, ...prev])
-    triggerScan(target)
+    triggerScan(target, organizationId ?? undefined, teamId ?? undefined)
       .then(() => {
-        setTarget('.')
+        setTarget(localStorage.getItem('nullvoid-default-scan-target') || '.')
         refresh()
       })
       .catch((e) => {
@@ -51,6 +61,82 @@ export default function Scans() {
         setScans((prev) => prev.filter((s) => s.id !== optimisticScan.id))
       })
       .finally(() => setSubmitting(false))
+  }
+
+  const filteredScans = useMemo(() => {
+    let list = scans
+    if (statusFilter !== 'all') {
+      list = list.filter((s) => s.status === statusFilter)
+    }
+    if (dateFilter !== 'all') {
+      const days = parseInt(dateFilter, 10)
+      const cutoff = new Date()
+      cutoff.setDate(cutoff.getDate() - days)
+      list = list.filter((s) => new Date(s.createdAt) >= cutoff)
+    }
+    if (targetSearch.trim()) {
+      const q = targetSearch.trim().toLowerCase()
+      list = list.filter((s) => (s.target ?? '').toLowerCase().includes(q))
+    }
+    return list
+  }, [scans, statusFilter, dateFilter, targetSearch])
+
+  const updateFilters = (updates: { status?: StatusFilter; days?: DateFilter; target?: string }) => {
+    const next = new URLSearchParams(searchParams)
+    if (updates.status !== undefined) {
+      if (updates.status === 'all') next.delete('status')
+      else next.set('status', updates.status)
+      setStatusFilter(updates.status)
+    }
+    if (updates.days !== undefined) {
+      if (updates.days === 'all') next.delete('days')
+      else next.set('days', updates.days)
+      setDateFilter(updates.days)
+    }
+    if (updates.target !== undefined) {
+      if (!updates.target) next.delete('target')
+      else next.set('target', updates.target)
+      setTargetSearch(updates.target)
+    }
+    setSearchParams(next, { replace: true })
+  }
+
+  const handleExportCsv = async () => {
+    if (filteredScans.length === 0) return
+    setExporting(true)
+    try {
+      const rows: Array<Record<string, string>> = []
+      for (const s of filteredScans) {
+        let threatsFound = ''
+        if (!s.id.endsWith('-pending')) {
+          try {
+            const d = (await getScan(s.id, organizationId ?? undefined, teamId ?? undefined)) as ScanDetail
+            threatsFound = String(d.result?.threats?.length ?? d.result?.summary?.threatsFound ?? '')
+          } catch {
+            threatsFound = ''
+          }
+        }
+        rows.push({
+          id: s.id,
+          target: s.target ?? '',
+          status: s.status,
+          createdAt: s.createdAt,
+          completedAt: s.completedAt ?? '',
+          threatsFound,
+        })
+      }
+      const headers = ['id', 'target', 'status', 'createdAt', 'completedAt', 'threatsFound']
+      const csv = [headers.join(','), ...rows.map((r) => headers.map((h) => `"${String(r[h] ?? '').replace(/"/g, '""')}"`).join(','))].join('\n')
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `nullvoid-scans-${new Date().toISOString().slice(0, 10)}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setExporting(false)
+    }
   }
 
   if (loading) return (
@@ -105,9 +191,53 @@ export default function Scans() {
       </div>
 
       <div className="card-minimal">
-        <h3>Recent Scans</h3>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <h3 className="mb-0">Recent Scans</h3>
+          {filteredScans.length > 0 && (
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              disabled={exporting}
+              className="px-4 py-2 text-sm font-medium rounded-md border border-surface-border dark:border-dark-border text-neutral-700 dark:text-neutral-300 hover:bg-surface-muted dark:hover:bg-dark-muted transition-colors disabled:opacity-50"
+            >
+              {exporting ? 'Exporting...' : 'Export CSV'}
+            </button>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-3 mt-3 mb-4">
+          <select
+            value={statusFilter}
+            onChange={(e) => updateFilters({ status: e.target.value as StatusFilter })}
+            className="text-sm bg-surface-muted dark:bg-dark-muted border border-surface-border dark:border-dark-border rounded px-3 py-2 text-black dark:text-white"
+          >
+            <option value="all">All statuses</option>
+            <option value="completed">Completed</option>
+            <option value="failed">Failed</option>
+            <option value="running">Running</option>
+            <option value="pending">Pending</option>
+          </select>
+          <select
+            value={dateFilter}
+            onChange={(e) => updateFilters({ days: e.target.value as DateFilter })}
+            className="text-sm bg-surface-muted dark:bg-dark-muted border border-surface-border dark:border-dark-border rounded px-3 py-2 text-black dark:text-white"
+          >
+            <option value="all">All time</option>
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="90">Last 90 days</option>
+          </select>
+          <input
+            type="search"
+            placeholder="Search target..."
+            value={targetSearch}
+            onChange={(e) => setTargetSearch(e.target.value)}
+            onBlur={() => updateFilters({ target: targetSearch })}
+            onKeyDown={(e) => e.key === 'Enter' && updateFilters({ target: targetSearch })}
+            className="text-sm bg-surface-muted dark:bg-dark-muted border border-surface-border dark:border-dark-border rounded px-3 py-2 text-black dark:text-white min-w-[180px]"
+          />
+        </div>
         <ul className="list-none p-0 m-0 mt-3">
-          {scans.map((s) => (
+          {filteredScans.map((s) => (
             <li key={s.id} className="list-item-minimal">
               {s.id.endsWith('-pending') ? (
                 <>
@@ -133,8 +263,10 @@ export default function Scans() {
             </li>
           ))}
         </ul>
-        {scans.length === 0 && (
-          <p className="text-neutral-500 dark:text-neutral-400 text-sm mt-6 font-medium">No scans yet.</p>
+        {filteredScans.length === 0 && (
+          <p className="text-neutral-500 dark:text-neutral-400 text-sm mt-6 font-medium">
+            {scans.length === 0 ? 'No scans yet.' : 'No scans match the current filters.'}
+          </p>
         )}
       </div>
     </>

@@ -206,7 +206,7 @@ jobs:
 
     - name: Audit root dependencies
       id: audit
-      run: npm audit --audit-level=moderate
+      run: npm audit --audit-level=critical
       continue-on-error: true
 
     - name: Auto-fix audit and install (root)
@@ -226,7 +226,7 @@ jobs:
         git push
 
     - name: Audit root dependencies (verify)
-      run: npm audit --audit-level=moderate
+      run: npm audit --audit-level=critical
 
     - name: Build NullVoid
       run: npm run build

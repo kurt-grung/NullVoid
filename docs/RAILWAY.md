@@ -22,7 +22,7 @@ Both services run as separate Railway services in the same project. You can depl
 1. Go to [railway.app/new](https://railway.app/new)
 2. Choose **Deploy from GitHub repo**
 3. Select your NullVoid repository
-4. Railway will detect the monorepo; you’ll add two services manually
+4. Railway will detect the monorepo; you'll add two services manually
 
 ### 2. Add the API service
 
@@ -61,7 +61,7 @@ If the API should call the ML service for scoring, set the ML service URL in the
 
 - `ML_SERVICE_URL` – e.g. `https://your-ml-service.up.railway.app`
 
-(Only needed if you wire the API to call the ML service; the API’s ML endpoints run commands locally when not on Vercel.)
+(Only needed if you wire the API to call the ML service; the API's ML endpoints run commands locally when not on Vercel.)
 
 ## Branch deployments
 
@@ -85,7 +85,7 @@ To deploy a different branch:
 
 ## ML model files
 
-The ML service expects `model.pkl` (and optionally `behavioral-model.pkl`) in `ml-model/`. If they’re missing, the service starts but returns a default score of 0.5.
+The ML service expects `model.pkl` (and optionally `behavioral-model.pkl`) in `ml-model/`. If they're missing, the service starts but returns a default score of 0.5.
 
 To train and include models:
 
@@ -100,7 +100,7 @@ To train and include models:
 
 ## Troubleshooting
 
-- **API build fails**: Ensure `npm run build` completes (Turbo builds `ts` and other packages). Check Node version (≥18).
+- **API build fails**: Ensure `npm run build` completes (Turbo builds `ts` and other packages). Check Node version (≥18). If using Dockerfile, Railway builds from that.
 - **ML build fails**: Ensure `requirements.txt` is valid and Python 3.9+ is used.
 - **Database errors**: Verify `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` in the API service.
 - **ML returns "Model not loaded"**: Train the model and commit the `.pkl` files, or accept the default score.

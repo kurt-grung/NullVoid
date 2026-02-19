@@ -1,5 +1,24 @@
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
 
+const API_KEY_STORAGE = 'nullvoid-api-key';
+
+export function getApiKey(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(API_KEY_STORAGE);
+}
+
+export function setApiKey(key: string | null): void {
+  if (typeof window === 'undefined') return;
+  if (key) localStorage.setItem(API_KEY_STORAGE, key);
+  else localStorage.removeItem(API_KEY_STORAGE);
+}
+
+function getAuthHeaders(): Record<string, string> {
+  const key = getApiKey();
+  if (key) return { 'X-API-Key': key };
+  return {};
+}
+
 /** Detect when API is unavailable (404, CORS, network, 503 config) - show friendly empty state */
 export function isApiUnavailableError(error: unknown): boolean {
   const msg = error instanceof Error ? error.message : String(error);
@@ -46,6 +65,9 @@ export interface Threat {
   confidence?: number;
   package?: string;
   details?: string;
+  filePath?: string;
+  lineNumber?: number;
+  sampleCode?: string;
 }
 
 export interface Organization {
@@ -63,7 +85,7 @@ export interface Team {
 
 async function fetchApi<T>(path: string, opts?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...opts?.headers },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders(), ...opts?.headers },
     ...opts,
   });
   if (!res.ok) {
@@ -84,11 +106,12 @@ async function fetchApi<T>(path: string, opts?: RequestInit): Promise<T> {
   return res.json();
 }
 
-export async function getScans(orgId?: string, teamId?: string): Promise<{ scans: ScanSummary[] }> {
+export async function getScans(orgId?: string, teamId?: string, limit = 100): Promise<{ scans: ScanSummary[] }> {
   const headers: Record<string, string> = {};
   if (orgId) headers['X-Organization-Id'] = orgId;
   if (teamId) headers['X-Team-Id'] = teamId;
-  return fetchApi(`/scans?limit=100`, { headers });
+  const l = Math.min(Math.max(1, limit), 200)
+  return fetchApi(`/scans?limit=${l}`, { headers });
 }
 
 /** Report URL for a completed scan (?format=html|markdown&compliance=soc2|iso27001) */
@@ -110,7 +133,7 @@ export async function getScan(id: string, orgId?: string, teamId?: string): Prom
 }
 
 export async function triggerScan(target: string, orgId?: string, teamId?: string): Promise<{ id: string; status: string; target: string }> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', ...getAuthHeaders() };
   if (orgId) headers['X-Organization-Id'] = orgId;
   if (teamId) headers['X-Team-Id'] = teamId;
   const res = await fetch(`${API_BASE}/scan`, {
@@ -130,11 +153,17 @@ export async function getTeams(orgId?: string): Promise<{ teams: Team[] }> {
   return fetchApi(orgId ? `/teams?organizationId=${encodeURIComponent(orgId)}` : '/teams');
 }
 
+export async function getHealth(): Promise<{ ok: boolean }> {
+  const res = await fetch(`${API_BASE}/health`, { headers: getAuthHeaders() });
+  if (!res.ok) throw new Error('Health check failed');
+  return res.json();
+}
+
 export async function getMlStatus(): Promise<{
-  available: boolean
-  hint?: string
-  serveAvailable?: boolean
-  serveHint?: string
+  available: boolean;
+  hint?: string;
+  serveAvailable?: boolean;
+  serveHint?: string;
 }> {
   return fetchApi('/ml/status');
 }
