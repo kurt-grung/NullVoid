@@ -17,14 +17,17 @@ COPY ts ts/
 COPY js js/
 COPY ml-model ml-model/
 
-# Install Node deps
-RUN npm ci --omit=dev --ignore-scripts
+# Install Node deps (include dev for turbo, tsc)
+RUN npm ci --ignore-scripts
 
 # Install Python deps for ml-model (joblib, xgboost, scikit-learn, etc.)
 RUN pip3 install --break-system-packages --no-cache-dir -r ml-model/requirements.txt
 
 # Build API (produces packages/api/dist, ts/dist)
 RUN npm run api:build
+
+# Remove dev deps to shrink image
+RUN npm prune --omit=dev --ignore-scripts
 
 EXPOSE 3001
 ENV NODE_ENV=production
