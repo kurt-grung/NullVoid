@@ -461,12 +461,31 @@ app.post(
   })
 );
 
-app.get('/ml/status', (_req: Request, res: Response) => {
-  res.json({
-    available: ML_AVAILABLE,
-    hint: ML_AVAILABLE ? undefined : 'ML commands only work when API runs locally (make api)',
-  });
-});
+app.get(
+  '/ml/status',
+  asyncHandler(async (_req: Request, res: Response) => {
+    const mlServiceUrl = process.env['ML_SERVICE_URL']?.replace(/\/$/, '');
+    let serveAvailable = false;
+    let serveHint: string | undefined;
+    if (mlServiceUrl) {
+      try {
+        const r = await fetch(`${mlServiceUrl}/health`, { signal: AbortSignal.timeout(3000) });
+        serveAvailable = r.ok;
+        if (!r.ok) serveHint = `ML service at ${mlServiceUrl} returned ${r.status}`;
+      } catch {
+        serveHint = `ML service at ${mlServiceUrl} is not reachable`;
+      }
+    } else {
+      serveHint = 'Set ML_SERVICE_URL (e.g. https://your-ml.up.railway.app) or run make ml-serve locally';
+    }
+    res.json({
+      available: ML_AVAILABLE,
+      hint: ML_AVAILABLE ? undefined : 'ML commands only work when API runs locally (make api)',
+      serveAvailable,
+      serveHint: serveAvailable ? undefined : serveHint,
+    });
+  })
+);
 
 /** Error handler: return 503 for missing Turso config on Vercel */
 app.use((err: unknown, _req: Request, res: Response, next: (err?: unknown) => void) => {

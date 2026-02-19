@@ -130,7 +130,12 @@ export async function getTeams(orgId?: string): Promise<{ teams: Team[] }> {
   return fetchApi(orgId ? `/teams?organizationId=${encodeURIComponent(orgId)}` : '/teams');
 }
 
-export async function getMlStatus(): Promise<{ available: boolean; hint?: string }> {
+export async function getMlStatus(): Promise<{
+  available: boolean
+  hint?: string
+  serveAvailable?: boolean
+  serveHint?: string
+}> {
   return fetchApi('/ml/status');
 }
 
