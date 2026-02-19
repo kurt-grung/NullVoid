@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy package files and workspace structure for npm ci
-COPY package.json package-lock.json turbo.json ./
+COPY package.json package-lock.json turbo.json .nullvoidignore ./
 COPY packages packages/
 COPY ts ts/
 COPY js js/
