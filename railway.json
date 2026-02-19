@@ -2,13 +2,7 @@
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
     "builder": "RAILPACK",
-    "buildCommand": "npm run api:build",
-    "watchPatterns": [
-      "packages/api/**",
-      "ts/**",
-      "package.json",
-      "package-lock.json"
-    ]
+    "buildCommand": "npm run api:build"
   },
   "deploy": {
     "startCommand": "node packages/api/dist/index.js",

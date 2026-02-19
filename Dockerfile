@@ -18,7 +18,7 @@ COPY js js/
 COPY ml-model ml-model/
 
 # Install Node deps
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --ignore-scripts
 
 # Install Python deps for ml-model (joblib, xgboost, scikit-learn, etc.)
 RUN pip3 install --no-cache-dir -r ml-model/requirements.txt
