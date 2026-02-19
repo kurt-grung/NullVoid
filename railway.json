@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "buildCommand": "npm ci && npm run build && npm run api:build",
+    "buildCommand": "npm run api:build",
     "startCommand": "node packages/api/dist/index.js",
     "healthcheckPath": "/health",
     "restartPolicyType": "ON_FAILURE",
