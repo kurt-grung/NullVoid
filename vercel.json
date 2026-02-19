@@ -1,15 +1,11 @@
 {
   "version": 2,
-  "buildCommand": "npm ci && npm run api:build && VITE_BASE=/ VITE_API_URL=/api npm run dashboard:build",
+  "buildCommand": "npm ci && VITE_BASE=/ npm run dashboard:build",
   "outputDirectory": "packages/dashboard/dist",
   "rewrites": [
-    {"source": "/api/(.*)", "destination": "/api"},
-    {"source": "/((?!api/|assets/|vite\\.svg).*)", "destination": "/index.html"}
-  ],
-  "functions": {
-    "api/index.js": {
-      "maxDuration": 60,
-      "includeFiles": "**/dist/**"
+    {
+      "source": "/((?!assets/|vite\\.svg).*)",
+      "destination": "/index.html"
     }
-  }
+  ]
 }

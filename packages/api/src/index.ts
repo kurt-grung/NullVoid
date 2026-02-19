@@ -42,6 +42,18 @@ const PORT = parseInt(process.env['PORT'] ?? process.env['NULLVOID_API_PORT'] ??
 const API_KEY = process.env['NULLVOID_API_KEY'] ?? null;
 
 const app = express();
+// CORS: allow dashboard on Vercel (or other origins) to call API on Railway
+const corsOrigin = process.env['CORS_ORIGIN'] ?? '*';
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', corsOrigin);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key, X-Organization-Id, X-Team-Id');
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(204);
+    return;
+  }
+  next();
+});
 // Strip /api prefix when behind Vercel proxy (requests come as /api/scan, etc.)
 app.use((req, _res, next) => {
   if (req.url.startsWith('/api')) {
