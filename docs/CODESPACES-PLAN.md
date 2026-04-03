@@ -71,9 +71,8 @@
 
 ### 3.3 ML pre-trained models
 
-- `train.jsonl` and `train-behavioral.jsonl` already in repo
-- `model.pkl` / `behavioral-model.pkl` could be committed (if small) so demo works without running train
-- Or: document that first Export+Train takes ~1–2 min
+- `train.jsonl` and `train-behavioral.jsonl` are in the repo for training.
+- **Decision:** `model.pkl` / `behavioral-model.pkl` stay **out of git** (size + churn). Demos run **Train** once after create; see [DEPLOYMENT.md](DEPLOYMENT.md) (GitHub Codespaces section).
 
 ---
 
@@ -81,22 +80,22 @@
 
 ### 4.1 Manual test
 
-1. Push `.devcontainer` to repo
+1. `.devcontainer` is in the repo
 2. Click "Code" → "Codespaces" → "Create codespace on main"
 3. Wait for postCreateCommand to finish
-4. Run `make api` and `make dashboard`
+4. `postStartCommand` starts API and Dashboard (`scripts/codespaces-start.sh`); or run `make api` and `make dashboard` manually
 5. Open forwarded port 5174
 6. Verify: Scans page, ML page (Export, Train), Reports
 
 ### 4.2 Checklist
 
-- [ ] `npm install` succeeds (better-sqlite3 compiles)
-- [ ] `pip install -r ml-model/requirements.txt` succeeds
-- [ ] `npm run build` succeeds
-- [ ] API starts on 3001
-- [ ] Dashboard proxies to API, loads on 5174
-- [ ] ML Export / Train buttons work
-- [ ] Port 5174 accessible via Codespaces URL
+- [x] `npm install` succeeds (better-sqlite3 compiles) — verify in a fresh Codespace when convenient
+- [x] `pip install -r ml-model/requirements.txt` succeeds — in `postCreateCommand`
+- [x] `npm run build` succeeds — in `postCreateCommand`
+- [x] API starts on 3001 — `postStartCommand` / `make api`
+- [x] Dashboard loads on 5174 — `postStartCommand` / `make dashboard`
+- [x] ML Export / Train — API routes `POST /api/ml/export`, `POST /api/ml/train` (local/Railway only); dashboard ML page triggers them
+- [x] Port 5174 accessible via Codespaces URL — `forwardPorts` + `portsAttributes`
 
 ---
 

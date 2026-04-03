@@ -37,7 +37,7 @@ export default function Compliance() {
         )
       })
       .catch(() => {})
-  }, [scans.length, organizationId, teamId])
+  }, [scans, organizationId, teamId])
 
   if (loading) return (
     <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">Loading...</div>

@@ -30,6 +30,7 @@ function NavWithHealth() {
   const [apiHealthy, setApiHealthy] = useState<boolean | null>(null)
   const [orgs, setOrgs] = useState<{ id: string; name: string }[]>([])
   const [teams, setTeams] = useState<{ id: string; name: string }[]>([])
+  const teamsForNav = organizationId ? teams : []
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
@@ -55,13 +56,9 @@ function NavWithHealth() {
   }, [])
 
   useEffect(() => {
-    if (organizationId) {
-      getTeams(organizationId).then((r) => setTeams(r.teams)).catch(() => setTeams([]))
-    } else {
-      setTeams([])
-      setTeamId(null)
-    }
-  }, [organizationId, setTeamId])
+    if (!organizationId) return
+    getTeams(organizationId).then((r) => setTeams(r.teams)).catch(() => setTeams([]))
+  }, [organizationId])
 
   return (
     <nav className="flex items-center gap-8 px-8 py-5 bg-surface-card dark:bg-dark-card border-b border-surface-border dark:border-dark-border flex-wrap">
@@ -133,7 +130,7 @@ function NavWithHealth() {
           Settings
         </NavLink>
       </div>
-      {(orgs.length > 0 || teams.length > 0) && (
+      {(orgs.length > 0 || teamsForNav.length > 0) && (
         <div className="flex gap-2 items-center">
           {orgs.length > 0 && (
             <select
@@ -147,14 +144,14 @@ function NavWithHealth() {
               ))}
             </select>
           )}
-          {teams.length > 0 && (
+          {teamsForNav.length > 0 && (
             <select
               value={teamId ?? ''}
               onChange={(e) => setTeamId(e.target.value || null)}
               className="text-sm bg-surface-muted dark:bg-dark-muted border border-surface-border dark:border-dark-border rounded px-2 py-1.5 text-black dark:text-white"
             >
               <option value="">All teams</option>
-              {teams.map((t) => (
+              {teamsForNav.map((t) => (
                 <option key={t.id} value={t.id}>{t.name}</option>
               ))}
             </select>

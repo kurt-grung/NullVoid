@@ -2,6 +2,8 @@
 
 Train and serve an XGBoost model for dependency confusion threat scoring. Supports calibration, explainability, batch scoring, and model versioning.
 
+**Python:** 3.9+ is supported. GitHub Actions uses **3.11** for the ML train/eval step—use 3.11+ locally if you want the same `scikit-learn` resolution as CI.
+
 ## Quick Start
 
 From the **project root**:
@@ -25,7 +27,10 @@ nullvoid scan . --export-training ml-model/train.jsonl --export-training-good ml
 # 3. Train the model
 npm run ml:train
 
-# 4. Start the ML server (keep running)
+# 4. (Optional) Evaluate metrics on train.jsonl with the saved model.pkl
+npm run ml:eval
+
+# 5. Start the ML server (keep running)
 npm run ml:serve
 ```
 

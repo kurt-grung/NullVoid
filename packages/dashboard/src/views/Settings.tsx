@@ -1,21 +1,18 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { getApiKey, setApiKey } from '../api'
 
 const DEFAULT_SCAN_TARGET = 'nullvoid-default-scan-target'
 
 export default function Settings() {
-  const [apiKey, setApiKeyInput] = useState('')
-  const [defaultTarget, setDefaultTarget] = useState('.')
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
-  const [saved, setSaved] = useState(false)
-
-  useEffect(() => {
-    setApiKeyInput(getApiKey() ?? '')
-    const stored = localStorage.getItem(DEFAULT_SCAN_TARGET)
-    if (stored) setDefaultTarget(stored)
+  const [apiKey, setApiKeyInput] = useState(() => getApiKey() ?? '')
+  const [defaultTarget, setDefaultTarget] = useState(
+    () => localStorage.getItem(DEFAULT_SCAN_TARGET) ?? '.'
+  )
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     const t = localStorage.getItem('nullvoid-theme') as 'dark' | 'light' | null
-    if (t) setTheme(t)
-  }, [])
+    return t ?? 'dark'
+  })
+  const [saved, setSaved] = useState(false)
 
   const handleSaveApiKey = () => {
     setApiKey(apiKey.trim() || null)

@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- Provider + useOrgTeam hook in one module */
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 
 interface OrgTeamContextValue {
