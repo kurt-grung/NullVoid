@@ -48,6 +48,8 @@ Run NullVoid in the cloud for demos or development—100% free (60 hours/month),
 
 The ML page (Export, Train) works in Codespaces. Use SQLite (no Turso needed). Optional: `make ml-serve` for the scoring API on port 8000.
 
+**Model files (`model.pkl`, `behavioral-model.pkl`)** are not committed to keep the clone small. After opening the ML page, run **Train** once (or `npm run ml:train` in the repo root) to generate them from the checked-in `ml-model/train.jsonl`; expect roughly one to two minutes on first run. `make ml-serve` then loads `ml-model/model.pkl` for local scoring.
+
 ### Notes
 
 - Codespaces is ephemeral—not for 24/7 production

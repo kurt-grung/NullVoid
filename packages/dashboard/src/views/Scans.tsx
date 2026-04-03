@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useCallback, useEffect, useState, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { getScans, getScan, triggerScan, isApiUnavailableError, type ScanSummary, type ScanDetail } from '../api'
 import { useOrgTeam } from '../context/OrgTeamContext'
@@ -20,7 +20,7 @@ export default function Scans() {
   const [targetSearch, setTargetSearch] = useState(() => searchParams.get('target') || '')
   const [exporting, setExporting] = useState(false)
 
-  const refresh = () => {
+  const refresh = useCallback(() => {
     setError(null)
     setApiUnavailable(false)
     getScans(organizationId ?? undefined, teamId ?? undefined)
@@ -35,11 +35,11 @@ export default function Scans() {
         }
       })
       .finally(() => setLoading(false))
-  }
+  }, [organizationId, teamId])
 
   useEffect(() => {
     refresh()
-  }, [organizationId, teamId])
+  }, [refresh])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()

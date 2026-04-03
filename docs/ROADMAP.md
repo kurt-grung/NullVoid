@@ -192,7 +192,7 @@ NullVoid aims to be the most comprehensive and accurate static analysis security
 - **Config**: `COMMUNITY_CONFIG` (ENABLED, GITHUB_TOKEN, USE_DOWNLOADS, USE_GITHUB_STARS, USE_DEPENDENTS)
 
 #### **Threat Intelligence**
-- **Machine Learning Models**: Advanced ML models for threat detection — *scaffold extended with cross-package features*
+- **Machine Learning Models**: Advanced ML models for threat detection — *scaffold extended with cross-package features*; offline evaluation via `ml-model/evaluate.py` and `npm run ml:eval`; CI trains on `train.jsonl` and runs evaluate on every push to `main`
 - **Natural Language Processing**: NLP analysis of package descriptions and documentation — *implemented* (`ts/src/lib/nlpAnalysis.ts`, `js/lib/nlpAnalysis.js`)
 - **Sentiment Analysis**: Analysis of package community sentiment and reviews — *implemented* (sentiment scoring in NLP pipeline)
 - **Predictive Modeling**: Predictive models for future security threats — *implemented* (extended `computePredictiveScore` with NLP and anomaly features)

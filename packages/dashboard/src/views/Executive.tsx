@@ -1,13 +1,20 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { getScans, getScan, isApiUnavailableError, type ScanSummary, type ScanDetail } from '../api'
 import { useOrgTeam } from '../context/OrgTeamContext'
+
+const ZERO_SEVERITY: Record<string, number> = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 }
+
+type AggStats = {
+  totalThreats: number
+  severityCounts: Record<string, number>
+  packageThreats: Record<string, number>
+  threatTypes: Record<string, number>
+}
 
 export default function Executive() {
   const { organizationId, teamId } = useOrgTeam()
   const [scans, setScans] = useState<ScanSummary[]>([])
-  const [totalThreats, setTotalThreats] = useState(0)
-  const [severityCounts, setSeverityCounts] = useState<Record<string, number>>({ CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 })
-  const [packageThreats, setPackageThreats] = useState<Record<string, number>>({})
+  const [aggStats, setAggStats] = useState<AggStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [apiUnavailable, setApiUnavailable] = useState(false)
 
@@ -21,18 +28,10 @@ export default function Executive() {
       .finally(() => setLoading(false))
   }, [organizationId, teamId])
 
-  const completed = scans.filter((s) => s.status === 'completed')
-
-  const [threatTypes, setThreatTypes] = useState<Record<string, number>>({})
+  const completed = useMemo(() => scans.filter((s) => s.status === 'completed'), [scans])
 
   useEffect(() => {
-    if (completed.length === 0) {
-      setTotalThreats(0)
-      setSeverityCounts({ CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 })
-      setPackageThreats({})
-      setThreatTypes({})
-      return
-    }
+    if (completed.length === 0) return
     let cancelled = false
     const load = async () => {
       let threats = 0
@@ -59,15 +58,20 @@ export default function Executive() {
         }
       }
       if (!cancelled) {
-        setTotalThreats(threats)
-        setSeverityCounts(sev)
-        setPackageThreats(pkg)
-        setThreatTypes(types)
+        setAggStats({ totalThreats: threats, severityCounts: sev, packageThreats: pkg, threatTypes: types })
       }
     }
     load()
-    return () => { cancelled = true }
-  }, [scans, organizationId, teamId])
+    return () => {
+      cancelled = true
+    }
+  }, [completed, organizationId, teamId])
+
+  const totalThreats = completed.length === 0 ? 0 : (aggStats?.totalThreats ?? 0)
+  const severityCounts =
+    completed.length === 0 ? { ...ZERO_SEVERITY } : { ...ZERO_SEVERITY, ...aggStats?.severityCounts }
+  const packageThreats = completed.length === 0 ? {} : (aggStats?.packageThreats ?? {})
+  const threatTypes = completed.length === 0 ? {} : (aggStats?.threatTypes ?? {})
 
   if (loading) return (
     <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">Loading...</div>
