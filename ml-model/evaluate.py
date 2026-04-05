@@ -51,6 +51,7 @@ except ImportError as e:
     print("Install: pip install scikit-learn joblib", file=sys.stderr)
     raise e
 
+# Pickles may come from CI (newer sklearn); local older sklearn still evaluates correctly.
 if InconsistentVersionWarning is not None:
     warnings.filterwarnings("ignore", category=InconsistentVersionWarning)
 
