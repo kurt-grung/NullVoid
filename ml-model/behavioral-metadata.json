@@ -14,16 +14,16 @@
     "dependencyCount",
     "devDependencyCount"
   ],
-  "training_date": "2026-02-15T18:04:59.431005Z",
-  "dataset_size": 60,
+  "training_date": "2026-04-05T01:14:30.319462Z",
+  "dataset_size": 142,
   "class_distribution": {
     "good": 8,
-    "bad": 40
+    "bad": 105
   },
   "metrics": {
-    "accuracy": 0.6667,
-    "precision": 0.875,
-    "recall": 0.7,
-    "roc_auc": 0.65
+    "accuracy": 0.7241,
+    "precision": 0.9524,
+    "recall": 0.7407,
+    "roc_auc": 0.7037
   }
 }
