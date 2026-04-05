@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   getMlStatus,
+  getMlMetrics,
   runMlExport,
   runMlTrain,
   runMlExportBehavioral,
@@ -10,6 +11,52 @@ import {
 
 type Cmd = 'export' | 'train' | 'export-behavioral' | 'train-behavioral' | null
 
+function MlMetaBlock({ meta }: { meta: Record<string, unknown> }) {
+  const size = meta.dataset_size
+  const dist = meta.class_distribution
+  const trainMetrics = meta.metrics
+  const when = meta.training_date
+  const modelType = meta.model_type
+  return (
+    <dl className="space-y-2 text-xs text-neutral-600 dark:text-neutral-400">
+      {modelType != null && (
+        <>
+          <dt className="text-neutral-500 dark:text-neutral-500 font-medium">Model</dt>
+          <dd className="font-mono">{String(modelType)}</dd>
+        </>
+      )}
+      {when != null && (
+        <>
+          <dt className="text-neutral-500 dark:text-neutral-500 font-medium">Training</dt>
+          <dd className="font-mono">{String(when)}</dd>
+        </>
+      )}
+      {size != null && (
+        <>
+          <dt className="text-neutral-500 dark:text-neutral-500 font-medium">Dataset size</dt>
+          <dd className="font-mono">{String(size)}</dd>
+        </>
+      )}
+      {dist != null && (
+        <>
+          <dt className="text-neutral-500 dark:text-neutral-500 font-medium">Class distribution</dt>
+          <dd className="font-mono">{JSON.stringify(dist)}</dd>
+        </>
+      )}
+      {trainMetrics != null && Object.keys(trainMetrics as object).length > 0 && (
+        <>
+          <dt className="text-neutral-500 dark:text-neutral-500 font-medium">Train holdout metrics</dt>
+          <dd>
+            <pre className="mt-1 p-2 bg-surface-muted dark:bg-dark-muted rounded text-[11px] font-mono overflow-x-auto whitespace-pre-wrap">
+              {JSON.stringify(trainMetrics, null, 2)}
+            </pre>
+          </dd>
+        </>
+      )}
+    </dl>
+  )
+}
+
 export default function ML() {
   const [available, setAvailable] = useState<boolean | null>(null)
   const [serveAvailable, setServeAvailable] = useState<boolean | null>(null)
@@ -18,6 +65,11 @@ export default function ML() {
   const [output, setOutput] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [apiUnavailable, setApiUnavailable] = useState(false)
+  const [metrics, setMetrics] = useState<{
+    dependency: Record<string, unknown> | null
+    behavioral: Record<string, unknown> | null
+    hint?: string
+  } | null>(null)
 
   useEffect(() => {
     getMlStatus()
@@ -31,6 +83,13 @@ export default function ML() {
         else setAvailable(false)
       })
   }, [])
+
+  useEffect(() => {
+    if (apiUnavailable) return
+    getMlMetrics()
+      .then((m) => setMetrics(m))
+      .catch(() => setMetrics(null))
+  }, [apiUnavailable])
 
   const run = async (cmd: Cmd, fn: () => Promise<{ stdout?: string; stderr?: string }>) => {
     if (!cmd) return
@@ -71,6 +130,34 @@ export default function ML() {
         <p className="text-neutral-500 dark:text-neutral-400 text-sm mb-6">
           Export features and train XGBoost models for dependency confusion and behavioral detection.
         </p>
+      )}
+
+      {metrics && (metrics.dependency || metrics.behavioral) && (
+        <div className="card-minimal mb-6">
+          <h3>Last train metrics</h3>
+          <p className="text-neutral-500 dark:text-neutral-400 text-xs mt-2 mb-4">
+            From <code className="text-xs">ml-model/metadata.json</code> and{' '}
+            <code className="text-xs">behavioral-metadata.json</code> on the API host. CI also publishes held-out
+            validation metrics as the <code className="text-xs">ml-eval-report</code> artifact.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {metrics.dependency && (
+              <div className="rounded-md border border-neutral-200 dark:border-neutral-700 p-3 text-sm">
+                <h4 className="font-semibold text-neutral-800 dark:text-neutral-200 mb-2">Dependency model</h4>
+                <MlMetaBlock meta={metrics.dependency} />
+              </div>
+            )}
+            {metrics.behavioral && (
+              <div className="rounded-md border border-neutral-200 dark:border-neutral-700 p-3 text-sm">
+                <h4 className="font-semibold text-neutral-800 dark:text-neutral-200 mb-2">Behavioral model</h4>
+                <MlMetaBlock meta={metrics.behavioral} />
+              </div>
+            )}
+          </div>
+          {metrics.hint && (
+            <p className="text-neutral-500 dark:text-neutral-400 text-xs mt-3">{metrics.hint}</p>
+          )}
+        </div>
       )}
 
       <div className="card-minimal">

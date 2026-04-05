@@ -30,6 +30,11 @@ npm run ml:train
 # 4. (Optional) Evaluate metrics on train.jsonl with the saved model.pkl
 npm run ml:eval
 
+# Behavioral model (npm scripts / install hooks) — same idea:
+npm run ml:export-behavioral
+npm run ml:train-behavioral
+npm run ml:eval-behavioral
+
 # 5. Start the ML server (keep running)
 npm run ml:serve
 ```
@@ -54,11 +59,42 @@ Set `ML_MODEL_URL` in `.nullvoidrc` or environment:
   "DEPENDENCY_CONFUSION_CONFIG": {
     "ML_DETECTION": {
       "ML_MODEL_URL": "http://localhost:8000/score",
+      "BEHAVIORAL_MODEL_URL": "http://localhost:8000/behavioral-score",
       "ML_EXPLAIN": true
     }
   }
 }
 ```
+
+Start the server with both weights loaded:
+
+```bash
+python3 serve.py --port 8000 --behavioral-model-dir .
+```
+
+## Behavioral training data
+
+Behavioral features are built from **npm registry metadata** (scripts block, dependency counts, simple regex signals). Labels:
+
+- **0 (good)**: pass `--good pkg1,pkg2,...` (defaults include common OSS packages).
+- **1 (bad)**: `--from-ghsa` (npm packages linked to GitHub Security Advisories) and/or `--bad pkg1,pkg2`.
+
+By default, `export-behavioral-features.js` **merges** into the output file if it already exists. For a clean file (e.g. scheduled retrain in CI), use **`--overwrite`**.
+
+```bash
+# Merge into train-behavioral.jsonl (typical local workflow)
+node ml-model/export-behavioral-features.js --from-ghsa --limit 200 --out ml-model/train-behavioral.jsonl
+
+# Replace file entirely (CI / reproducible snapshot)
+node ml-model/export-behavioral-features.js --overwrite --from-ghsa --limit 200 \
+  --good lodash,react,express,axios,chalk,typescript,jest,webpack,vue,next \
+  --out ml-model/train-behavioral.jsonl
+
+node ml-model/dedup-train.js ml-model/train-behavioral.jsonl ml-model/train-behavioral.jsonl
+python3 ml-model/train-behavioral.py --input ml-model/train-behavioral.jsonl --balance --calibrate
+```
+
+This mirrors the dependency pipeline: **export → dedup → train**. The weekly **ML Model Retrain** workflow refreshes both `train.jsonl` and `train-behavioral.jsonl` from GHSA plus the same known-good list, then commits updated `model.pkl` and `behavioral-model.pkl` artifacts when they change.
 
 ## Export Features
 
@@ -84,6 +120,37 @@ When combining data from multiple sources (export-features, scan), deduplicate b
 npm run ml:dedup
 # or: node ml-model/dedup-train.js [input.jsonl] [output.jsonl]
 ```
+
+The same script works for behavioral JSONL (used after `--overwrite` exports in CI).
+
+## Offline evaluation and held-out validation
+
+**In-sample** (quick check on the same file you trained on):
+
+```bash
+cd ml-model && python3 evaluate.py --input train.jsonl --model model.pkl --json
+cd ml-model && python3 evaluate.py --behavioral --input train-behavioral.jsonl --model behavioral-model.pkl --json
+```
+
+**Held-out** validation (matches CI): split first, train only on the train split, then evaluate on the validation split:
+
+```bash
+python3 ml-model/split_train_val.py \
+  --input ml-model/train.jsonl \
+  --train-out /tmp/ml-train.jsonl \
+  --val-out /tmp/ml-val.jsonl \
+  --val-fraction 0.2 --seed 42
+cd ml-model && python3 train.py --input /tmp/ml-train.jsonl --output /tmp/m.pkl --balance --calibrate
+cd ml-model && python3 evaluate.py --input /tmp/ml-val.jsonl --model /tmp/m.pkl --keys /tmp/feature_keys.pkl --json --eval-set validation
+```
+
+Optional **quality gates** (process exits with code 1 if the metric is computed and below the floor):
+
+```bash
+python3 evaluate.py --input /tmp/ml-val.jsonl --model /tmp/m.pkl --keys /tmp/feature_keys.pkl --min-roc-auc 0.55 --json
+```
+
+On every push to `main`, **Tests** uploads **`ml-eval-report.json`** (dependency + behavioral metrics on the held-out slice).
 
 ## Training Options
 

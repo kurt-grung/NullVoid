@@ -6,6 +6,7 @@
  */
 
 import express, { Request, Response } from 'express';
+import * as fs from 'fs';
 import * as path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -105,6 +106,7 @@ app.get('/', (_req: Request, res: Response) => {
       report: 'GET /api/report/:scanId?format=html|markdown&compliance=soc2|iso27001',
       organizations: 'GET /api/organizations',
       teams: 'GET /api/teams',
+      mlMetrics: 'GET /api/ml/metrics',
     },
   });
 });
@@ -465,6 +467,27 @@ app.post(
         stderr: e.stderr?.trim(),
       });
     }
+  })
+);
+
+/** GET /ml/metrics - last training metadata from ml-model/ (local clone); CI held-out metrics are in the ml-eval-report artifact */
+app.get(
+  '/ml/metrics',
+  asyncHandler(async (_req: Request, res: Response) => {
+    const mlDir = path.join(ROOT, 'ml-model');
+    const readJson = (name: string): Record<string, unknown> | null => {
+      try {
+        const raw = fs.readFileSync(path.join(mlDir, name), 'utf8');
+        return JSON.parse(raw) as Record<string, unknown>;
+      } catch {
+        return null;
+      }
+    };
+    res.json({
+      dependency: readJson('metadata.json'),
+      behavioral: readJson('behavioral-metadata.json'),
+      hint: 'Figures are from the last train run on this machine (incl. train.py internal holdout when data allows). GitHub Actions uploads held-out validation metrics as the ml-eval-report artifact.',
+    });
   })
 );
 
