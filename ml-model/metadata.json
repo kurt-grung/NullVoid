@@ -24,11 +24,11 @@
     "trustScore"
   ],
   "feature_schema_version": 1,
-  "training_date": "2026-04-05T01:39:05.898175Z",
-  "dataset_size": 856,
+  "training_date": "2026-04-05T03:58:25.174357Z",
+  "dataset_size": 933,
   "class_distribution": {
     "good": 2,
-    "bad": 682
+    "bad": 744
   },
   "imbalance_strategy": "oversample",
   "xgboost_params": {
@@ -43,8 +43,8 @@
   },
   "scale_pos_weight": 1.0,
   "metrics": {
-    "accuracy": 0.9884,
+    "accuracy": 0.9893,
     "precision": 1.0,
-    "recall": 0.9884
+    "recall": 0.9893
   }
 }
