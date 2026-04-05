@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "dependency": [
+    "daysDifference",
+    "recentCommitCount",
+    "scopePrivate",
+    "suspiciousPatternsCount",
+    "timelineAnomaly",
+    "registryIsNpm",
+    "authorCount",
+    "totalCommitCount",
+    "dominantAuthorShare",
+    "commitPatternAnomaly",
+    "branchCount",
+    "recentCommitCount90d",
+    "messageAnomalyScore",
+    "diffAnomalyScore",
+    "nlpSecurityScore",
+    "nlpSuspiciousCount",
+    "crossPackageAnomaly",
+    "behavioralAnomaly",
+    "reviewSecurityScore",
+    "popularityScore",
+    "trustScore"
+  ],
+  "behavioral": [
+    "scriptCount",
+    "scriptTotalLength",
+    "hasPostinstall",
+    "postinstallLength",
+    "preinstallLength",
+    "postuninstallLength",
+    "networkScriptCount",
+    "evalUsageCount",
+    "childProcessCount",
+    "fileSystemAccessCount",
+    "dependencyCount",
+    "devDependencyCount"
+  ]
+}

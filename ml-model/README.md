@@ -144,22 +144,42 @@ cd ml-model && python3 train.py --input /tmp/ml-train.jsonl --output /tmp/m.pkl 
 cd ml-model && python3 evaluate.py --input /tmp/ml-val.jsonl --model /tmp/m.pkl --keys /tmp/feature_keys.pkl --json --eval-set validation
 ```
 
+**Time-based holdout** (when every JSONL row includes an ISO `exportedAt` from export scripts): oldest rows train, newest `val_fraction` validate—reduces temporal leakage. If any row is missing the field, the tool falls back to stratified splitting and prints a short JSON message on stderr.
+
+```bash
+python3 ml-model/split_train_val.py \
+  --input ml-model/train.jsonl \
+  --train-out /tmp/ml-train.jsonl \
+  --val-out /tmp/ml-val.jsonl \
+  --val-fraction 0.2 --seed 42 \
+  --time-val-newest --time-field exportedAt
+```
+
 Optional **quality gates** (process exits with code 1 if the metric is computed and below the floor):
 
 ```bash
 python3 evaluate.py --input /tmp/ml-val.jsonl --model /tmp/m.pkl --keys /tmp/feature_keys.pkl --min-roc-auc 0.55 --json
 ```
 
-On every push to `main`, **Tests** uploads **`ml-eval-report.json`** (dependency + behavioral metrics on the held-out slice).
+On every push to `main`, **Tests** uploads **`ml-eval-report.json`** (dependency + behavioral metrics on the held-out slice) and fails the job if held-out precision/recall (and behavioral ROC-AUC when defined) fall below conservative floors.
+
+**Drift / regression tracking:** Download the `ml-eval-report` artifact from workflow runs and compare `roc_auc`, `precision`, and `recall` to a baseline commit when investigating dependency or data changes.
 
 ## Training Options
 
 ```bash
 python train.py --input train.jsonl --output model.pkl
 python train.py --input train.jsonl --balance          # Oversample minority class
+python train.py --input train.jsonl --balance-class-weight  # Imbalance via XGBoost scale_pos_weight only (no oversampling)
 python train.py --input train.jsonl --no-calibrate    # Skip Platt scaling
 python train.py --input train.jsonl --output-dir models/v1  # Save to directory
 ```
+
+Use **only one** of `--balance` or `--balance-class-weight`. After oversampling, `scale_pos_weight` is derived from the **post-balance** class counts (≈1.0 when classes match), which avoids double-weighting the minority class.
+
+**Pinned XGBoost hyperparameters** live in `train.py` / `train-behavioral.py` as `XGBOOST_PARAMS` (`n_estimators`, `max_depth`, `learning_rate`, `subsample`, `colsample_bytree`, `min_child_weight`, …). The values used for a run are also written into `metadata.json` / `behavioral-metadata.json` under `xgboost_params` and `scale_pos_weight`.
+
+**CI vs weekly retrain:** The scheduled **ML Model Retrain** workflow trains on the full deduplicated JSONL for maximum data; **Tests** retrains on a held-out split to measure generalization. Both are intentional.
 
 ## API Endpoints
 
@@ -168,7 +188,7 @@ python train.py --input train.jsonl --output-dir models/v1  # Save to directory
 | `/score` | POST | Score a single feature vector. Add `"explain": true` for reasons and importance |
 | `/batch-score` | POST | Score multiple feature vectors. Body: `{"features_list": [...], "explain": false}` |
 | `/importance` | GET | Global feature importance from the model |
-| `/model-info` | GET | Model metadata, version, training date |
+| `/model-info` | GET | Dependency + behavioral metadata, `feature_schema_version`, manifest `version` from `feature-keys.json` |
 | `/explain` | GET | Same as `/importance` |
 | `/explain` | POST | Per-sample explanation (SHAP when available) |
 | `/health` | GET | Check if model is loaded |
@@ -206,6 +226,8 @@ Response:
 {"scores": [0.42, 0.12]}
 ```
 
+`/batch-score` rejects requests larger than **`NULLVOID_ML_MAX_BATCH`** items (default **512**). Override the env var to raise the cap.
+
 ## Serving Options
 
 ```bash
@@ -213,6 +235,11 @@ python serve.py --port 8000
 python serve.py --model model.pkl --port 8000
 python serve.py --model-dir models/v1 --port 8000
 ```
+
+## Feature manifest and known-good list
+
+- **`feature-keys.json`** — canonical ordered `dependency` and `behavioral` feature names for `train.py`, `train-behavioral.py`, `serve.py`, and `ts/src/lib/mlFeatureKeys.ts`. Bump `version` when you add or reorder columns.
+- **`training-defaults.json`** — `knownGoodPackages` used by `export-features.js` and `export-behavioral-features.js` when you omit `--good`, and by the weekly retrain workflow (no inline list).
 
 ## Feature Schema
 

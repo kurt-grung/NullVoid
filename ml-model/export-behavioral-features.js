@@ -9,35 +9,20 @@
  * Feature keys: scriptCount, scriptTotalLength, hasPostinstall, postinstallLength,
  *   preinstallLength, postuninstallLength, networkScriptCount, evalUsageCount,
  *   childProcessCount, fileSystemAccessCount, dependencyCount, devDependencyCount
+ *
+ * Keys: ml-model/feature-keys.json (behavioral).
  */
 
-const KNOWN_GOOD = [
-  'lodash',
-  'react',
-  'express',
-  'axios',
-  'chalk',
-  'typescript',
-  'jest',
-  'webpack',
-  'vue',
-  'next',
-];
-
-const BEHAVIORAL_FEATURE_KEYS = [
-  'scriptCount',
-  'scriptTotalLength',
-  'hasPostinstall',
-  'postinstallLength',
-  'preinstallLength',
-  'postuninstallLength',
-  'networkScriptCount',
-  'evalUsageCount',
-  'childProcessCount',
-  'fileSystemAccessCount',
-  'dependencyCount',
-  'devDependencyCount',
-];
+const fsSync = require('fs');
+const pathSync = require('path');
+const featureManifest = JSON.parse(
+  fsSync.readFileSync(pathSync.join(__dirname, 'feature-keys.json'), 'utf8')
+);
+const trainingDefaults = JSON.parse(
+  fsSync.readFileSync(pathSync.join(__dirname, 'training-defaults.json'), 'utf8')
+);
+const KNOWN_GOOD = trainingDefaults.knownGoodPackages;
+const BEHAVIORAL_FEATURE_KEYS = featureManifest.behavioral;
 
 function extractBehavioralCounts(scriptContent) {
   if (!scriptContent || typeof scriptContent !== 'string') {
@@ -92,7 +77,7 @@ function buildBehavioralFeatures(pkgName, data, label) {
     devDependencyCount: Object.keys(devDeps).length,
   };
 
-  return { features, label };
+  return { features, label, exportedAt: new Date().toISOString() };
 }
 
 async function fetchGhsaNpmPackages(options = {}) {

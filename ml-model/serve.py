@@ -11,9 +11,12 @@ Usage:
 """
 
 import argparse
+import json
 import os
 from pathlib import Path
 from typing import Any, Optional
+
+DEFAULT_MAX_BATCH = 512
 
 try:
     import joblib
@@ -33,11 +36,13 @@ model = None
 feature_keys = None
 metadata = None
 model_dir: Optional[Path] = None
+feature_schema_version: Optional[int] = None
 
 # Behavioral model (package scripts)
 behavioral_model = None
 behavioral_feature_keys: Optional[list] = None
 behavioral_model_dir: Optional[Path] = None
+behavioral_metadata: Optional[dict] = None
 
 BEHAVIORAL_FEATURE_KEYS = [
     "scriptCount", "scriptTotalLength", "hasPostinstall", "postinstallLength",
@@ -137,16 +142,18 @@ def load_model(path: Path, dir_path: Optional[Path] = None):
         "trustScore",
     ]
     meta_path = model_dir / "metadata.json"
+    global feature_schema_version
     if meta_path.exists():
-        import json
-        with open(meta_path) as f:
+        with open(meta_path, encoding="utf-8") as f:
             metadata = json.load(f)
+        feature_schema_version = metadata.get("feature_schema_version")
     else:
         metadata = {"model_type": "unknown", "feature_keys": feature_keys}
+        feature_schema_version = None
 
 
 def load_behavioral_model(dir_path: Path):
-    global behavioral_model, behavioral_feature_keys, behavioral_model_dir
+    global behavioral_model, behavioral_feature_keys, behavioral_model_dir, behavioral_metadata
     model_path = dir_path / "behavioral-model.pkl"
     if not model_path.exists():
         return
@@ -156,6 +163,12 @@ def load_behavioral_model(dir_path: Path):
         joblib.load(keys_path) if keys_path.exists() else BEHAVIORAL_FEATURE_KEYS
     )
     behavioral_model_dir = dir_path
+    meta_path = dir_path / "behavioral-metadata.json"
+    if meta_path.exists():
+        with open(meta_path, encoding="utf-8") as f:
+            behavioral_metadata = json.load(f)
+    else:
+        behavioral_metadata = {"model_type": "unknown", "feature_keys": behavioral_feature_keys}
 
 
 def extract_behavioral_vector(feats: dict) -> list[float]:
@@ -216,6 +229,15 @@ def score(req: ScoreRequest) -> dict:
 def batch_score(req: BatchScoreRequest) -> dict:
     if model is None:
         return {"scores": [], "error": "Model not loaded"}
+    max_batch = int(os.environ.get("NULLVOID_ML_MAX_BATCH", str(DEFAULT_MAX_BATCH)))
+    if max_batch < 1:
+        max_batch = DEFAULT_MAX_BATCH
+    n = len(req.features_list)
+    if n > max_batch:
+        return {
+            "scores": [],
+            "error": f"Batch too large: {n} items (max {max_batch}; set NULLVOID_ML_MAX_BATCH)",
+        }
     try:
         vectors = [extract_vector(f) for f in req.features_list]
         probas = model.predict_proba(vectors)
@@ -239,10 +261,25 @@ def importance_endpoint() -> dict:
 
 @app.get("/model-info")
 def model_info() -> dict:
+    manifest_path = Path(__file__).parent / "feature-keys.json"
+    manifest_version = None
+    if manifest_path.is_file():
+        try:
+            with open(manifest_path, encoding="utf-8") as f:
+                manifest_version = json.load(f).get("version")
+        except (json.JSONDecodeError, OSError):
+            pass
+    dep_meta = dict(metadata or {})
+    dep_meta.setdefault("feature_schema_version", feature_schema_version)
+    beh_meta = dict(behavioral_metadata or {}) if behavioral_model is not None else None
     return {
         "loaded": model is not None,
         "model_dir": str(model_dir) if model_dir else None,
-        "metadata": metadata or {},
+        "metadata": dep_meta,
+        "feature_keys_manifest_version": manifest_version,
+        "behavioral_loaded": behavioral_model is not None,
+        "behavioral_model_dir": str(behavioral_model_dir) if behavioral_model_dir else None,
+        "behavioral_metadata": beh_meta,
     }
 
 
