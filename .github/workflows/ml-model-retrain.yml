@@ -50,7 +50,7 @@ jobs:
       - name: Deduplicate training data
         run: npm run ml:dedup
 
-      - name: Train model
+      - name: Train dependency confusion model
         run: |
           cd ml-model && python3 train.py \
             --input train.jsonl \
@@ -58,18 +58,42 @@ jobs:
             --balance \
             --calibrate
 
+      - name: Export behavioral features (GHSA + known-good, fresh file)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node ml-model/export-behavioral-features.js \
+            --overwrite \
+            --from-ghsa --limit 200 \
+            --good lodash,react,express,axios,chalk,typescript,jest,webpack,vue,next \
+            --out ml-model/train-behavioral.jsonl
+
+      - name: Deduplicate behavioral training data
+        run: node ml-model/dedup-train.js ml-model/train-behavioral.jsonl ml-model/train-behavioral.jsonl
+
+      - name: Train behavioral model
+        run: |
+          cd ml-model && python3 train-behavioral.py \
+            --input train-behavioral.jsonl \
+            --balance \
+            --calibrate
+
       - name: Check for model changes
         id: changes
         run: |
-          git diff --quiet ml-model/train.jsonl ml-model/model.pkl ml-model/metadata.json ml-model/feature_keys.pkl 2>/dev/null && echo "changed=false" >> $GITHUB_OUTPUT || echo "changed=true" >> $GITHUB_OUTPUT
+          git diff --quiet \
+            ml-model/train.jsonl ml-model/model.pkl ml-model/metadata.json ml-model/feature_keys.pkl \
+            ml-model/train-behavioral.jsonl ml-model/behavioral-model.pkl ml-model/behavioral-metadata.json ml-model/behavioral-feature_keys.pkl \
+            2>/dev/null && echo "changed=false" >> $GITHUB_OUTPUT || echo "changed=true" >> $GITHUB_OUTPUT
 
       - name: Commit and push model updates
         if: steps.changes.outputs.changed == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add ml-model/train.jsonl ml-model/model.pkl ml-model/metadata.json ml-model/feature_keys.pkl
-          git commit -m "chore(ml): retrain model from GHSA and known-good packages [skip ci]"
+          git add ml-model/train.jsonl ml-model/model.pkl ml-model/metadata.json ml-model/feature_keys.pkl \
+            ml-model/train-behavioral.jsonl ml-model/behavioral-model.pkl ml-model/behavioral-metadata.json ml-model/behavioral-feature_keys.pkl
+          git commit -m "chore(ml): retrain dependency and behavioral models from GHSA [skip ci]"
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

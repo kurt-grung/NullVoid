@@ -168,6 +168,15 @@ export async function getMlStatus(): Promise<{
   return fetchApi('/ml/status');
 }
 
+/** Training-time metadata from ml-model/metadata.json and behavioral-metadata.json (local API only) */
+export async function getMlMetrics(): Promise<{
+  dependency: Record<string, unknown> | null;
+  behavioral: Record<string, unknown> | null;
+  hint?: string;
+}> {
+  return fetchApi('/ml/metrics');
+}
+
 export async function runMlExport(): Promise<{ ok: boolean; stdout?: string; stderr?: string; error?: string }> {
   const res = await fetch(`${API_BASE}/ml/export`, { method: 'POST' });
   const data = await res.json();

@@ -4,6 +4,7 @@
  * Usage:
  *   node export-behavioral-features.js --good lodash,react,express --out train-behavioral.jsonl
  *   node export-behavioral-features.js --from-ghsa --limit 200 --out train-behavioral.jsonl
+ *   node export-behavioral-features.js --overwrite --from-ghsa --good lodash,react --out train-behavioral.jsonl
  *
  * Feature keys: scriptCount, scriptTotalLength, hasPostinstall, postinstallLength,
  *   preinstallLength, postuninstallLength, networkScriptCount, evalUsageCount,
@@ -147,6 +148,7 @@ async function main() {
   let outFile = 'train-behavioral.jsonl';
   let fromGhsa = false;
   let ghsaLimit = 100;
+  let overwrite = false;
   const ghsaToken = process.env.GITHUB_TOKEN || null;
 
   for (let i = 0; i < args.length; i++) {
@@ -160,6 +162,8 @@ async function main() {
       fromGhsa = true;
     } else if (args[i] === '--limit' && args[i + 1]) {
       ghsaLimit = parseInt(args[++i], 10) || 100;
+    } else if (args[i] === '--overwrite') {
+      overwrite = true;
     }
   }
 
@@ -177,7 +181,7 @@ async function main() {
     rows.push(row);
   }
 
-  if (fs.existsSync(outPath)) {
+  if (!overwrite && fs.existsSync(outPath)) {
     const existing = fs.readFileSync(outPath, 'utf8').trim();
     if (existing) {
       for (const line of existing.split('\n')) {

@@ -67,12 +67,38 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: ML train + evaluate (dependency model)
+      - name: Install Python ML dependencies
+        run: python3 -m pip install -r ml-model/requirements.txt
+
+      - name: Split JSONL for held-out ML evaluation
         run: |
-          python3 -m pip install -r ml-model/requirements.txt
+          python3 ml-model/split_train_val.py \
+            --input ml-model/train.jsonl \
+            --train-out /tmp/ml-dep-train.jsonl \
+            --val-out /tmp/ml-dep-val.jsonl \
+            --val-fraction 0.2 --seed 42
+          python3 ml-model/split_train_val.py \
+            --input ml-model/train-behavioral.jsonl \
+            --train-out /tmp/ml-beh-train.jsonl \
+            --val-out /tmp/ml-beh-val.jsonl \
+            --val-fraction 0.2 --seed 42
+
+      - name: ML train + evaluate (dependency + behavioral, held-out validation)
+        run: |
           cd ml-model
-          python3 train.py --input train.jsonl --output /tmp/nullvoid-ci-model.pkl --balance --calibrate
-          python3 evaluate.py --input train.jsonl --model /tmp/nullvoid-ci-model.pkl --keys /tmp/feature_keys.pkl --json
+          python3 train.py --input /tmp/ml-dep-train.jsonl --output /tmp/nullvoid-ci-model.pkl --balance --calibrate
+          python3 evaluate.py --input /tmp/ml-dep-val.jsonl --model /tmp/nullvoid-ci-model.pkl --keys /tmp/feature_keys.pkl --json --eval-set validation > /tmp/ml-dep-metrics.json
+          python3 train-behavioral.py --input /tmp/ml-beh-train.jsonl --output-dir /tmp/ml-beh-ci --balance --calibrate
+          python3 evaluate.py --behavioral --input /tmp/ml-beh-val.jsonl --model /tmp/ml-beh-ci/behavioral-model.pkl --keys /tmp/ml-beh-ci/behavioral-feature_keys.pkl --json --eval-set validation > /tmp/ml-beh-metrics.json
+          cd ..
+          python3 -c "import json, pathlib; p=pathlib.Path('ml-eval-report.json'); p.write_text(json.dumps({'dependency': json.load(open('/tmp/ml-dep-metrics.json')), 'behavioral': json.load(open('/tmp/ml-beh-metrics.json'))}, indent=2))"
+
+      - name: Upload ML eval report
+        uses: actions/upload-artifact@v4
+        with:
+          name: ml-eval-report
+          path: ml-eval-report.json
+          retention-days: 30
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
