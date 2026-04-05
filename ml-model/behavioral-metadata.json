@@ -14,16 +14,29 @@
     "dependencyCount",
     "devDependencyCount"
   ],
-  "training_date": "2026-04-05T01:14:30.319462Z",
-  "dataset_size": 142,
+  "feature_schema_version": 1,
+  "training_date": "2026-04-05T01:33:38.842061Z",
+  "dataset_size": 176,
   "class_distribution": {
-    "good": 8,
+    "good": 35,
     "bad": 105
   },
+  "imbalance_strategy": "oversample",
+  "xgboost_params": {
+    "n_estimators": 100,
+    "max_depth": 6,
+    "learning_rate": 0.1,
+    "subsample": 0.9,
+    "colsample_bytree": 0.9,
+    "min_child_weight": 1,
+    "random_state": 42,
+    "eval_metric": "logloss"
+  },
+  "scale_pos_weight": 1.0,
   "metrics": {
-    "accuracy": 0.7241,
-    "precision": 0.9524,
-    "recall": 0.7407,
-    "roc_auc": 0.7037
+    "accuracy": 0.5278,
+    "precision": 0.7273,
+    "recall": 0.5926,
+    "roc_auc": 0.5309
   }
 }
