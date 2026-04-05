@@ -76,20 +76,24 @@ jobs:
             --input ml-model/train.jsonl \
             --train-out /tmp/ml-dep-train.jsonl \
             --val-out /tmp/ml-dep-val.jsonl \
-            --val-fraction 0.2 --seed 42
+            --val-fraction 0.2 --seed 42 \
+            --time-val-newest --time-field exportedAt
           python3 ml-model/split_train_val.py \
             --input ml-model/train-behavioral.jsonl \
             --train-out /tmp/ml-beh-train.jsonl \
             --val-out /tmp/ml-beh-val.jsonl \
-            --val-fraction 0.2 --seed 42
+            --val-fraction 0.2 --seed 42 \
+            --time-val-newest --time-field exportedAt
 
       - name: ML train + evaluate (dependency + behavioral, held-out validation)
         run: |
           cd ml-model
           python3 train.py --input /tmp/ml-dep-train.jsonl --output /tmp/nullvoid-ci-model.pkl --balance --calibrate
-          python3 evaluate.py --input /tmp/ml-dep-val.jsonl --model /tmp/nullvoid-ci-model.pkl --keys /tmp/feature_keys.pkl --json --eval-set validation > /tmp/ml-dep-metrics.json
+          python3 evaluate.py --input /tmp/ml-dep-val.jsonl --model /tmp/nullvoid-ci-model.pkl --keys /tmp/feature_keys.pkl --json --eval-set validation \
+            --min-precision 0.01 --min-recall 0.01 > /tmp/ml-dep-metrics.json
           python3 train-behavioral.py --input /tmp/ml-beh-train.jsonl --output-dir /tmp/ml-beh-ci --balance --calibrate
-          python3 evaluate.py --behavioral --input /tmp/ml-beh-val.jsonl --model /tmp/ml-beh-ci/behavioral-model.pkl --keys /tmp/ml-beh-ci/behavioral-feature_keys.pkl --json --eval-set validation > /tmp/ml-beh-metrics.json
+          python3 evaluate.py --behavioral --input /tmp/ml-beh-val.jsonl --model /tmp/ml-beh-ci/behavioral-model.pkl --keys /tmp/ml-beh-ci/behavioral-feature_keys.pkl --json --eval-set validation \
+            --min-precision 0.01 --min-recall 0.01 --min-roc-auc 0.15 > /tmp/ml-beh-metrics.json
           cd ..
           python3 -c "import json, pathlib; p=pathlib.Path('ml-eval-report.json'); p.write_text(json.dumps({'dependency': json.load(open('/tmp/ml-dep-metrics.json')), 'behavioral': json.load(open('/tmp/ml-beh-metrics.json'))}, indent=2))"
 

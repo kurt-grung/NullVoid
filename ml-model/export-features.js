@@ -11,46 +11,19 @@
  * Known-good defaults: lodash, react, express, axios, chalk
  * Known-bad: pass via --bad or use --from-ghsa (fetches npm advisories from GitHub)
  *
- * Feature keys align with ts/src/lib/mlDetection.ts FeatureVector and train.py FEATURE_KEYS.
+ * Feature keys: ml-model/feature-keys.json (dependency); keep in sync with mlFeatureKeys.ts.
  */
 
-const KNOWN_GOOD = [
-  'lodash',
-  'react',
-  'express',
-  'axios',
-  'chalk',
-  'typescript',
-  'jest',
-  'webpack',
-  'vue',
-  'next',
-];
-
-/** All feature keys expected by train.py / serve.py */
-const FEATURE_KEYS = [
-  'daysDifference',
-  'recentCommitCount',
-  'scopePrivate',
-  'suspiciousPatternsCount',
-  'timelineAnomaly',
-  'registryIsNpm',
-  'authorCount',
-  'totalCommitCount',
-  'dominantAuthorShare',
-  'commitPatternAnomaly',
-  'branchCount',
-  'recentCommitCount90d',
-  'messageAnomalyScore',
-  'diffAnomalyScore',
-  'nlpSecurityScore',
-  'nlpSuspiciousCount',
-  'crossPackageAnomaly',
-  'behavioralAnomaly',
-  'reviewSecurityScore',
-  'popularityScore',
-  'trustScore',
-];
+const fsSync = require('fs');
+const pathSync = require('path');
+const featureManifest = JSON.parse(
+  fsSync.readFileSync(pathSync.join(__dirname, 'feature-keys.json'), 'utf8')
+);
+const trainingDefaults = JSON.parse(
+  fsSync.readFileSync(pathSync.join(__dirname, 'training-defaults.json'), 'utf8')
+);
+const KNOWN_GOOD = trainingDefaults.knownGoodPackages;
+const FEATURE_KEYS = featureManifest.dependency;
 
 async function fetchNpmMetadata(packageName) {
   try {
@@ -118,7 +91,7 @@ function buildFullFeatures(pkgName, data, _label) {
     trustScore: 0.5,
   };
 
-  return { features, label: _label };
+  return { features, label: _label, exportedAt: new Date().toISOString() };
 }
 
 /**

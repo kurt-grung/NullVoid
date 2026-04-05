@@ -6,6 +6,7 @@ Reads JSONL from --input, outputs behavioral-model.pkl, behavioral-feature_keys.
 Usage:
   python train-behavioral.py --input train-behavioral.jsonl
   python train-behavioral.py --input train-behavioral.jsonl --balance --calibrate
+  python train-behavioral.py --input train-behavioral.jsonl --balance-class-weight --calibrate
 """
 
 import argparse
@@ -31,20 +32,21 @@ except ImportError as e:
     print("Install: pip install scikit-learn xgboost joblib", file=sys.stderr)
     raise e
 
-BEHAVIORAL_FEATURE_KEYS = [
-    "scriptCount",
-    "scriptTotalLength",
-    "hasPostinstall",
-    "postinstallLength",
-    "preinstallLength",
-    "postuninstallLength",
-    "networkScriptCount",
-    "evalUsageCount",
-    "childProcessCount",
-    "fileSystemAccessCount",
-    "dependencyCount",
-    "devDependencyCount",
-]
+_MANIFEST_PATH = Path(__file__).parent / "feature-keys.json"
+_manifest = json.loads(_MANIFEST_PATH.read_text(encoding="utf-8"))
+BEHAVIORAL_FEATURE_KEYS: List[str] = _manifest["behavioral"]
+FEATURE_SCHEMA_VERSION = int(_manifest.get("version", 1))
+
+XGBOOST_PARAMS = {
+    "n_estimators": 100,
+    "max_depth": 6,
+    "learning_rate": 0.1,
+    "subsample": 0.9,
+    "colsample_bytree": 0.9,
+    "min_child_weight": 1,
+    "random_state": 42,
+    "eval_metric": "logloss",
+}
 
 
 def load_jsonl(path: Optional[str]) -> list:
@@ -73,10 +75,19 @@ def main():
     ap.add_argument("--input", "-i", help="Input JSONL file (train-behavioral.jsonl)")
     ap.add_argument("--output-dir", "-o", default=".", help="Output directory")
     ap.add_argument("--test-size", type=float, default=0.2, help="Test set fraction")
-    ap.add_argument("--balance", action="store_true", help="Balance classes")
+    ap.add_argument("--balance", action="store_true", help="Balance classes (oversample minority)")
+    ap.add_argument(
+        "--balance-class-weight",
+        action="store_true",
+        help="Balance via XGBoost scale_pos_weight only (no oversampling). Mutually exclusive with --balance.",
+    )
     ap.add_argument("--calibrate", action="store_true", default=True, help="Apply Platt scaling")
     ap.add_argument("--no-calibrate", action="store_true", help="Disable calibration")
     args = ap.parse_args()
+
+    if args.balance and args.balance_class_weight:
+        print("Use only one of --balance or --balance-class-weight.", file=sys.stderr)
+        sys.exit(1)
 
     do_calibrate = args.calibrate and not args.no_calibrate
 
@@ -113,9 +124,11 @@ def main():
     n_neg = sum(1 for v in y_train if v == 0)
     print(f"Class distribution: {n_neg} good, {n_pos} bad")
 
+    imbalance_strategy = "none"
     if args.balance and n_pos > 0 and n_neg > 0 and n_pos != n_neg:
         from sklearn.utils import resample
 
+        imbalance_strategy = "oversample"
         X_arr = [list(x) for x in X_train]
         y_arr = list(y_train)
         pos_idx = [i for i, v in enumerate(y_arr) if v == 1]
@@ -135,16 +148,18 @@ def main():
         print(
             f"After balancing: {sum(1 for v in y_train if v == 0)} good, {sum(1 for v in y_train if v == 1)} bad"
         )
+    elif args.balance_class_weight:
+        imbalance_strategy = "scale_pos_weight"
 
-    scale_pos_weight = (n_neg / n_pos) if (n_pos > 0 and n_neg > 0 and args.balance) else 1.0
-    base_model = xgb.XGBClassifier(
-        n_estimators=100,
-        max_depth=6,
-        learning_rate=0.1,
-        random_state=42,
-        scale_pos_weight=scale_pos_weight,
-        eval_metric="logloss",
-    )
+    n_pos_tr = sum(1 for v in y_train if v == 1)
+    n_neg_tr = sum(1 for v in y_train if v == 0)
+    if (args.balance or args.balance_class_weight) and n_pos_tr > 0 and n_neg_tr > 0:
+        scale_pos_weight = float(n_neg_tr) / float(n_pos_tr)
+    else:
+        scale_pos_weight = 1.0
+
+    xgb_kw = {**XGBOOST_PARAMS, "scale_pos_weight": scale_pos_weight}
+    base_model = xgb.XGBClassifier(**xgb_kw)
 
     if do_calibrate:
         model = CalibratedClassifierCV(base_model, method="sigmoid", cv=3)
@@ -188,9 +203,13 @@ def main():
     metadata = {
         "model_type": "xgboost_behavioral" + ("_calibrated" if do_calibrate else ""),
         "feature_keys": BEHAVIORAL_FEATURE_KEYS,
+        "feature_schema_version": FEATURE_SCHEMA_VERSION,
         "training_date": datetime.utcnow().isoformat() + "Z",
         "dataset_size": len(rows),
         "class_distribution": {"good": n_neg, "bad": n_pos},
+        "imbalance_strategy": imbalance_strategy,
+        "xgboost_params": {k: v for k, v in xgb_kw.items() if k != "scale_pos_weight"},
+        "scale_pos_weight": round(scale_pos_weight, 6),
         "metrics": metrics,
     }
     with open(out_dir / "behavioral-metadata.json", "w") as f:

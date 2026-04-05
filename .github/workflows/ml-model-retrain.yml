@@ -44,7 +44,6 @@ jobs:
         run: |
           node ml-model/export-features.js \
             --from-ghsa --limit 200 \
-            --good lodash,react,express,axios,chalk,typescript,jest,webpack,vue,next \
             --out ml-model/train.jsonl
 
       - name: Deduplicate training data
@@ -65,7 +64,6 @@ jobs:
           node ml-model/export-behavioral-features.js \
             --overwrite \
             --from-ghsa --limit 200 \
-            --good lodash,react,express,axios,chalk,typescript,jest,webpack,vue,next \
             --out ml-model/train-behavioral.jsonl
 
       - name: Deduplicate behavioral training data
