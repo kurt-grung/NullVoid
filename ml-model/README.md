@@ -98,6 +98,8 @@ This mirrors the dependency pipeline: **export → dedup → train**. The weekly
 
 ## Export Features
 
+Default export uses **npm registry metadata** plus the same **`buildFeatureVector`** path as the scanner when `ts/dist/lib` or `js/lib` is available (run `npm run build` from the repo root if `ts/dist` is missing). Rows include **`exportedAt`** (ISO-8601) for time-based splits.
+
 ```bash
 # Known-good packages (label 0)
 node export-features.js --good lodash,react,express --out train.jsonl
@@ -105,12 +107,34 @@ node export-features.js --good lodash,react,express --out train.jsonl
 # Known-bad packages (label 1)
 node export-features.js --bad package1,package2 --out train.jsonl
 
+# Extra label lists: one package per line, # comments allowed
+node export-features.js --good-file ./curated-good.txt --bad-file ./curated-bad.txt --out train.jsonl
+
 # Fetch npm packages from GitHub Security Advisories (label 1)
 node export-features.js --from-ghsa --limit 200 --out train.jsonl
 
 # Use GITHUB_TOKEN for higher API rate limits
 GITHUB_TOKEN=ghp_xxx node export-features.js --from-ghsa --limit 500 --out train.jsonl
 ```
+
+### Git-enriched export (`--with-git`)
+
+To match **commit / timeline** features from real scans, clone packages locally and point the exporter at those directories. Without a path, `--with-git` only warns and rows stay npm-only.
+
+- **`--package-root <dir>`** — each package resolves to `<dir>/<scope>/<name>` for scoped names (e.g. `lodash` → `<dir>/lodash`, `@types/node` → `<dir>/@types/node`).
+- **`--package-map <file.json>`** — object map `{ "package-name": "/absolute/or/relative/path" }` (overrides `--package-root` when both apply).
+
+```bash
+npm run build   # recommended so export uses ts/dist (same code as the scanner)
+
+node export-features.js --good lodash,react --with-git --package-root ~/clones --out train.jsonl
+
+# Example map
+echo '{"lodash":"/path/to/lodash-clone","@scope/mypkg":"/path/to/mypkg"}' > paths.json
+node export-features.js --good lodash,@scope/mypkg --with-git --package-map paths.json --out train.jsonl
+```
+
+**More label sources:** combine `--bad-file` with community-maintained malicious package lists (e.g. OpenSSF malicious-packages CSV converted to one npm name per line). Curate and version those files; dedup with `dedup-train.js` before training.
 
 ## Deduplication
 
@@ -164,6 +188,14 @@ python3 evaluate.py --input /tmp/ml-val.jsonl --model /tmp/m.pkl --keys /tmp/fea
 On every push to `main`, **Tests** uploads **`ml-eval-report.json`** (dependency + behavioral metrics on the held-out slice) and fails the job if held-out precision/recall (and behavioral ROC-AUC when defined) fall below conservative floors.
 
 **Drift / regression tracking:** Download the `ml-eval-report` artifact from workflow runs and compare `roc_auc`, `precision`, and `recall` to a baseline commit when investigating dependency or data changes.
+
+**One-shot held-out pipeline (from repo root):** writes splits under `ml-model/.eval-cache/` (gitignored), trains only on the train split, then prints validation JSON:
+
+```bash
+npm run ml:heldout-dependency
+```
+
+This runs `split_train_val.py` with **`--time-val-newest --time-field exportedAt`** when every row has `exportedAt`; otherwise it falls back to stratified splitting (see stderr JSON from the splitter). Use `ml:split-train-val`, `ml:train-heldout-cache`, and `ml:eval-heldout-cache` separately if you want to inspect intermediate files.
 
 ## Training Options
 
@@ -241,6 +273,16 @@ python serve.py --model-dir models/v1 --port 8000
 - **`feature-keys.json`** — canonical ordered `dependency` and `behavioral` feature names for `train.py`, `train-behavioral.py`, `serve.py`, and `ts/src/lib/mlFeatureKeys.ts`. Bump `version` when you add or reorder columns.
 - **`training-defaults.json`** — `knownGoodPackages` used by `export-features.js` and `export-behavioral-features.js` when you omit `--good`, and by the weekly retrain workflow (no inline list).
 
+### Extending the dependency feature schema
+
+When you add or reorder columns (e.g. new NLP or code-quality signals in `buildFeatureVector`):
+
+1. Update **`feature-keys.json`**: append or reorder keys and increment **`version`**.
+2. **`ts/src/lib/mlFeatureKeys.ts`** imports that manifest at compile time—no manual list to edit unless you change how it is loaded.
+3. Update **`export-features.js`** and **`ts/src/lib/mlDetection.ts`** (`buildFeatureVector`) so training rows and the scanner expose every key.
+4. Run **`npm run test:ts`** and ensure **`ts/test/unit/ml-feature-parity.test.ts`** passes.
+5. Retrain and bump committed **`model.pkl`** / metadata when you ship the new schema.
+
 ## Feature Schema
 
 Features match `buildFeatureVector` output from `ts/src/lib/mlDetection.ts`:
@@ -258,10 +300,10 @@ Features match `buildFeatureVector` output from `ts/src/lib/mlDetection.ts`:
 
 ## Optional: SHAP
 
-For per-sample SHAP explanations on `POST /explain`, install:
+For TreeExplainer-based per-sample explanations on `POST /explain`, install optional deps on the **same environment that runs `serve.py`**:
 
 ```bash
-pip install shap
+pip install -r ml-model/requirements-optional.txt
 ```
 
-SHAP adds ~50MB; the server falls back to feature importance when SHAP is not installed.
+SHAP adds a large dependency; the server still starts without it and uses feature-importance fallback. **`GET /health`** includes **`"shap": true|false`** so clients (e.g. the dashboard via `ML_SERVICE_URL`) can show whether the deployed scorer has SHAP enabled.
