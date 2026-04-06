@@ -1,0 +1,4 @@
+# Optional scorer extras (not required for training or basic /score).
+# Install on the host that runs serve.py when you want TreeExplainer-based POST /explain:
+#   pip install -r ml-model/requirements-optional.txt
+shap>=0.43,<0.50

@@ -15,6 +15,9 @@ Optional quality gates (exit 1 if unmet, only when the metric is defined):
   --min-roc-auc 0.5
   --min-precision 0.0
   --min-recall 0.0
+When the eval set has no label-1 (bad) rows, --min-precision and --min-recall are skipped
+(precision/recall for detecting bad are degenerate), and JSON output may include
+precision_recall_gates_skipped: true.
 
 Usage:
   python evaluate.py --input train.jsonl --model model.pkl
@@ -148,6 +151,10 @@ def main() -> None:
 
     X = [extract_features(r, feature_keys) for r in rows]
     y = [int(r.get("label", 0)) for r in rows]
+    # Precision/recall gates target detection of label 1 (bad). If the eval slice has no bad
+    # rows (e.g. time-based split put only good packages in validation), those metrics are
+    # degenerate and should not fail CI.
+    pr_gates_meaningful = 1 in y
 
     y_pred = model.predict(X)
     y_proba: Optional[Any] = None
@@ -183,6 +190,10 @@ def main() -> None:
         metrics["roc_auc"] = round(roc, 4)
     if brier is not None:
         metrics["brier"] = round(brier, 4)
+    if args.json and not pr_gates_meaningful and (
+        args.min_precision is not None or args.min_recall is not None
+    ):
+        metrics["precision_recall_gates_skipped"] = True
 
     failed_gate = False
     if args.min_roc_auc is not None and roc is not None and roc < args.min_roc_auc:
@@ -191,13 +202,20 @@ def main() -> None:
             file=sys.stderr,
         )
         failed_gate = True
-    if args.min_precision is not None and prec < args.min_precision:
+    if not pr_gates_meaningful and (
+        args.min_precision is not None or args.min_recall is not None
+    ):
+        print(
+            "Skipping --min-precision/--min-recall: eval set has no positive (bad) labels.",
+            file=sys.stderr,
+        )
+    if args.min_precision is not None and pr_gates_meaningful and prec < args.min_precision:
         print(
             f"Gate failed: precision {prec:.4f} < --min-precision {args.min_precision}",
             file=sys.stderr,
         )
         failed_gate = True
-    if args.min_recall is not None and rec < args.min_recall:
+    if args.min_recall is not None and pr_gates_meaningful and rec < args.min_recall:
         print(
             f"Gate failed: recall {rec:.4f} < --min-recall {args.min_recall}",
             file=sys.stderr,
