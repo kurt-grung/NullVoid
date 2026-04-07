@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { getScans, getScan, isApiUnavailableError, type ScanSummary, type ScanDetail, type Threat } from '../api'
 import { useOrgTeam } from '../context/OrgTeamContext'
 
@@ -18,8 +18,17 @@ interface ThreatResult {
 
 export default function Search() {
   const { organizationId, teamId } = useOrgTeam()
-  const [query, setQuery] = useState('')
-  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const [searchParams] = useSearchParams()
+  const [query, setQuery] = useState(() => {
+    const t = searchParams.get('type')
+    const p = searchParams.get('package')
+    return (t ?? p ?? '').trim()
+  })
+  const [debouncedQuery, setDebouncedQuery] = useState(() => {
+    const t = searchParams.get('type')
+    const p = searchParams.get('package')
+    return (t ?? p ?? '').trim()
+  })
   const [scans, setScans] = useState<ScanSummary[]>([])
   const [results, setResults] = useState<Array<SearchResult | ThreatResult>>([])
   const [loading, setLoading] = useState(true)
@@ -36,6 +45,13 @@ export default function Search() {
       })
       .finally(() => setLoading(false))
   }, [organizationId, teamId])
+
+  useEffect(() => {
+    const t = searchParams.get('type')
+    const p = searchParams.get('package')
+    if (t) setQuery(t)
+    else if (p) setQuery(p)
+  }, [searchParams])
 
   useEffect(() => {
     const id = setTimeout(() => setDebouncedQuery(query.trim()), 300)
