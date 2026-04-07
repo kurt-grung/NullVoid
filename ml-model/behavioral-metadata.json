@@ -15,11 +15,11 @@
     "devDependencyCount"
   ],
   "feature_schema_version": 1,
-  "training_date": "2026-04-06T22:11:02.421628Z",
-  "dataset_size": 180,
+  "training_date": "2026-04-07T07:52:59.180437Z",
+  "dataset_size": 174,
   "class_distribution": {
     "good": 35,
-    "bad": 109
+    "bad": 104
   },
   "imbalance_strategy": "oversample",
   "xgboost_params": {
@@ -34,9 +34,9 @@
   },
   "scale_pos_weight": 1.0,
   "metrics": {
-    "accuracy": 0.6111,
-    "precision": 0.7241,
-    "recall": 0.7778,
-    "roc_auc": 0.6132
+    "accuracy": 0.5714,
+    "precision": 0.72,
+    "recall": 0.6923,
+    "roc_auc": 0.5171
   }
 }
