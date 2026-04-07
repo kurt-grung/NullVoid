@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { getScans, getScan, isApiUnavailableError, type ScanSummary, type ScanDetail } from '../api'
 import { useOrgTeam } from '../context/OrgTeamContext'
 
@@ -123,8 +124,14 @@ export default function Executive() {
           <h3>Threats by Type</h3>
           <ul className="list-none p-0 m-0 mt-3">
             {topThreatTypes.map(([type, count]) => (
-              <li key={type} className="list-item-minimal">
-                <code>{type}</code> — {count} threat{count !== 1 ? 's' : ''}
+              <li key={type} className="list-item-minimal p-0">
+                <Link
+                  to={`/search?${new URLSearchParams({ type }).toString()}`}
+                  className="block px-5 py-4 no-underline text-black dark:text-white hover:bg-surface-muted dark:hover:bg-dark-muted transition-colors"
+                  aria-label={`Search threats of type ${type}`}
+                >
+                  <code>{type}</code> — {count} threat{count !== 1 ? 's' : ''}
+                </Link>
               </li>
             ))}
           </ul>
@@ -138,8 +145,14 @@ export default function Executive() {
         ) : (
           <ul className="list-none p-0 m-0 mt-3">
             {topPackages.map(([pkg, count]) => (
-              <li key={pkg} className="list-item-minimal">
-                <code>{pkg}</code> — {count} threat{count !== 1 ? 's' : ''}
+              <li key={pkg} className="list-item-minimal p-0">
+                <Link
+                  to={`/search?${new URLSearchParams({ package: pkg }).toString()}`}
+                  className="block px-5 py-4 no-underline text-black dark:text-white hover:bg-surface-muted dark:hover:bg-dark-muted transition-colors"
+                  aria-label={`Search threats for package ${pkg}`}
+                >
+                  <code>{pkg}</code> — {count} threat{count !== 1 ? 's' : ''}
+                </Link>
               </li>
             ))}
           </ul>
