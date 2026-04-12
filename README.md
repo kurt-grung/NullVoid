@@ -368,6 +368,22 @@ nullvoid serve --port 8000
 # Optional: Behavioral model (package script analysis)
 nullvoid export-behavioral --out train-behavioral.jsonl
 nullvoid train-behavioral --input train-behavioral.jsonl
+
+# Evaluate current models
+nullvoid eval --input train.jsonl --model model.pkl --json
+nullvoid eval-behavioral --input train-behavioral.jsonl --model behavioral-model.pkl --json
+
+# Deduplicate rows before training (optional)
+nullvoid dedup ml-model/train.jsonl ml-model/train.jsonl
+
+# Held-out validation pipeline (split -> train -> eval)
+nullvoid heldout-dependency
+
+# Check local ML artifact and server status
+nullvoid ml-status --url http://localhost:8000
+
+# Full retrain shortcut (add --with-behavioral to include behavioral model)
+nullvoid retrain --with-behavioral
 # serve.py loads both models when --behavioral-model-dir is set
 ```
 
@@ -384,6 +400,15 @@ Legacy npm aliases remain available: `npm run ml:export`, `npm run ml:train`, an
 | `nullvoid scan <path> --export-training-good <file>` | Append clean packages (label 0) for balanced training |
 | `nullvoid train --input train.jsonl --output model.pkl` | Train XGBoost model from `train.jsonl` → `model.pkl` |
 | `nullvoid train-behavioral --input train-behavioral.jsonl` | Train behavioral model from `train-behavioral.jsonl` → `behavioral-model.pkl` |
+| `nullvoid eval --input train.jsonl --model model.pkl --json` | Evaluate dependency model and print metrics |
+| `nullvoid eval-behavioral --input train-behavioral.jsonl --model behavioral-model.pkl --json` | Evaluate behavioral model and print metrics |
+| `nullvoid dedup [input] [output]` | Deduplicate training JSONL rows |
+| `nullvoid split-train-val ...` | Split `train.jsonl` into held-out train/validation files |
+| `nullvoid train-heldout-cache ...` | Train model from held-out cache split |
+| `nullvoid eval-heldout-cache ...` | Evaluate held-out validation split |
+| `nullvoid heldout-dependency` | Run split + train + eval held-out dependency pipeline |
+| `nullvoid ml-status --url http://localhost:8000` | Show local model artifact presence and server health |
+| `nullvoid retrain [--with-behavioral]` | Run export + train pipeline shortcut |
 | `nullvoid serve --port 8000` | Start ML server on port 8000 (`/score`, `/behavioral-score`, `/batch-score`, `/explain`) |
 
 ### Alternative (no global nullvoid)

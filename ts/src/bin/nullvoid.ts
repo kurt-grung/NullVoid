@@ -109,6 +109,10 @@ async function runWorkspaceNpmScript(scriptName: string): Promise<void> {
   await runCommand('npm', ['run', scriptName], REPO_ROOT);
 }
 
+async function runMlEvaluate(args: string[]): Promise<void> {
+  await runMlPython('evaluate.py', args);
+}
+
 program
   .command('export')
   .description('Export ML features to ml-model/train.jsonl')
@@ -206,6 +210,340 @@ program
   .action(async (options: { port?: string }) => {
     try {
       await runMlPython('serve.py', ['--port', options.port ?? '8000']);
+      process.exit(0);
+    } catch (error) {
+      console.error(colors.red('Error:'), (error as Error).message);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('eval')
+  .description('Evaluate dependency model metrics')
+  .option('--input <file>', 'Evaluation dataset JSONL input file', 'train.jsonl')
+  .option('--model <file>', 'Model file path', 'model.pkl')
+  .option('--keys <file>', 'Feature keys file path')
+  .option('--json', 'Output evaluation report as JSON')
+  .option('--eval-set <name>', 'Evaluation set name')
+  .action(
+    async (options: {
+      input?: string;
+      model?: string;
+      keys?: string;
+      json?: boolean;
+      evalSet?: string;
+    }) => {
+      try {
+        const args: string[] = [
+          '--input',
+          options.input ?? 'train.jsonl',
+          '--model',
+          options.model ?? 'model.pkl',
+        ];
+        if (options.keys) args.push('--keys', options.keys);
+        if (options.json) args.push('--json');
+        if (options.evalSet) args.push('--eval-set', options.evalSet);
+        await runMlEvaluate(args);
+        process.exit(0);
+      } catch (error) {
+        console.error(colors.red('Error:'), (error as Error).message);
+        process.exit(1);
+      }
+    }
+  );
+
+program
+  .command('eval-behavioral')
+  .description('Evaluate behavioral model metrics')
+  .option(
+    '--input <file>',
+    'Behavioral evaluation dataset JSONL input file',
+    'train-behavioral.jsonl'
+  )
+  .option('--model <file>', 'Behavioral model file path', 'behavioral-model.pkl')
+  .option('--json', 'Output evaluation report as JSON')
+  .option('--eval-set <name>', 'Evaluation set name')
+  .action(async (options: { input?: string; model?: string; json?: boolean; evalSet?: string }) => {
+    try {
+      const args: string[] = [
+        '--behavioral',
+        '--input',
+        options.input ?? 'train-behavioral.jsonl',
+        '--model',
+        options.model ?? 'behavioral-model.pkl',
+      ];
+      if (options.json) args.push('--json');
+      if (options.evalSet) args.push('--eval-set', options.evalSet);
+      await runMlEvaluate(args);
+      process.exit(0);
+    } catch (error) {
+      console.error(colors.red('Error:'), (error as Error).message);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('dedup [input] [output]')
+  .description('Deduplicate ML training rows')
+  .action(async (input: string | undefined, output: string | undefined) => {
+    try {
+      const args: string[] = [];
+      if (input) args.push(input);
+      if (output) args.push(output);
+      await runMlNode('dedup-train.js', args);
+      process.exit(0);
+    } catch (error) {
+      console.error(colors.red('Error:'), (error as Error).message);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('split-train-val')
+  .description('Split train.jsonl into train/validation sets')
+  .option('-i, --input <file>', 'Input JSONL file', 'ml-model/train.jsonl')
+  .option('--train-out <file>', 'Output JSONL for train split', 'ml-model/.eval-cache/train.jsonl')
+  .option('--val-out <file>', 'Output JSONL for validation split', 'ml-model/.eval-cache/val.jsonl')
+  .option('--val-fraction <number>', 'Validation fraction', '0.2')
+  .option('--seed <number>', 'Random seed', '42')
+  .option('--time-val-newest', 'Use newest rows as validation set')
+  .option('--time-field <field>', 'Timestamp field for time-based split', 'exportedAt')
+  .action(
+    async (options: {
+      input?: string;
+      trainOut?: string;
+      valOut?: string;
+      valFraction?: string;
+      seed?: string;
+      timeValNewest?: boolean;
+      timeField?: string;
+    }) => {
+      try {
+        const args: string[] = [
+          'ml-model/split_train_val.py',
+          '-i',
+          options.input ?? 'ml-model/train.jsonl',
+          '--train-out',
+          options.trainOut ?? 'ml-model/.eval-cache/train.jsonl',
+          '--val-out',
+          options.valOut ?? 'ml-model/.eval-cache/val.jsonl',
+          '--val-fraction',
+          options.valFraction ?? '0.2',
+          '--seed',
+          options.seed ?? '42',
+        ];
+        if (options.timeValNewest) args.push('--time-val-newest');
+        if (options.timeField) args.push('--time-field', options.timeField);
+        await runCommand('python3', args, REPO_ROOT);
+        process.exit(0);
+      } catch (error) {
+        console.error(colors.red('Error:'), (error as Error).message);
+        process.exit(1);
+      }
+    }
+  );
+
+program
+  .command('train-heldout-cache')
+  .description('Train dependency model using cached held-out train split')
+  .option('--input <file>', 'Input JSONL train split', 'ml-model/.eval-cache/train.jsonl')
+  .option('--output-dir <dir>', 'Output directory for held-out artifacts', 'ml-model/.eval-cache')
+  .option('--no-balance', 'Disable class balancing')
+  .option('--no-calibrate', 'Disable probability calibration')
+  .action(
+    async (options: {
+      input?: string;
+      outputDir?: string;
+      balance?: boolean;
+      calibrate?: boolean;
+    }) => {
+      try {
+        const args: string[] = [
+          'ml-model/train.py',
+          '--input',
+          options.input ?? 'ml-model/.eval-cache/train.jsonl',
+          '--output-dir',
+          options.outputDir ?? 'ml-model/.eval-cache',
+        ];
+        if (options.balance !== false) args.push('--balance');
+        if (options.calibrate !== false) args.push('--calibrate');
+        await runCommand('python3', args, REPO_ROOT);
+        process.exit(0);
+      } catch (error) {
+        console.error(colors.red('Error:'), (error as Error).message);
+        process.exit(1);
+      }
+    }
+  );
+
+program
+  .command('eval-heldout-cache')
+  .description('Evaluate dependency model using cached held-out validation split')
+  .option('--input <file>', 'Input JSONL validation split', 'ml-model/.eval-cache/val.jsonl')
+  .option('--model <file>', 'Held-out model file', 'ml-model/.eval-cache/model.pkl')
+  .option('--keys <file>', 'Held-out feature keys file', 'ml-model/.eval-cache/feature_keys.pkl')
+  .option('--json', 'Output evaluation report as JSON')
+  .option('--eval-set <name>', 'Evaluation set name', 'validation')
+  .action(
+    async (options: {
+      input?: string;
+      model?: string;
+      keys?: string;
+      json?: boolean;
+      evalSet?: string;
+    }) => {
+      try {
+        const args: string[] = [
+          'ml-model/evaluate.py',
+          '--input',
+          options.input ?? 'ml-model/.eval-cache/val.jsonl',
+          '--model',
+          options.model ?? 'ml-model/.eval-cache/model.pkl',
+          '--keys',
+          options.keys ?? 'ml-model/.eval-cache/feature_keys.pkl',
+          '--eval-set',
+          options.evalSet ?? 'validation',
+        ];
+        if (options.json) args.push('--json');
+        await runCommand('python3', args, REPO_ROOT);
+        process.exit(0);
+      } catch (error) {
+        console.error(colors.red('Error:'), (error as Error).message);
+        process.exit(1);
+      }
+    }
+  );
+
+program
+  .command('heldout-dependency')
+  .description('Run split, train, and eval for held-out dependency validation')
+  .action(async () => {
+    try {
+      await runCommand(
+        'python3',
+        [
+          'ml-model/split_train_val.py',
+          '-i',
+          'ml-model/train.jsonl',
+          '--train-out',
+          'ml-model/.eval-cache/train.jsonl',
+          '--val-out',
+          'ml-model/.eval-cache/val.jsonl',
+          '--val-fraction',
+          '0.2',
+          '--seed',
+          '42',
+          '--time-val-newest',
+          '--time-field',
+          'exportedAt',
+        ],
+        REPO_ROOT
+      );
+      await runCommand(
+        'python3',
+        [
+          'ml-model/train.py',
+          '--input',
+          'ml-model/.eval-cache/train.jsonl',
+          '--output-dir',
+          'ml-model/.eval-cache',
+          '--balance',
+          '--calibrate',
+        ],
+        REPO_ROOT
+      );
+      await runCommand(
+        'python3',
+        [
+          'ml-model/evaluate.py',
+          '--input',
+          'ml-model/.eval-cache/val.jsonl',
+          '--model',
+          'ml-model/.eval-cache/model.pkl',
+          '--keys',
+          'ml-model/.eval-cache/feature_keys.pkl',
+          '--json',
+          '--eval-set',
+          'validation',
+        ],
+        REPO_ROOT
+      );
+      process.exit(0);
+    } catch (error) {
+      console.error(colors.red('Error:'), (error as Error).message);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('ml-status')
+  .description('Show local ML artifact and server status')
+  .option('--url <url>', 'ML service base URL', 'http://localhost:8000')
+  .action(async (options: { url?: string }) => {
+    try {
+      ensureMlModelDir();
+      const dependencyModel = path.join(ML_MODEL_DIR, 'model.pkl');
+      const behavioralModel = path.join(ML_MODEL_DIR, 'behavioral-model.pkl');
+      const metadata = path.join(ML_MODEL_DIR, 'metadata.json');
+      const behavioralMetadata = path.join(ML_MODEL_DIR, 'behavioral-metadata.json');
+
+      const artifacts = {
+        dependencyModel: fs.existsSync(dependencyModel),
+        behavioralModel: fs.existsSync(behavioralModel),
+        metadata: fs.existsSync(metadata),
+        behavioralMetadata: fs.existsSync(behavioralMetadata),
+      };
+
+      let server = { reachable: false, status: null as number | null };
+      try {
+        const baseUrl = (options.url ?? 'http://localhost:8000').replace(/\/$/, '');
+        const response = await fetch(`${baseUrl}/health`, { signal: AbortSignal.timeout(3000) });
+        server = { reachable: response.ok, status: response.status };
+      } catch {
+        server = { reachable: false, status: null };
+      }
+
+      console.log(
+        JSON.stringify(
+          {
+            artifacts,
+            server,
+          },
+          null,
+          2
+        )
+      );
+      process.exit(0);
+    } catch (error) {
+      console.error(colors.red('Error:'), (error as Error).message);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('retrain')
+  .description('Run local retraining pipeline')
+  .option('--with-behavioral', 'Also retrain behavioral model')
+  .action(async (options: { withBehavioral?: boolean }) => {
+    try {
+      await runMlNode('export-features.js', ['--out', 'train.jsonl']);
+      await runMlPython('train.py', [
+        '--input',
+        'train.jsonl',
+        '--output',
+        'model.pkl',
+        '--balance',
+        '--calibrate',
+      ]);
+      if (options.withBehavioral) {
+        await runMlNode('export-behavioral-features.js', ['--out', 'train-behavioral.jsonl']);
+        await runMlPython('train-behavioral.py', [
+          '--input',
+          'train-behavioral.jsonl',
+          '--balance',
+          '--calibrate',
+        ]);
+      }
       process.exit(0);
     } catch (error) {
       console.error(colors.red('Error:'), (error as Error).message);
