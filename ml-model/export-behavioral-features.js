@@ -8,7 +8,8 @@
  *
  * Feature keys: scriptCount, scriptTotalLength, hasPostinstall, postinstallLength,
  *   preinstallLength, postuninstallLength, networkScriptCount, evalUsageCount,
- *   childProcessCount, fileSystemAccessCount, dependencyCount, devDependencyCount
+ *   childProcessCount, fileSystemAccessCount, base64DecodeCount, obfuscationMarkerCount,
+ *   socketDnsCount, dependencyCount, devDependencyCount
  *
  * Keys: ml-model/feature-keys.json (behavioral).
  */
@@ -26,13 +27,32 @@ const BEHAVIORAL_FEATURE_KEYS = featureManifest.behavioral;
 
 function extractBehavioralCounts(scriptContent) {
   if (!scriptContent || typeof scriptContent !== 'string') {
-    return { networkScriptCount: 0, evalUsageCount: 0, childProcessCount: 0, fileSystemAccessCount: 0 };
+    return {
+      networkScriptCount: 0,
+      evalUsageCount: 0,
+      childProcessCount: 0,
+      fileSystemAccessCount: 0,
+      base64DecodeCount: 0,
+      obfuscationMarkerCount: 0,
+      socketDnsCount: 0,
+    };
   }
   const network = (scriptContent.match(/fetch\s*\(|XMLHttpRequest|axios\.|request\s*\(|https?\.|curl|wget|download/gi) || []).length;
   const eval_ = (scriptContent.match(/eval\s*\(|Function\s*\(|new\s+Function/gi) || []).length;
   const childProcess = (scriptContent.match(/child_process|exec\s*\(|spawn\s*\(|execSync|spawnSync/gi) || []).length;
   const fs = (scriptContent.match(/require\s*\(\s*['"]fs['"]|fs\.|readFile|writeFile|unlink|mkdir|rmdir|chmod/gi) || []).length;
-  return { networkScriptCount: network, evalUsageCount: eval_, childProcessCount: childProcess, fileSystemAccessCount: fs };
+  const base64Decode = (scriptContent.match(/atob\s*\(|Buffer\.from\s*\([^)]*,\s*['"]base64['"]\s*\)/gi) || []).length;
+  const obfuscation = (scriptContent.match(/_0x[a-fA-F0-9]+|\\x[0-9a-fA-F]{2}|\\u[0-9a-fA-F]{4}/g) || []).length;
+  const socketDns = (scriptContent.match(/net\.connect\s*\(|dns\.resolve\s*\(|socket|createConnection\s*\(/gi) || []).length;
+  return {
+    networkScriptCount: network,
+    evalUsageCount: eval_,
+    childProcessCount: childProcess,
+    fileSystemAccessCount: fs,
+    base64DecodeCount: base64Decode,
+    obfuscationMarkerCount: obfuscation,
+    socketDnsCount: socketDns,
+  };
 }
 
 async function fetchNpmMetadata(packageName) {
@@ -73,6 +93,9 @@ function buildBehavioralFeatures(pkgName, data, label) {
     evalUsageCount: counts.evalUsageCount,
     childProcessCount: counts.childProcessCount,
     fileSystemAccessCount: counts.fileSystemAccessCount,
+    base64DecodeCount: counts.base64DecodeCount,
+    obfuscationMarkerCount: counts.obfuscationMarkerCount,
+    socketDnsCount: counts.socketDnsCount,
     dependencyCount: Object.keys(deps).length,
     devDependencyCount: Object.keys(devDeps).length,
   };

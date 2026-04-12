@@ -23,7 +23,45 @@ function formatThreat(t: Threat): string {
   if (t.filePath) block += `- **File:** \`${t.filePath}\`\n`;
   if (t.lineNumber) block += `- **Line:** ${t.lineNumber}\n`;
   if (t.confidence != null) block += `- **Confidence:** ${(t.confidence * 100).toFixed(0)}%\n`;
+  if (Array.isArray((t as { topFactors?: unknown[] }).topFactors)) {
+    const topFactors = ((t as { topFactors?: string[] }).topFactors ?? []).slice(0, 3);
+    if (topFactors.length > 0) {
+      block += `- **Top factors:** ${topFactors.map((f) => `\`${escapeMd(String(f))}\``).join(', ')}\n`;
+    }
+  }
   return block;
+}
+
+function getSoc2Controls(threatType: string): string[] {
+  if (
+    threatType.includes('DATA_EXFILTRATION') ||
+    threatType.includes('PATH_TRAVERSAL') ||
+    threatType.includes('WALLET_')
+  ) {
+    return ['CC6.1'];
+  }
+  if (
+    threatType.includes('CRYPTO_MINING') ||
+    threatType.includes('TIMEOUT') ||
+    threatType.includes('MEMORY') ||
+    threatType.includes('SANDBOX_')
+  ) {
+    return ['CC9.1'];
+  }
+  return ['CC7.1'];
+}
+
+function getIsoControls(threatType: string): string[] {
+  if (threatType.includes('DEPENDENCY_CONFUSION') || threatType.includes('SUPPLY_CHAIN')) {
+    return ['A.15.2.1'];
+  }
+  if (threatType.includes('MALICIOUS') || threatType.includes('OBFUSCATED')) {
+    return ['A.12.2.1'];
+  }
+  if (threatType.includes('DATA_EXFILTRATION') || threatType.includes('PATH_TRAVERSAL')) {
+    return ['A.9.4.1'];
+  }
+  return ['A.14.2.1'];
 }
 
 function getComplianceSection(compliance: 'soc2' | 'iso27001', threats: Threat[]): string {
@@ -32,22 +70,32 @@ function getComplianceSection(compliance: 'soc2' | 'iso27001', threats: Threat[]
     return `
 ## SOC 2 Control Mapping
 
-| Threat Type | CC6.1 (Logical Access) | CC7.1 (Detection) |
-|-------------|------------------------|-------------------|
-${threatTypes.map((tt) => `| ${tt} | ✓ | ✓ |`).join('\n')}
+| Threat Type | CC6.1 (Logical Access) | CC7.1 (Detection) | CC9.1 (Availability) |
+|-------------|------------------------|-------------------|----------------------|
+${threatTypes
+  .map((tt) => {
+    const controls = getSoc2Controls(tt);
+    return `| ${tt} | ${controls.includes('CC6.1') ? '✓' : ''} | ${controls.includes('CC7.1') ? '✓' : ''} | ${controls.includes('CC9.1') ? '✓' : ''} |`;
+  })
+  .join('\n')}
 
-*This scan supports detection of supply chain and code threats relevant to SOC 2 CC6.1 (logical access) and CC7.1 (security event monitoring).*
+*This scan maps threat classes to SOC 2 CC6.1, CC7.1, and CC9.1 controls.*
 `;
   }
   if (compliance === 'iso27001') {
     return `
 ## ISO 27001 Control Mapping
 
-| Threat Type | A.12.6.1 (Technical Vulnerability Management) | A.14.2.1 (Secure Development) |
-|-------------|-----------------------------------------------|------------------------------|
-${threatTypes.map((tt) => `| ${tt} | ✓ | ✓ |`).join('\n')}
+| Threat Type | A.15.2.1 (Supplier Relationships) | A.12.2.1 (Malware Controls) | A.9.4.1 (Access Restriction) | A.14.2.1 (Secure Development) |
+|-------------|------------------------------------|------------------------------|------------------------------|-------------------------------|
+${threatTypes
+  .map((tt) => {
+    const controls = getIsoControls(tt);
+    return `| ${tt} | ${controls.includes('A.15.2.1') ? '✓' : ''} | ${controls.includes('A.12.2.1') ? '✓' : ''} | ${controls.includes('A.9.4.1') ? '✓' : ''} | ${controls.includes('A.14.2.1') ? '✓' : ''} |`;
+  })
+  .join('\n')}
 
-*This scan supports detection of supply chain and code threats relevant to ISO 27001 A.12.6.1 and A.14.2.1.*
+*This scan maps threat classes to ISO 27001 A.15.2.1, A.12.2.1, A.9.4.1, and A.14.2.1 controls.*
 `;
   }
   return '';

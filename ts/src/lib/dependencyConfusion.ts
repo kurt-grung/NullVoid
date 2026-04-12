@@ -25,6 +25,7 @@ import {
   computeBehavioralAnomaly,
   computeCrossPackageAnomaly,
   extractBehavioralCountsFromScripts,
+  type SimilarPackageStats,
 } from './anomalyDetection';
 import { NLP_CONFIG, COMMUNITY_CONFIG, TRUST_CONFIG } from './config';
 
@@ -108,6 +109,57 @@ export interface DependencyConfusionOptions {
 export interface PackageToAnalyze {
   name: string;
   path: string;
+}
+
+function buildPackageFeaturesFromPackageJson(packageJsonPath: string) {
+  if (!fs.existsSync(packageJsonPath)) return null;
+  const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as Record<string, unknown>;
+  const scripts = (pkg['scripts'] as Record<string, string>) || {};
+  const scriptKeys = Object.keys(scripts);
+  const postinstall = scripts['postinstall'] ?? scripts['install'];
+  const preinstall = scripts['preinstall'];
+  const postuninstall = scripts['postuninstall'];
+  const allScriptContent = Object.values(scripts).join('\n');
+  const behavioralCounts = extractBehavioralCountsFromScripts(allScriptContent);
+  const dependencyCount = Object.keys((pkg['dependencies'] as object) || {}).length;
+  const devDependencyCount = Object.keys((pkg['devDependencies'] as object) || {}).length;
+  return {
+    scriptCount: scriptKeys.length,
+    scriptTotalLength: scriptKeys.reduce((sum, k) => sum + (scripts[k] ?? '').length, 0),
+    hasPostinstall: !!postinstall,
+    postinstallLength: postinstall ? postinstall.length : 0,
+    preinstallLength: preinstall ? preinstall.length : 0,
+    postuninstallLength: postuninstall ? postuninstall.length : 0,
+    networkScriptCount: behavioralCounts.networkScriptCount,
+    evalUsageCount: behavioralCounts.evalUsageCount,
+    childProcessCount: behavioralCounts.childProcessCount,
+    fileSystemAccessCount: behavioralCounts.fileSystemAccessCount,
+    base64DecodeCount: behavioralCounts.base64DecodeCount,
+    obfuscationMarkerCount: behavioralCounts.obfuscationMarkerCount,
+    socketDnsCount: behavioralCounts.socketDnsCount,
+    dependencyCount,
+    devDependencyCount,
+    rareDependencyCount: 0,
+  };
+}
+
+function buildSimilarPackageStatsFromFeatures(
+  features: ReturnType<typeof buildPackageFeaturesFromPackageJson> | null
+): SimilarPackageStats | null {
+  if (!features) return null;
+  const entropyProxy =
+    Math.min(
+      1,
+      features.obfuscationMarkerCount * 0.05 +
+        features.base64DecodeCount * 0.05 +
+        features.evalUsageCount * 0.1
+    ) || 0;
+  return {
+    scriptCount: features.scriptCount,
+    scriptTotalLength: features.scriptTotalLength,
+    dependencyCount: features.dependencyCount,
+    entropyScore: entropyProxy,
+  };
 }
 
 /**
@@ -274,7 +326,8 @@ export function analyzePackageName(packageName: string): PackageNameAnalysis {
  */
 export async function detectDependencyConfusionWithPath(
   packageName: string,
-  packagePath: string
+  packagePath: string,
+  similarPackages: SimilarPackageStats[] = []
 ): Promise<Threat[]> {
   const threats: Threat[] = [];
   const mlCfg = (DEPENDENCY_CONFUSION_CONFIG as { ML_DETECTION?: { MULTI_REGISTRY?: boolean } })
@@ -328,6 +381,9 @@ export async function detectDependencyConfusionWithPath(
       evalUsageCount: number;
       childProcessCount: number;
       fileSystemAccessCount: number;
+      base64DecodeCount: number;
+      obfuscationMarkerCount: number;
+      socketDnsCount: number;
       dependencyCount: number;
       devDependencyCount: number;
       rareDependencyCount: number;
@@ -335,30 +391,9 @@ export async function detectDependencyConfusionWithPath(
 
     try {
       const pkgPath = path.join(packagePath, 'package.json');
-      if (fs.existsSync(pkgPath)) {
-        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8')) as Record<string, unknown>;
-        const scripts = (pkg['scripts'] as Record<string, string>) || {};
-        const scriptKeys = Object.keys(scripts);
-        const postinstall = scripts['postinstall'] ?? scripts['install'];
-        const preinstall = scripts['preinstall'];
-        const postuninstall = scripts['postuninstall'];
-        const allScriptContent = Object.values(scripts).join('\n');
-        const behavioralCounts = extractBehavioralCountsFromScripts(allScriptContent);
-        pkgFeatures = {
-          scriptCount: scriptKeys.length,
-          scriptTotalLength: scriptKeys.reduce((sum, k) => sum + (scripts[k] ?? '').length, 0),
-          hasPostinstall: !!postinstall,
-          postinstallLength: postinstall ? postinstall.length : 0,
-          preinstallLength: preinstall ? preinstall.length : 0,
-          postuninstallLength: postuninstall ? postuninstall.length : 0,
-          networkScriptCount: behavioralCounts.networkScriptCount,
-          evalUsageCount: behavioralCounts.evalUsageCount,
-          childProcessCount: behavioralCounts.childProcessCount,
-          fileSystemAccessCount: behavioralCounts.fileSystemAccessCount,
-          dependencyCount: Object.keys((pkg['dependencies'] as object) || {}).length,
-          devDependencyCount: Object.keys((pkg['devDependencies'] as object) || {}).length,
-          rareDependencyCount: 0,
-        };
+      const parsedFeatures = buildPackageFeaturesFromPackageJson(pkgPath);
+      if (parsedFeatures) {
+        pkgFeatures = parsedFeatures;
         const mlCfg = (
           DEPENDENCY_CONFUSION_CONFIG as { ML_DETECTION?: { BEHAVIORAL_MODEL_URL?: string | null } }
         ).ML_DETECTION;
@@ -378,6 +413,9 @@ export async function detectDependencyConfusionWithPath(
                 evalUsageCount: pkgFeatures.evalUsageCount,
                 childProcessCount: pkgFeatures.childProcessCount,
                 fileSystemAccessCount: pkgFeatures.fileSystemAccessCount,
+                base64DecodeCount: pkgFeatures.base64DecodeCount,
+                obfuscationMarkerCount: pkgFeatures.obfuscationMarkerCount,
+                socketDnsCount: pkgFeatures.socketDnsCount,
                 dependencyCount: pkgFeatures.dependencyCount,
                 devDependencyCount: pkgFeatures.devDependencyCount,
               },
@@ -390,7 +428,7 @@ export async function detectDependencyConfusionWithPath(
         } else {
           behavioralAnomaly = computeBehavioralAnomaly(pkgFeatures);
         }
-        crossPackageAnomaly = computeCrossPackageAnomaly(pkgFeatures, []);
+        crossPackageAnomaly = computeCrossPackageAnomaly(pkgFeatures, similarPackages);
       }
     } catch {
       /* ignore */
@@ -475,6 +513,7 @@ export async function detectDependencyConfusionWithPath(
             ...(mlResult.features?.commitPatternAnomaly != null && {
               commitPatternAnomaly: mlResult.features.commitPatternAnomaly,
             }),
+            ...(mlResult.reasons?.length ? { topFactors: mlResult.reasons.slice(0, 3) } : {}),
           }
         )
       );
@@ -499,6 +538,7 @@ export async function detectDependencyConfusionWithPath(
             ...(mlResult.features?.commitPatternAnomaly != null && {
               commitPatternAnomaly: mlResult.features.commitPatternAnomaly,
             }),
+            ...(mlResult.reasons?.length ? { topFactors: mlResult.reasons.slice(0, 3) } : {}),
           }
         )
       );
@@ -527,6 +567,7 @@ export async function detectDependencyConfusionWithPath(
             ...(mlResult.features?.commitPatternAnomaly != null && {
               commitPatternAnomaly: mlResult.features.commitPatternAnomaly,
             }),
+            ...(mlResult.reasons?.length ? { topFactors: mlResult.reasons.slice(0, 3) } : {}),
           }
         )
       );
@@ -623,11 +664,32 @@ export async function detectDependencyConfusion(packageName: string): Promise<Th
  */
 export async function analyzeDependencyConfusion(packages: PackageToAnalyze[]): Promise<Threat[]> {
   const allThreats: Threat[] = [];
+  const similarStatsByPath = new Map<string, SimilarPackageStats>();
+
+  for (const pkg of packages) {
+    try {
+      const stats = buildSimilarPackageStatsFromFeatures(
+        buildPackageFeaturesFromPackageJson(path.join(pkg.path, 'package.json'))
+      );
+      if (stats) {
+        similarStatsByPath.set(pkg.path, stats);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
 
   for (const pkg of packages) {
     if (pkg.name && pkg.path) {
       try {
-        const threats = await detectDependencyConfusionWithPath(pkg.name, pkg.path);
+        const similarPackages = [...similarStatsByPath.entries()]
+          .filter(([pkgPath]) => pkgPath !== pkg.path)
+          .map(([, stats]) => stats);
+        const threats = await detectDependencyConfusionWithPath(
+          pkg.name,
+          pkg.path,
+          similarPackages
+        );
         allThreats.push(...threats);
       } catch (error) {
         allThreats.push(

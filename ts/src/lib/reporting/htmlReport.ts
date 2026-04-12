@@ -23,40 +23,88 @@ function escapeHtml(text: string): string {
 function formatThreatRow(t: Threat): string {
   const cls = SEVERITY_CLASS[t.severity] ?? '';
   const confidence = t.confidence != null ? `${(t.confidence * 100).toFixed(0)}%` : '-';
+  const topFactors = Array.isArray((t as { topFactors?: unknown[] }).topFactors)
+    ? ((t as { topFactors?: string[] }).topFactors ?? []).slice(0, 3)
+    : [];
+  const factorsHtml =
+    topFactors.length > 0
+      ? `<div><strong>Top factors:</strong> ${topFactors.map((f) => escapeHtml(String(f))).join(' | ')}</div>`
+      : '';
   return `<tr class="${cls}">
   <td>${escapeHtml(t.type)}</td>
   <td>${escapeHtml(t.severity)}</td>
-  <td>${escapeHtml(t.message)}</td>
+  <td>${escapeHtml(t.message)}${factorsHtml}</td>
   <td>${escapeHtml(t.filePath || '-')}</td>
   <td>${confidence}</td>
 </tr>`;
 }
 
+function getSoc2Controls(threatType: string): string[] {
+  if (
+    threatType.includes('DATA_EXFILTRATION') ||
+    threatType.includes('PATH_TRAVERSAL') ||
+    threatType.includes('WALLET_')
+  ) {
+    return ['CC6.1'];
+  }
+  if (
+    threatType.includes('CRYPTO_MINING') ||
+    threatType.includes('TIMEOUT') ||
+    threatType.includes('MEMORY') ||
+    threatType.includes('SANDBOX_')
+  ) {
+    return ['CC9.1'];
+  }
+  return ['CC7.1'];
+}
+
+function getIsoControls(threatType: string): string[] {
+  if (threatType.includes('DEPENDENCY_CONFUSION') || threatType.includes('SUPPLY_CHAIN')) {
+    return ['A.15.2.1'];
+  }
+  if (threatType.includes('MALICIOUS') || threatType.includes('OBFUSCATED')) {
+    return ['A.12.2.1'];
+  }
+  if (threatType.includes('DATA_EXFILTRATION') || threatType.includes('PATH_TRAVERSAL')) {
+    return ['A.9.4.1'];
+  }
+  return ['A.14.2.1'];
+}
+
 function getComplianceSection(compliance: 'soc2' | 'iso27001', threats: Threat[]): string {
   const threatTypes = [...new Set(threats.map((t) => t.type))];
-  const rows = threatTypes
-    .map((tt) => `<tr><td>${escapeHtml(tt)}</td><td>✓</td><td>✓</td></tr>`)
-    .join('');
   if (compliance === 'soc2') {
+    const rows = threatTypes
+      .map((tt) => {
+        const controls = getSoc2Controls(tt);
+        return `<tr><td>${escapeHtml(tt)}</td><td>${controls.includes('CC6.1') ? '✓' : ''}</td><td>${controls.includes('CC7.1') ? '✓' : ''}</td><td>${controls.includes('CC9.1') ? '✓' : ''}</td></tr>`;
+      })
+      .join('');
     return `
 <section class="compliance">
   <h2>SOC 2 Control Mapping</h2>
   <table>
-    <thead><tr><th>Threat Type</th><th>CC6.1</th><th>CC7.1</th></tr></thead>
+    <thead><tr><th>Threat Type</th><th>CC6.1</th><th>CC7.1</th><th>CC9.1</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>
-  <p>This scan supports detection relevant to SOC 2 CC6.1 (logical access) and CC7.1 (security event monitoring).</p>
+  <p>This scan maps threat classes to SOC 2 CC6.1 (logical access), CC7.1 (security monitoring), and CC9.1 (availability/capacity).</p>
 </section>`;
   }
   if (compliance === 'iso27001') {
+    const rows = threatTypes
+      .map((tt) => {
+        const controls = getIsoControls(tt);
+        return `<tr><td>${escapeHtml(tt)}</td><td>${controls.includes('A.15.2.1') ? '✓' : ''}</td><td>${controls.includes('A.12.2.1') ? '✓' : ''}</td><td>${controls.includes('A.9.4.1') ? '✓' : ''}</td><td>${controls.includes('A.14.2.1') ? '✓' : ''}</td></tr>`;
+      })
+      .join('');
     return `
 <section class="compliance">
   <h2>ISO 27001 Control Mapping</h2>
   <table>
-    <thead><tr><th>Threat Type</th><th>A.12.6.1</th><th>A.14.2.1</th></tr></thead>
+    <thead><tr><th>Threat Type</th><th>A.15.2.1</th><th>A.12.2.1</th><th>A.9.4.1</th><th>A.14.2.1</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>
-  <p>This scan supports detection relevant to ISO 27001 A.12.6.1 and A.14.2.1.</p>
+  <p>This scan maps threat classes to ISO 27001 A.15.2.1, A.12.2.1, A.9.4.1, and A.14.2.1 controls.</p>
 </section>`;
   }
   return '';

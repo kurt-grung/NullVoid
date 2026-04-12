@@ -33,6 +33,12 @@ export interface PackageFeatures {
   childProcessCount?: number;
   /** Count of fs/readFile/writeFile usage */
   fileSystemAccessCount?: number;
+  /** Count of base64 decoding usage */
+  base64DecodeCount?: number;
+  /** Count of obfuscation markers (_0x, \\xNN, etc.) */
+  obfuscationMarkerCount?: number;
+  /** Count of DNS/socket usage */
+  socketDnsCount?: number;
   /** Number of dependencies */
   dependencyCount?: number;
   /** Number of devDependencies */
@@ -49,6 +55,9 @@ const BEHAVIORAL_PATTERNS = {
   eval: /eval\s*\(|Function\s*\(|new\s+Function/gi,
   childProcess: /child_process|exec\s*\(|spawn\s*\(|execSync|spawnSync/gi,
   fileSystem: /require\s*\(\s*['"]fs['"]|fs\.|readFile|writeFile|unlink|mkdir|rmdir|chmod/gi,
+  base64Decode: /atob\s*\(|Buffer\.from\s*\([^)]*,\s*['"]base64['"]\s*\)/gi,
+  obfuscation: /_0x[a-fA-F0-9]+|\\x[0-9a-fA-F]{2}|\\u[0-9a-fA-F]{4}/g,
+  socketDns: /net\.connect\s*\(|dns\.resolve\s*\(|socket|createConnection\s*\(/gi,
 };
 
 /**
@@ -59,6 +68,9 @@ export function extractBehavioralCountsFromScripts(scriptContent: string): {
   evalUsageCount: number;
   childProcessCount: number;
   fileSystemAccessCount: number;
+  base64DecodeCount: number;
+  obfuscationMarkerCount: number;
+  socketDnsCount: number;
 } {
   if (!scriptContent || typeof scriptContent !== 'string') {
     return {
@@ -66,6 +78,9 @@ export function extractBehavioralCountsFromScripts(scriptContent: string): {
       evalUsageCount: 0,
       childProcessCount: 0,
       fileSystemAccessCount: 0,
+      base64DecodeCount: 0,
+      obfuscationMarkerCount: 0,
+      socketDnsCount: 0,
     };
   }
   return {
@@ -73,6 +88,9 @@ export function extractBehavioralCountsFromScripts(scriptContent: string): {
     evalUsageCount: (scriptContent.match(BEHAVIORAL_PATTERNS.eval) || []).length,
     childProcessCount: (scriptContent.match(BEHAVIORAL_PATTERNS.childProcess) || []).length,
     fileSystemAccessCount: (scriptContent.match(BEHAVIORAL_PATTERNS.fileSystem) || []).length,
+    base64DecodeCount: (scriptContent.match(BEHAVIORAL_PATTERNS.base64Decode) || []).length,
+    obfuscationMarkerCount: (scriptContent.match(BEHAVIORAL_PATTERNS.obfuscation) || []).length,
+    socketDnsCount: (scriptContent.match(BEHAVIORAL_PATTERNS.socketDns) || []).length,
   };
 }
 

@@ -21,6 +21,7 @@ try:
     import joblib
     import xgboost as xgb
     from sklearn.calibration import CalibratedClassifierCV
+    from sklearn.model_selection import GridSearchCV
     from sklearn.model_selection import train_test_split
     from sklearn.metrics import accuracy_score, classification_report, roc_auc_score, precision_score, recall_score
 except ImportError as e:
@@ -80,6 +81,7 @@ def main():
     )
     ap.add_argument("--calibrate", action="store_true", default=True, help="Apply Platt scaling for probability calibration (default: True)")
     ap.add_argument("--no-calibrate", action="store_true", help="Disable probability calibration")
+    ap.add_argument("--tune", action="store_true", help="Tune XGBoost params with GridSearchCV before training")
     args = ap.parse_args()
 
     if args.balance and args.balance_class_weight:
@@ -153,6 +155,36 @@ def main():
         scale_pos_weight = 1.0
 
     xgb_kw = {**XGBOOST_PARAMS, "scale_pos_weight": scale_pos_weight}
+    best_params = {}
+    if args.tune and len(X_train) >= 20 and len(set(y_train)) > 1:
+        try:
+            print("Running grid search tuning...")
+            param_grid = {
+                "max_depth": [4, 6, 8],
+                "n_estimators": [80, 120, 180],
+                "learning_rate": [0.05, 0.1, 0.2],
+                "min_child_weight": [1, 3, 5],
+            }
+            tuner = GridSearchCV(
+                xgb.XGBClassifier(
+                    subsample=XGBOOST_PARAMS["subsample"],
+                    colsample_bytree=XGBOOST_PARAMS["colsample_bytree"],
+                    random_state=XGBOOST_PARAMS["random_state"],
+                    eval_metric=XGBOOST_PARAMS["eval_metric"],
+                    scale_pos_weight=scale_pos_weight,
+                ),
+                param_grid=param_grid,
+                cv=3,
+                scoring="roc_auc",
+                n_jobs=1,
+                verbose=0,
+            )
+            tuner.fit(X_train, y_train)
+            best_params = dict(tuner.best_params_)
+            xgb_kw.update(best_params)
+            print(f"Best params: {best_params}")
+        except Exception as e:
+            print(f"Tuning skipped due to error: {e}")
     base_model = xgb.XGBClassifier(**xgb_kw)
 
     if do_calibrate:
@@ -161,6 +193,12 @@ def main():
         model = base_model
 
     model.fit(X_train, y_train)
+    training_scores = []
+    try:
+        train_proba = model.predict_proba(X_train)
+        training_scores = [float(p[1] if len(p) > 1 else p[0]) for p in train_proba[:500]]
+    except Exception:
+        training_scores = []
 
     metrics = {}
     if X_test and y_test:
@@ -200,8 +238,11 @@ def main():
         "class_distribution": {"good": n_neg, "bad": n_pos},
         "imbalance_strategy": imbalance_strategy,
         "xgboost_params": {k: v for k, v in xgb_kw.items() if k != "scale_pos_weight"},
+        "tuned": bool(args.tune and best_params),
+        "best_params": best_params,
         "scale_pos_weight": round(scale_pos_weight, 6),
         "metrics": metrics,
+        "training_scores": training_scores,
     }
     with open(out_dir / "metadata.json", "w") as f:
         json.dump(metadata, f, indent=2)

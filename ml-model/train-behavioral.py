@@ -167,6 +167,12 @@ def main():
         model = base_model
 
     model.fit(X_train, y_train)
+    training_scores = []
+    try:
+        train_proba = model.predict_proba(X_train)
+        training_scores = [float(p[1] if len(p) > 1 else p[0]) for p in train_proba[:500]]
+    except Exception:
+        training_scores = []
 
     metrics = {}
     if X_test and y_test:
@@ -211,6 +217,7 @@ def main():
         "xgboost_params": {k: v for k, v in xgb_kw.items() if k != "scale_pos_weight"},
         "scale_pos_weight": round(scale_pos_weight, 6),
         "metrics": metrics,
+        "training_scores": training_scores,
     }
     with open(out_dir / "behavioral-metadata.json", "w") as f:
         json.dump(metadata, f, indent=2)

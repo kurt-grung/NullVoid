@@ -177,6 +177,17 @@ export async function getMlMetrics(): Promise<{
   return fetchApi('/ml/metrics');
 }
 
+export async function getMlDrift(): Promise<{
+  driftDetected: boolean;
+  ksStatistic: number;
+  dependency?: { ksStatistic: number; recentCount: number; trainCount: number };
+  behavioral?: { ksStatistic: number; recentCount: number; trainCount: number };
+  ensemble?: { ksStatistic: number; recentCount: number; trainCount: number };
+  threshold?: number;
+}> {
+  return fetchApi('/ml/drift');
+}
+
 export async function runMlExport(): Promise<{ ok: boolean; stdout?: string; stderr?: string; error?: string }> {
   const res = await fetch(`${API_BASE}/ml/export`, { method: 'POST' });
   const data = await res.json();
