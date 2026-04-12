@@ -39,6 +39,7 @@ const ML_ENABLED = ML_CFG.ML_SCORING !== false;
 const ANOMALY_THRESHOLD = ML_CFG.ML_ANOMALY_THRESHOLD ?? 0.7;
 const ML_WEIGHTS = ML_CFG.ML_WEIGHTS ?? DEFAULT_ML_WEIGHTS;
 const ML_MODEL_URL = ML_CFG.ML_MODEL_URL || null;
+const ML_ENSEMBLE_URL = ML_CFG.ML_ENSEMBLE_URL || null;
 const ML_MODEL_PATH = ML_CFG.ML_MODEL_PATH || null;
 const ML_EXPLAIN = ML_CFG.ML_EXPLAIN === true;
 const COMMIT_PATTERN_ENABLED = ML_CFG.COMMIT_PATTERN_ANALYSIS !== false;
@@ -49,6 +50,7 @@ export interface MLDetectionConfig {
   ML_ANOMALY_THRESHOLD?: number;
   ML_WEIGHTS?: Record<string, number>;
   ML_MODEL_URL?: string | null;
+  ML_ENSEMBLE_URL?: string | null;
   ML_MODEL_PATH?: string | null;
   BEHAVIORAL_MODEL_URL?: string | null;
   ML_EXPLAIN?: boolean;
@@ -271,6 +273,68 @@ function fetchModelScoreFromUrl(
   });
 }
 
+function normalizeModelBaseUrl(url: string): string {
+  const trimmed = url.replace(/\/$/, '');
+  if (trimmed.endsWith('/score')) return trimmed.slice(0, -'/score'.length);
+  return trimmed;
+}
+
+function fetchModelExplainFromUrl(
+  url: string,
+  features: FeatureVector,
+  timeout: number = MODEL_TIMEOUT
+): Promise<{ reasons?: string[]; importance?: Record<string, number> }> {
+  return new Promise((resolve) => {
+    const explainUrl = `${normalizeModelBaseUrl(url)}/explain`;
+    const payload = JSON.stringify({ features });
+    const u = new URL(explainUrl);
+    const options = {
+      hostname: u.hostname,
+      port: u.port || (u.protocol === 'https:' ? 443 : 80),
+      path: u.pathname + u.search,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload),
+        'User-Agent': 'NullVoid-Security-Scanner/2.0',
+      },
+      timeout,
+    };
+    const protocol = u.protocol === 'https:' ? https : http;
+    const req = protocol.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      res.on('end', () => {
+        try {
+          const json = data ? JSON.parse(data) : {};
+          const reasons = Array.isArray(json?.reasons) ? (json.reasons as string[]) : undefined;
+          let importance: Record<string, number> | undefined;
+          if (json?.importance && typeof json.importance === 'object') {
+            importance = json.importance as Record<string, number>;
+          } else if (json?.contributions && typeof json.contributions === 'object') {
+            importance = json.contributions as Record<string, number>;
+          }
+          const result: { reasons?: string[]; importance?: Record<string, number> } = {};
+          if (reasons) result.reasons = reasons;
+          if (importance) result.importance = importance;
+          resolve(result);
+        } catch {
+          resolve({});
+        }
+      });
+    });
+    req.on('error', () => resolve({}));
+    req.setTimeout(timeout, () => {
+      req.destroy();
+      resolve({});
+    });
+    req.write(payload);
+    req.end();
+  });
+}
+
 /**
  * Call local ML model module (exports score(features) => number)
  */
@@ -305,6 +369,15 @@ async function getModelScoreFromPath(
 async function computeThreatScoreFromModel(
   features: FeatureVector
 ): Promise<{ score: number | null; reasons?: string[]; importance?: Record<string, number> }> {
+  if (ML_ENSEMBLE_URL) {
+    const result = await fetchModelScoreFromUrl(
+      ML_ENSEMBLE_URL,
+      features,
+      MODEL_TIMEOUT,
+      ML_EXPLAIN
+    );
+    if (result.score != null) return result;
+  }
   if (ML_MODEL_URL) {
     const result = await fetchModelScoreFromUrl(ML_MODEL_URL, features, MODEL_TIMEOUT, ML_EXPLAIN);
     if (result.score != null) return result;
@@ -367,12 +440,22 @@ export async function runMLDetection(params: MLDetectionParams): Promise<MLDetec
   let modelUsed = false;
   let reasons: string[] | undefined;
   let importance: Record<string, number> | undefined;
-  if (ML_MODEL_URL || ML_MODEL_PATH) {
+  if (ML_MODEL_URL || ML_MODEL_PATH || ML_ENSEMBLE_URL) {
     const result = await computeThreatScoreFromModel(features);
     threatScore = result.score;
     if (threatScore != null) modelUsed = true;
     reasons = result.reasons;
     importance = result.importance;
+    if (modelUsed && ML_EXPLAIN && !reasons?.length) {
+      const explainUrl = ML_ENSEMBLE_URL || ML_MODEL_URL;
+      if (explainUrl) {
+        const explainResult = await fetchModelExplainFromUrl(explainUrl, features, MODEL_TIMEOUT);
+        if (explainResult.reasons?.length) reasons = explainResult.reasons;
+        if (explainResult.importance && Object.keys(explainResult.importance).length > 0) {
+          importance = explainResult.importance;
+        }
+      }
+    }
   }
   if (threatScore == null) threatScore = computeThreatScore(features);
 

@@ -18,12 +18,18 @@ describe('Anomaly Detection', () => {
         evalUsageCount: 0,
         childProcessCount: 0,
         fileSystemAccessCount: 0,
+        base64DecodeCount: 0,
+        obfuscationMarkerCount: 0,
+        socketDnsCount: 0,
       });
       expect(extractBehavioralCountsFromScripts(null as any)).toEqual({
         networkScriptCount: 0,
         evalUsageCount: 0,
         childProcessCount: 0,
         fileSystemAccessCount: 0,
+        base64DecodeCount: 0,
+        obfuscationMarkerCount: 0,
+        socketDnsCount: 0,
       });
     });
 

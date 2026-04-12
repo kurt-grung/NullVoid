@@ -107,6 +107,7 @@ app.get('/', (_req: Request, res: Response) => {
       organizations: 'GET /api/organizations',
       teams: 'GET /api/teams',
       mlMetrics: 'GET /api/ml/metrics',
+      mlDrift: 'GET /api/ml/drift',
     },
   });
 });
@@ -534,6 +535,58 @@ app.get(
       serveNote: serveAvailable ? serveNote : undefined,
       mlServiceUrl: mlServiceUrl ?? null,
     });
+  })
+);
+
+app.get(
+  '/ml/drift',
+  asyncHandler(async (_req: Request, res: Response) => {
+    const mlServiceUrl = process.env['ML_SERVICE_URL']?.replace(/\/$/, '');
+    if (!mlServiceUrl) {
+      res.status(503).json({ error: 'ML_SERVICE_URL not configured' });
+      return;
+    }
+    try {
+      const r = await fetch(`${mlServiceUrl}/drift`, { signal: AbortSignal.timeout(4000) });
+      if (!r.ok) {
+        res.status(502).json({ error: `ML service drift endpoint returned ${r.status}` });
+        return;
+      }
+      const data = (await r.json()) as Record<string, unknown>;
+      res.json(data);
+    } catch (error) {
+      res.status(502).json({
+        error: 'Unable to fetch drift data from ML service',
+        details: (error as Error).message,
+      });
+    }
+  })
+);
+
+app.post(
+  '/ml/feedback',
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const packageName = req.body?.packageName as string | undefined;
+    const version = req.body?.version as string | undefined;
+    const label = req.body?.label as number | undefined;
+    const scanId = req.body?.scanId as string | undefined;
+    if (!packageName || !version || (label !== 0 && label !== 1) || !scanId) {
+      res.status(400).json({
+        error: 'Invalid payload. Expected { packageName, version, label: 0|1, scanId }',
+      });
+      return;
+    }
+    const feedbackPath = path.join(ROOT, 'ml-model', 'feedback.jsonl');
+    const row = {
+      packageName,
+      version,
+      label,
+      scanId,
+      createdAt: new Date().toISOString(),
+    };
+    fs.appendFileSync(feedbackPath, JSON.stringify(row) + '\n', 'utf8');
+    res.json({ ok: true, path: feedbackPath });
   })
 );
 

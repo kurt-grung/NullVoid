@@ -56,11 +56,16 @@ behavioral_model = None
 behavioral_feature_keys: Optional[list] = None
 behavioral_model_dir: Optional[Path] = None
 behavioral_metadata: Optional[dict] = None
+ensemble_model = None
+
+SCORE_LOG_PATH = Path(__file__).parent / "score-history.jsonl"
+MAX_SCORE_HISTORY = 2000
 
 BEHAVIORAL_FEATURE_KEYS = [
     "scriptCount", "scriptTotalLength", "hasPostinstall", "postinstallLength",
     "preinstallLength", "postuninstallLength", "networkScriptCount", "evalUsageCount",
-    "childProcessCount", "fileSystemAccessCount", "dependencyCount", "devDependencyCount",
+    "childProcessCount", "fileSystemAccessCount", "base64DecodeCount", "obfuscationMarkerCount",
+    "socketDnsCount", "dependencyCount", "devDependencyCount",
 ]
 
 BEHAVIORAL_FEATURE_REASONS: dict[str, str] = {
@@ -74,6 +79,9 @@ BEHAVIORAL_FEATURE_REASONS: dict[str, str] = {
     "evalUsageCount": "Scripts use eval or Function constructor",
     "childProcessCount": "Scripts spawn child processes",
     "fileSystemAccessCount": "Scripts access file system",
+    "base64DecodeCount": "Scripts decode Base64 payloads",
+    "obfuscationMarkerCount": "Scripts contain obfuscation markers",
+    "socketDnsCount": "Scripts use DNS/socket APIs",
     "dependencyCount": "Dependency count",
     "devDependencyCount": "Dev dependency count",
 }
@@ -166,7 +174,7 @@ def load_model(path: Path, dir_path: Optional[Path] = None):
 
 
 def load_behavioral_model(dir_path: Path):
-    global behavioral_model, behavioral_feature_keys, behavioral_model_dir, behavioral_metadata
+    global behavioral_model, behavioral_feature_keys, behavioral_model_dir, behavioral_metadata, ensemble_model
     model_path = dir_path / "behavioral-model.pkl"
     if not model_path.exists():
         return
@@ -182,11 +190,70 @@ def load_behavioral_model(dir_path: Path):
             behavioral_metadata = json.load(f)
     else:
         behavioral_metadata = {"model_type": "unknown", "feature_keys": behavioral_feature_keys}
+    ensemble_path = dir_path / "ensemble-model.pkl"
+    if ensemble_path.exists():
+        ensemble_model = joblib.load(ensemble_path)
 
 
 def extract_behavioral_vector(feats: dict) -> list[float]:
     keys = behavioral_feature_keys or BEHAVIORAL_FEATURE_KEYS
     return [float(feats.get(k, 0)) for k in keys]
+
+
+def append_score_history(kind: str, score: float) -> None:
+    try:
+        with open(SCORE_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps({"ts": __import__("time").time(), "kind": kind, "score": float(score)}) + "\n")
+    except OSError:
+        pass
+
+
+def load_recent_scores(kind: str, limit: int = 500) -> list[float]:
+    if not SCORE_LOG_PATH.exists():
+        return []
+    rows: list[float] = []
+    try:
+        with open(SCORE_LOG_PATH, encoding="utf-8") as f:
+            for line in f:
+                try:
+                    obj = json.loads(line)
+                    if obj.get("kind") == kind and isinstance(obj.get("score"), (int, float)):
+                        rows.append(float(obj["score"]))
+                except json.JSONDecodeError:
+                    continue
+    except OSError:
+        return []
+    return rows[-limit:]
+
+
+def extract_training_scores(meta: Optional[dict]) -> list[float]:
+    if not isinstance(meta, dict):
+        return []
+    scores = meta.get("training_scores")
+    if isinstance(scores, list):
+        return [float(x) for x in scores if isinstance(x, (int, float))]
+    return []
+
+
+def ks_statistic(a: list[float], b: list[float]) -> float:
+    if not a or not b:
+        return 0.0
+    a_sorted = sorted(a)
+    b_sorted = sorted(b)
+    i = 0
+    j = 0
+    n = len(a_sorted)
+    m = len(b_sorted)
+    d = 0.0
+    while i < n and j < m:
+        if a_sorted[i] <= b_sorted[j]:
+            i += 1
+        else:
+            j += 1
+        cdf_a = i / n
+        cdf_b = j / m
+        d = max(d, abs(cdf_a - cdf_b))
+    return float(d)
 
 
 def get_behavioral_top_reasons(feats: dict, importance: dict[str, float], top_n: int = 5) -> list[str]:
@@ -228,6 +295,7 @@ def score(req: ScoreRequest) -> dict:
         vec = extract_vector(req.features)
         proba = model.predict_proba([vec])[0]
         bad_prob = proba[1] if len(proba) > 1 else proba[0]
+        append_score_history("dependency", float(bad_prob))
         result: dict[str, Any] = {"score": float(bad_prob)}
         if req.explain:
             importance = get_feature_importance()
@@ -345,6 +413,7 @@ def behavioral_score(req: ScoreRequest) -> dict:
         vec = extract_behavioral_vector(req.features)
         proba = behavioral_model.predict_proba([vec])[0]
         bad_prob = proba[1] if len(proba) > 1 else proba[0]
+        append_score_history("behavioral", float(bad_prob))
         result: dict[str, Any] = {"score": float(bad_prob)}
         if req.explain and behavioral_feature_keys:
             base = get_base_estimator(behavioral_model)
@@ -358,12 +427,61 @@ def behavioral_score(req: ScoreRequest) -> dict:
         return {"score": 0.5, "error": str(e)}
 
 
+@app.post("/ensemble-score")
+def ensemble_score(req: ScoreRequest) -> dict:
+    """Blend dependency + behavioral probabilities via trained stacker."""
+    if model is None or behavioral_model is None:
+        return {"score": 0.5, "error": "Base models not loaded"}
+    if ensemble_model is None:
+        return {"score": 0.5, "error": "Ensemble model not loaded"}
+    try:
+        dep_vec = extract_vector(req.features)
+        beh_vec = extract_behavioral_vector(req.features)
+        dep_proba = model.predict_proba([dep_vec])[0]
+        beh_proba = behavioral_model.predict_proba([beh_vec])[0]
+        dep_bad = float(dep_proba[1] if len(dep_proba) > 1 else dep_proba[0])
+        beh_bad = float(beh_proba[1] if len(beh_proba) > 1 else beh_proba[0])
+        score = float(ensemble_model.predict_proba([[dep_bad, beh_bad]])[0][1])
+        append_score_history("ensemble", score)
+        return {
+            "score": score,
+            "dependency_score": dep_bad,
+            "behavioral_score": beh_bad,
+        }
+    except Exception as e:
+        return {"score": 0.5, "error": str(e)}
+
+
+@app.get("/drift")
+def drift() -> dict:
+    dep_recent = load_recent_scores("dependency")
+    beh_recent = load_recent_scores("behavioral")
+    ens_recent = load_recent_scores("ensemble")
+    dep_train = extract_training_scores(metadata)
+    beh_train = extract_training_scores(behavioral_metadata)
+    dep_ks = ks_statistic(dep_train, dep_recent) if dep_train and dep_recent else 0.0
+    beh_ks = ks_statistic(beh_train, beh_recent) if beh_train and beh_recent else 0.0
+    ens_ks = 0.0
+    drift_threshold = 0.2
+    return {
+        "driftDetected": dep_ks >= drift_threshold or beh_ks >= drift_threshold or ens_ks >= drift_threshold,
+        "ksStatistic": max(dep_ks, beh_ks, ens_ks),
+        "dependency": {"ksStatistic": dep_ks, "recentCount": len(dep_recent), "trainCount": len(dep_train)},
+        "behavioral": {"ksStatistic": beh_ks, "recentCount": len(beh_recent), "trainCount": len(beh_train)},
+        "ensemble": {"ksStatistic": ens_ks, "recentCount": len(ens_recent), "trainCount": 0},
+        "threshold": drift_threshold,
+    }
+
+
 @app.get("/health")
 def health():
     return {
         "ok": model is not None,
         "behavioral_loaded": behavioral_model is not None,
+        "ensemble_loaded": ensemble_model is not None,
         "shap": SHAP_AVAILABLE,
+        "shap": SHAP_AVAILABLE,
+        "ensemble_loaded": ensemble_model is not None,
     }
 
 
@@ -373,6 +491,7 @@ if __name__ == "__main__":
     ap.add_argument("--model", "-m", help="Path to model.pkl")
     ap.add_argument("--model-dir", help="Model directory (model.pkl, feature_keys.pkl, metadata.json)")
     ap.add_argument("--behavioral-model-dir", help="Behavioral model directory (behavioral-model.pkl, behavioral-feature_keys.pkl)")
+    ap.add_argument("--ensemble-model", help="Path to ensemble-model.pkl (optional)")
     ap.add_argument("--port", "-p", type=int, default=int(os.environ.get("PORT", "8000")))
     args = ap.parse_args()
     port = args.port if args.port is not None else int(os.environ.get("PORT", 8000))
@@ -397,5 +516,12 @@ if __name__ == "__main__":
             print("Behavioral model loaded from", bdir)
         else:
             print(f"Warning: behavioral model not found in {bdir}")
+    if args.ensemble_model:
+        ep = Path(args.ensemble_model)
+        if ep.exists():
+            ensemble_model = joblib.load(ep)
+            print("Ensemble model loaded from", ep)
+        else:
+            print(f"Warning: ensemble model not found at {ep}")
 
     run(app, host="0.0.0.0", port=port)

@@ -282,7 +282,6 @@ When you add or reorder columns (e.g. new NLP or code-quality signals in `buildF
 3. Update **`export-features.js`** and **`ts/src/lib/mlDetection.ts`** (`buildFeatureVector`) so training rows and the scanner expose every key.
 4. Run **`npm run test:ts`** and ensure **`ts/test/unit/ml-feature-parity.test.ts`** passes.
 5. Retrain and bump committed **`model.pkl`** / metadata when you ship the new schema.
-
 ## Feature Schema
 
 Features match `buildFeatureVector` output from `ts/src/lib/mlDetection.ts`:

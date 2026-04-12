@@ -122,6 +122,7 @@ nullvoid.db
 
 # NullVoid IoC cache (optional, regenerated on scan)
 .nullvoid-cache/
+ml-model/.eval-cache/
 
 # PR drafts and notes
 pr/

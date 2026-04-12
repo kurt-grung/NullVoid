@@ -16,9 +16,63 @@ export interface RiskAssessment {
 }
 
 /** Map threat types to C/I/A categories */
-const THREAT_TO_CATEGORY: Partial<Record<ThreatType, RiskCategory>> = {
+const THREAT_TO_CATEGORY: Record<ThreatType, RiskCategory> = {
+  ANALYSIS_ERROR: 'integrity',
+  CODE_GENERATION_ATTEMPT: 'integrity',
+  COMMAND_INJECTION: 'integrity',
+  CRYPTO_MINING: 'availability',
   DATA_EXFILTRATION: 'confidentiality',
+  DEPENDENCY_CONFUSION: 'integrity',
+  DEPENDENCY_CONFUSION_ACTIVITY: 'integrity',
+  DEPENDENCY_CONFUSION_ERROR: 'availability',
+  DEPENDENCY_CONFUSION_GIT_ACTIVITY: 'integrity',
+  DEPENDENCY_CONFUSION_ML_ANOMALY: 'integrity',
+  DEPENDENCY_CONFUSION_PATTERN: 'integrity',
+  DEPENDENCY_CONFUSION_PREDICTIVE_RISK: 'integrity',
+  DEPENDENCY_CONFUSION_SCOPE: 'integrity',
+  DEPENDENCY_CONFUSION_SUSPICIOUS_NAME: 'integrity',
+  DEPENDENCY_CONFUSION_TIMELINE: 'integrity',
+  DYNAMIC_REQUIRE: 'integrity',
+  ERROR_HANDLING_FAILURE: 'availability',
+  EXECUTION_TIMEOUT: 'availability',
+  FILE_ACCESS_ERROR: 'availability',
+  FILE_ANALYSIS_ERROR: 'availability',
+  INPUT_VALIDATION_ERROR: 'integrity',
   MALICIOUS_CODE: 'integrity',
+  MALICIOUS_CODE_ERROR: 'availability',
+  MALICIOUS_CODE_STRUCTURE: 'integrity',
+  MEMORY_EXHAUSTION: 'availability',
+  MODULE_LOADING_ATTEMPT: 'integrity',
+  NETWORK_MANIPULATION: 'integrity',
+  NLP_SECURITY_INDICATOR: 'integrity',
+  OBFUSCATED_CODE: 'integrity',
+  OBFUSCATED_IOC: 'integrity',
+  OBFUSCATED_WALLET_CODE: 'integrity',
+  PACKAGE_NOT_FOUND: 'availability',
+  PARALLEL_FILE_ANALYSIS_ERROR: 'availability',
+  PARALLEL_PROCESSING_ERROR: 'availability',
+  PATH_TRAVERSAL: 'confidentiality',
+  PATH_TRAVERSAL_ATTEMPT: 'confidentiality',
+  PATH_VALIDATION_ERROR: 'integrity',
+  SANDBOX_EXECUTION_ERROR: 'availability',
+  SANDBOX_MEMORY_LIMIT: 'availability',
+  SANDBOX_SECURITY_VIOLATION: 'integrity',
+  SANDBOX_TIMEOUT: 'availability',
+  SCAN_ERROR: 'availability',
+  SECURITY_ERROR: 'integrity',
+  SUPPLY_CHAIN_ATTACK: 'integrity',
+  SUSPICIOUS_DEPENDENCY: 'integrity',
+  SUSPICIOUS_FILE: 'integrity',
+  SUSPICIOUS_FILE_SIZE: 'availability',
+  SUSPICIOUS_FILE_TYPE: 'integrity',
+  SUSPICIOUS_MODULE: 'integrity',
+  SUSPICIOUS_PACKAGE_NAME: 'integrity',
+  SUSPICIOUS_SCRIPT: 'integrity',
+  TIMEOUT_EXCEEDED: 'availability',
+  TYPOSQUATTING_RISK: 'integrity',
+  UNKNOWN_ERROR: 'availability',
+  VALIDATION_ERROR: 'integrity',
+  VULNERABLE_PACKAGE: 'integrity',
   WALLET_HIJACKING: 'integrity',
   WALLET_ETHEREUMHIJACK: 'integrity',
   WALLET_TRANSACTIONREDIRECT: 'integrity',
@@ -26,35 +80,15 @@ const THREAT_TO_CATEGORY: Partial<Record<ThreatType, RiskCategory>> = {
   WALLET_MULTICHAIN: 'integrity',
   WALLET_OBFUSCATION: 'integrity',
   WALLET_NETWORKHOOKS: 'integrity',
-  OBFUSCATED_WALLET_CODE: 'integrity',
-  NETWORK_MANIPULATION: 'integrity',
-  OBFUSCATED_CODE: 'integrity',
-  SUSPICIOUS_SCRIPT: 'integrity',
-  CRYPTO_MINING: 'availability',
-  SUPPLY_CHAIN_ATTACK: 'integrity',
-  PATH_TRAVERSAL: 'confidentiality',
-  PATH_TRAVERSAL_ATTEMPT: 'confidentiality',
-  COMMAND_INJECTION: 'integrity',
-  DYNAMIC_REQUIRE: 'integrity',
-  SUSPICIOUS_MODULE: 'integrity',
-  OBFUSCATED_IOC: 'integrity',
-  DEPENDENCY_CONFUSION: 'integrity',
-  DEPENDENCY_CONFUSION_TIMELINE: 'integrity',
-  DEPENDENCY_CONFUSION_SUSPICIOUS_NAME: 'integrity',
-  DEPENDENCY_CONFUSION_SCOPE: 'integrity',
-  DEPENDENCY_CONFUSION_GIT_ACTIVITY: 'integrity',
-  DEPENDENCY_CONFUSION_PATTERN: 'integrity',
-  DEPENDENCY_CONFUSION_ACTIVITY: 'integrity',
-  DEPENDENCY_CONFUSION_ML_ANOMALY: 'integrity',
-  DEPENDENCY_CONFUSION_PREDICTIVE_RISK: 'integrity',
-  MALICIOUS_CODE_STRUCTURE: 'integrity',
-  SUSPICIOUS_FILE: 'integrity',
-  SUSPICIOUS_DEPENDENCY: 'integrity',
-  NLP_SECURITY_INDICATOR: 'integrity',
-  VULNERABLE_PACKAGE: 'integrity',
-  SUSPICIOUS_PACKAGE_NAME: 'integrity',
-  TYPOSQUATTING_RISK: 'integrity',
 };
+
+function getThreatCategory(type: ThreatType): RiskCategory {
+  const category = THREAT_TO_CATEGORY[type];
+  if (!category && process.env['NULLVOID_STRICT_RISK_CATEGORY'] === 'true') {
+    throw new Error(`Missing RiskCategory mapping for threat type: ${type}`);
+  }
+  return category ?? 'integrity';
+}
 
 /**
  * Compute composite risk from threats.
@@ -85,7 +119,7 @@ export function computeCompositeRisk(threats: Threat[]): RiskAssessment {
       bySeverity[threat.severity as SeverityLevel] += conf;
     }
 
-    const cat = THREAT_TO_CATEGORY[threat.type as ThreatType] ?? 'integrity';
+    const cat = getThreatCategory(threat.type as ThreatType);
     byCategory[cat] += conf;
   }
 

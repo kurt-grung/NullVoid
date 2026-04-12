@@ -6,6 +6,7 @@ import {
   runMlTrain,
   runMlExportBehavioral,
   runMlTrainBehavioral,
+  getMlDrift,
   isApiUnavailableError,
 } from '../api'
 
@@ -72,6 +73,14 @@ export default function ML() {
     behavioral: Record<string, unknown> | null
     hint?: string
   } | null>(null)
+  const [drift, setDrift] = useState<{
+    driftDetected: boolean
+    ksStatistic: number
+    dependency?: { ksStatistic: number; recentCount: number; trainCount: number }
+    behavioral?: { ksStatistic: number; recentCount: number; trainCount: number }
+    ensemble?: { ksStatistic: number; recentCount: number; trainCount: number }
+    threshold?: number
+  } | null>(null)
 
   useEffect(() => {
     getMlStatus()
@@ -93,6 +102,13 @@ export default function ML() {
     getMlMetrics()
       .then((m) => setMetrics(m))
       .catch(() => setMetrics(null))
+  }, [apiUnavailable])
+
+  useEffect(() => {
+    if (apiUnavailable) return
+    getMlDrift()
+      .then((d) => setDrift(d))
+      .catch(() => setDrift(null))
   }, [apiUnavailable])
 
   const run = async (cmd: Cmd, fn: () => Promise<{ stdout?: string; stderr?: string }>) => {
@@ -161,6 +177,23 @@ export default function ML() {
           {metrics.hint && (
             <p className="text-neutral-500 dark:text-neutral-400 text-xs mt-3">{metrics.hint}</p>
           )}
+        </div>
+      )}
+
+      {drift && (
+        <div className="card-minimal mb-6">
+          <h3>Model drift</h3>
+          <p className="text-neutral-500 dark:text-neutral-400 text-xs mt-2">
+            Drift status is computed with a KS statistic from recent prediction scores.
+          </p>
+          <div className="mt-3 text-sm">
+            <p className={drift.driftDetected ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400'}>
+              {drift.driftDetected ? 'Potential drift detected' : 'No significant drift detected'}
+            </p>
+            <p className="text-neutral-600 dark:text-neutral-400 text-xs mt-1">
+              Max KS: {drift.ksStatistic.toFixed(3)} (threshold: {(drift.threshold ?? 0.2).toFixed(3)})
+            </p>
+          </div>
         </div>
       )}
 

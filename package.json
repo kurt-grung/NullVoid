@@ -39,6 +39,8 @@
     "ml:export": "cd ml-model && node export-features.js --out train.jsonl",
     "ml:export-behavioral": "cd ml-model && node export-behavioral-features.js --out train-behavioral.jsonl",
     "ml:train-behavioral": "cd ml-model && python3 train-behavioral.py --input train-behavioral.jsonl --balance --calibrate",
+    "ml:feedback-export": "cd ml-model && node export-feedback.js --feedback feedback.jsonl --out train.jsonl",
+    "ml:train-ensemble": "cd ml-model && python3 train-ensemble.py --input train.jsonl",
     "api:build": "turbo run build --filter=@nullvoid/api",
     "api:start": "turbo run build --filter=@nullvoid/api && node packages/api/dist/index.js",
     "dashboard:dev": "turbo run dev --filter=dashboard",

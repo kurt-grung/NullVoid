@@ -26,7 +26,6 @@
 const fsSync = require('fs');
 const pathSync = require('path');
 const { execSync } = require('child_process');
-
 const featureManifest = JSON.parse(
   fsSync.readFileSync(pathSync.join(__dirname, 'feature-keys.json'), 'utf8')
 );
