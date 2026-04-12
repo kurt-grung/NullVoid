@@ -267,7 +267,7 @@ export default function ML() {
           </>
         ) : (
           <p className="text-neutral-500 dark:text-neutral-400 text-sm">
-            {serveHint ?? 'Start the ML server with make ml-serve or npm run ml:serve (port 8000).'}
+            {serveHint ?? 'Start the ML server with make serve or npm run ml:serve (port 8000).'}
           </p>
         )}
       </div>

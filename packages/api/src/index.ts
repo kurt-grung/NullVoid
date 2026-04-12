@@ -383,7 +383,7 @@ app.post(
       return;
     }
     try {
-      const { stdout, stderr } = await runMlCommand('npm run ml:export');
+      const { stdout, stderr } = await runMlCommand('node ts/dist/bin/nullvoid.js export');
       res.json({ ok: true, stdout: stdout.trim(), stderr: stderr.trim() });
     } catch (err) {
       const e = err as { stdout?: string; stderr?: string; message?: string };
@@ -408,7 +408,7 @@ app.post(
       return;
     }
     try {
-      const { stdout, stderr } = await runMlCommand('npm run ml:train');
+      const { stdout, stderr } = await runMlCommand('node ts/dist/bin/nullvoid.js train');
       res.json({ ok: true, stdout: stdout.trim(), stderr: stderr.trim() });
     } catch (err) {
       const e = err as { stdout?: string; stderr?: string; message?: string };
@@ -433,7 +433,9 @@ app.post(
       return;
     }
     try {
-      const { stdout, stderr } = await runMlCommand('npm run ml:export-behavioral');
+      const { stdout, stderr } = await runMlCommand(
+        'node ts/dist/bin/nullvoid.js export-behavioral'
+      );
       res.json({ ok: true, stdout: stdout.trim(), stderr: stderr.trim() });
     } catch (err) {
       const e = err as { stdout?: string; stderr?: string; message?: string };
@@ -458,7 +460,7 @@ app.post(
       return;
     }
     try {
-      const { stdout, stderr } = await runMlCommand('npm run ml:train-behavioral');
+      const { stdout, stderr } = await runMlCommand('node ts/dist/bin/nullvoid.js train-behavioral');
       res.json({ ok: true, stdout: stdout.trim(), stderr: stderr.trim() });
     } catch (err) {
       const e = err as { stdout?: string; stderr?: string; message?: string };
@@ -524,7 +526,7 @@ app.get(
       }
     } else {
       serveHint =
-        'Set ML_SERVICE_URL (e.g. https://your-ml.up.railway.app) or run npm run ml:serve / make ml-serve on port 8000';
+        'Set ML_SERVICE_URL (e.g. https://your-ml.up.railway.app) or run nullvoid serve / make serve on port 8000';
     }
     res.json({
       available: ML_AVAILABLE,

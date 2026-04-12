@@ -1,4 +1,4 @@
-.PHONY: all help build build-api api dashboard dev test lint install ml-serve ml-train kill
+.PHONY: all help build build-api api dashboard dev test lint install serve train ml-serve ml-train kill
 
 all: dashboard
 
@@ -14,8 +14,8 @@ help:
 	@echo "  make test       - Run tests"
 	@echo "  make lint       - Run linter"
 	@echo "  make install    - Install dependencies"
-	@echo "  make ml-serve   - Start ML model server (port 8000)"
-	@echo "  make ml-train   - Train ML model"
+	@echo "  make serve      - Start ML model server via nullvoid serve (port 8000)"
+	@echo "  make train      - Train ML model via nullvoid train"
 	@echo "  make kill       - Kill API (3001), dashboard (5174), ML server (8000)"
 	@echo ""
 
@@ -43,11 +43,16 @@ lint:
 install:
 	npm install
 
-ml-serve:
-	npm run ml:serve
+serve:
+	node ts/dist/bin/nullvoid.js serve --port 8000
 
-ml-train:
-	npm run ml:train
+train:
+	node ts/dist/bin/nullvoid.js train --input train.jsonl --output model.pkl
+
+# Backward-compatible aliases
+ml-serve: serve
+
+ml-train: train
 
 kill:
 	@-lsof -ti :3001 | xargs kill -9 2>/dev/null; true

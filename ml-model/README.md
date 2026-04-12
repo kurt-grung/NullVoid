@@ -13,7 +13,7 @@ From the **project root**:
 cd ml-model && pip3 install -r requirements.txt && cd ..
 
 # 2. Export features (optional; train.jsonl may already exist)
-npm run ml:export
+nullvoid export --out train.jsonl
 
 # Or export known-bad packages from GitHub Security Advisories:
 node ml-model/export-features.js --from-ghsa --limit 100 --out ml-model/train.jsonl
@@ -25,19 +25,21 @@ nullvoid scan /path/to/malware-projects --train
 nullvoid scan . --export-training ml-model/train.jsonl --export-training-good ml-model/train.jsonl
 
 # 3. Train the model
-npm run ml:train
+nullvoid train --input train.jsonl --output model.pkl
 
 # 4. (Optional) Evaluate metrics on train.jsonl with the saved model.pkl
 npm run ml:eval
 
-# Behavioral model (npm scripts / install hooks) — same idea:
-npm run ml:export-behavioral
-npm run ml:train-behavioral
+# Behavioral model (same idea):
+nullvoid export-behavioral --out train-behavioral.jsonl
+nullvoid train-behavioral --input train-behavioral.jsonl
 npm run ml:eval-behavioral
 
 # 5. Start the ML server (keep running)
-npm run ml:serve
+nullvoid serve --port 8000
 ```
+
+Legacy npm aliases are still available for compatibility (`npm run ml:export`, `npm run ml:train`, etc.).
 
 Or run from `ml-model/` directly:
 
