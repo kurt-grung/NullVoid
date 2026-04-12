@@ -47,7 +47,7 @@ jobs:
             --out ml-model/train.jsonl
 
       - name: Deduplicate training data
-        run: npm run ml:dedup
+        run: node ml-model/dedup-train.js ml-model/train.jsonl ml-model/train.jsonl
 
       - name: Train dependency confusion model
         run: |
