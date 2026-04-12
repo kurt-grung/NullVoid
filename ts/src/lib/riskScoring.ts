@@ -84,7 +84,7 @@ const THREAT_TO_CATEGORY: Record<ThreatType, RiskCategory> = {
 
 function getThreatCategory(type: ThreatType): RiskCategory {
   const category = THREAT_TO_CATEGORY[type];
-  if (!category && process.env['NODE_ENV'] !== 'production') {
+  if (!category && process.env['NULLVOID_STRICT_RISK_CATEGORY'] === 'true') {
     throw new Error(`Missing RiskCategory mapping for threat type: ${type}`);
   }
   return category ?? 'integrity';
