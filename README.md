@@ -241,7 +241,7 @@ nullvoid . --verbose --format json --output scan-results.json
 
 ## 🤖 ML Training Pipeline
 
-Train an XGBoost model for dependency confusion and malware detection. Supports calibration, explainability, and balanced training. Both `ml:export` and `--train` deduplicate automatically.
+Train an XGBoost model for dependency confusion and malware detection. Supports calibration, explainability, and balanced training. Both `nullvoid export` and `--train` deduplicate automatically.
 
 ### ML Architecture
 
@@ -348,7 +348,7 @@ flowchart TB
 
 ```bash
 # 1. Export benign samples (label 0)
-npm run ml:export
+nullvoid export --out train.jsonl
 
 # 2. Add known-bad packages from GitHub Security Advisories (optional)
 node ml-model/export-features.js --from-ghsa --limit 100 --out ml-model/train.jsonl
@@ -360,28 +360,31 @@ nullvoid scan /path/to/malware-projects --no-ioc --train
 nullvoid scan . --export-training ml-model/train.jsonl --export-training-good ml-model/train.jsonl
 
 # 5. Train the model (XGBoost + calibration)
-npm run ml:train
+nullvoid train --input train.jsonl --output model.pkl
 
 # 6. Start ML server (optional, for live scoring)
-npm run ml:serve
+nullvoid serve --port 8000
 
 # Optional: Behavioral model (package script analysis)
-npm run ml:export-behavioral && npm run ml:train-behavioral
+nullvoid export-behavioral --out train-behavioral.jsonl
+nullvoid train-behavioral --input train-behavioral.jsonl
 # serve.py loads both models when --behavioral-model-dir is set
 ```
+
+Legacy npm aliases remain available: `npm run ml:export`, `npm run ml:train`, and related `ml:*` scripts.
 
 ### Commands
 
 | Command | Description |
 |---------|-------------|
-| `npm run ml:export` | Export benign features to `train.jsonl` (dedupes existing) |
-| `npm run ml:export-behavioral` | Export behavioral features (scripts, network, eval) to `train-behavioral.jsonl` |
+| `nullvoid export --out train.jsonl` | Export benign features to `train.jsonl` (dedupes existing) |
+| `nullvoid export-behavioral --out train-behavioral.jsonl` | Export behavioral features (scripts, network, eval) to `train-behavioral.jsonl` |
 | `node ml-model/export-features.js --from-ghsa` | Fetch known-bad npm packages from GitHub Security Advisories |
 | `nullvoid scan <path> --train` | Append malware samples from scanned threats (dedupes) |
 | `nullvoid scan <path> --export-training-good <file>` | Append clean packages (label 0) for balanced training |
-| `npm run ml:train` | Train XGBoost model from `train.jsonl` → `model.pkl` |
-| `npm run ml:train-behavioral` | Train behavioral model from `train-behavioral.jsonl` → `behavioral-model.pkl` |
-| `npm run ml:serve` | Start ML server on port 8000 (`/score`, `/behavioral-score`, `/batch-score`, `/explain`) |
+| `nullvoid train --input train.jsonl --output model.pkl` | Train XGBoost model from `train.jsonl` → `model.pkl` |
+| `nullvoid train-behavioral --input train-behavioral.jsonl` | Train behavioral model from `train-behavioral.jsonl` → `behavioral-model.pkl` |
+| `nullvoid serve --port 8000` | Start ML server on port 8000 (`/score`, `/behavioral-score`, `/batch-score`, `/explain`) |
 
 ### Alternative (no global nullvoid)
 
@@ -660,8 +663,8 @@ npm run build:watch
 | `make lint` | Run linter |
 | `make install` | Install dependencies |
 | `make kill` | Stop API, dashboard, and ML server (ports 3001, 5174, 8000) |
-| `make ml-serve` | Start ML model server (port 8000) |
-| `make ml-train` | Train ML model |
+| `make serve` | Start ML model server (port 8000) |
+| `make train` | Train ML model |
 
 ### **Dashboard**
 
@@ -690,11 +693,11 @@ make dashboard
 ### **ML Model (optional)**
 See [ML Training Pipeline](#-ml-training-pipeline) above for the full setup. Quick reference:
 ```bash
-npm run ml:export
+nullvoid export --out train.jsonl
 node ml-model/export-features.js --from-ghsa --out ml-model/train.jsonl
 nullvoid scan /path/to/malware --no-ioc --train
-npm run ml:train
-npm run ml:serve
+nullvoid train --input train.jsonl --output model.pkl
+nullvoid serve --port 8000
 ```
 
 ### **Type Definitions**
@@ -1012,7 +1015,7 @@ NullVoid can use trained XGBoost models for threat scoring:
 
 When configured, scans send feature vectors to the models and incorporate scores into threat detection. Optional `ML_EXPLAIN` enables human-readable reasons and feature importance.
 
-**Setup:** See [ML Training Pipeline](#-ml-training-pipeline) for the full pipeline (`ml:export` → `scan --train` → `ml:train` → `ml:serve`).
+**Setup:** See [ML Training Pipeline](#-ml-training-pipeline) for the full pipeline (`nullvoid export` → `scan --train` → `nullvoid train` → `nullvoid serve`).
 
 Configure via `.nullvoidrc` or environment:
 
@@ -1066,7 +1069,7 @@ NullVoid has a comprehensive roadmap focusing on advanced threat detection, ente
 - ✅ **Network Optimizations**: Connection pooling, request batching, compression
 
 #### **Enhanced Detection & Developer Experience**
-- ✅ **ML Detection**: XGBoost-based dependency confusion scoring; `npm run ml:serve`, `ml:train`, `ml:export`; GHSA auto-labeling, explainability; see [ml-model/README.md](ml-model/README.md)
+- ✅ **ML Detection**: XGBoost-based dependency confusion scoring; `nullvoid serve`, `nullvoid train`, `nullvoid export`; GHSA auto-labeling, explainability; see [ml-model/README.md](ml-model/README.md)
 - ✅ **Advanced Timeline Analysis**: ML-based timeline analysis and commit pattern analysis
 - **IDE Integration**: [VS Code extension](packages/vscode-extension) (run scan from Command Palette); IntelliJ plugins planned
 - **Pre-commit Hooks**: Optional scan before commit—set `NULLVOID_PRE_COMMIT=1` to enable; commit is **blocked** if threats are found. See [Pre-commit Integration](docs/PRE_COMMIT.md).
@@ -1083,7 +1086,7 @@ NullVoid has a comprehensive roadmap focusing on advanced threat detection, ente
 - **Trust Network**: Local trust store, `nullvoid trust-status` (`TRUST_CONFIG`)
 - **Consensus Verification**: Multi-source integrity check (npm, GitHub, IPFS); `nullvoid verify-consensus`, `verify-package --consensus` (`CONSENSUS_CONFIG`)
 - **Blockchain Registry**: On-chain package CIDs; `nullvoid register-on-chain`, `nullvoid verify-on-chain` (`BLOCKCHAIN_CONFIG`)
-- ✅ **AI/ML Integration**: XGBoost model for dependency confusion threat scoring (`npm run ml:serve`); GHSA auto-labeling, balanced training, explainability
+- ✅ **AI/ML Integration**: XGBoost model for dependency confusion threat scoring (`nullvoid serve`); GHSA auto-labeling, balanced training, explainability
 - **Blockchain Integration**: Immutable signatures and decentralized verification
 - **Behavioral Analysis**: AI-powered anomaly detection
 - ✅ **Predictive Analysis**: Predicting potential security issues based on patterns (`computePredictiveScore`, `DEPENDENCY_CONFUSION_PREDICTIVE_RISK`)

@@ -3,6 +3,7 @@
 import { program } from 'commander';
 import * as path from 'path';
 import * as fs from 'fs';
+import { spawn } from 'child_process';
 import ora from 'ora';
 import { scan } from '../scan';
 import { ScanOptions, ScanResult } from '../types/core';
@@ -33,6 +34,9 @@ import {
 import colors from '../colors';
 import * as packageJson from '../../package.json';
 
+const REPO_ROOT = path.resolve(__dirname, '../../..');
+const ML_MODEL_DIR = path.join(REPO_ROOT, 'ml-model');
+
 interface CliOptions {
   depth?: number;
   parallel?: boolean;
@@ -61,6 +65,192 @@ interface CliOptions {
 }
 
 program.name('nullvoid').description('NullVoid Security Scanner').version(packageJson.version);
+
+function ensureMlModelDir(): void {
+  if (!fs.existsSync(ML_MODEL_DIR) || !fs.statSync(ML_MODEL_DIR).isDirectory()) {
+    console.error(colors.red('Error:'), `ML workspace not found at ${ML_MODEL_DIR}`);
+    console.error(
+      'ML commands are intended for the NullVoid repository checkout where ml-model/ exists.'
+    );
+    process.exit(1);
+  }
+}
+
+function runCommand(command: string, args: string[], cwd: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd,
+      stdio: 'inherit',
+      shell: false,
+    });
+
+    child.on('error', (error) => reject(error));
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`Command failed: ${command} ${args.join(' ')} (exit code ${code})`));
+      }
+    });
+  });
+}
+
+async function runMlPython(scriptName: string, args: string[]): Promise<void> {
+  ensureMlModelDir();
+  await runCommand('python3', [scriptName, ...args], ML_MODEL_DIR);
+}
+
+async function runMlNode(scriptName: string, args: string[]): Promise<void> {
+  ensureMlModelDir();
+  await runCommand('node', [scriptName, ...args], ML_MODEL_DIR);
+}
+
+async function runWorkspaceNpmScript(scriptName: string): Promise<void> {
+  await runCommand('npm', ['run', scriptName], REPO_ROOT);
+}
+
+program
+  .command('export')
+  .description('Export ML features to ml-model/train.jsonl')
+  .option('--out <file>', 'Output training JSONL filename', 'train.jsonl')
+  .option('--from-ghsa', 'Include samples from GitHub Security Advisories')
+  .option('--limit <n>', 'Limit GHSA sample count')
+  .action(async (options: { out?: string; fromGhsa?: boolean; limit?: string }) => {
+    try {
+      const scriptName = 'export-features.js';
+      const args: string[] = ['--out', options.out ?? 'train.jsonl'];
+      if (options.fromGhsa) args.push('--from-ghsa');
+      if (options.limit) args.push('--limit', options.limit);
+      await runMlNode(scriptName, args);
+      process.exit(0);
+    } catch (error) {
+      console.error(colors.red('Error:'), (error as Error).message);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('export-behavioral')
+  .description('Export behavioral ML features to ml-model/train-behavioral.jsonl')
+  .option('--out <file>', 'Output behavioral training JSONL filename', 'train-behavioral.jsonl')
+  .action(async (options: { out?: string }) => {
+    try {
+      await runMlNode('export-behavioral-features.js', [
+        '--out',
+        options.out ?? 'train-behavioral.jsonl',
+      ]);
+      process.exit(0);
+    } catch (error) {
+      console.error(colors.red('Error:'), (error as Error).message);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('train')
+  .description('Train dependency confusion ML model')
+  .option('--input <file>', 'Training data JSONL input file', 'train.jsonl')
+  .option('--output <file>', 'Output model path', 'model.pkl')
+  .option('--no-balance', 'Disable class balancing')
+  .option('--no-calibrate', 'Disable probability calibration')
+  .action(
+    async (options: {
+      input?: string;
+      output?: string;
+      balance?: boolean;
+      calibrate?: boolean;
+    }) => {
+      try {
+        const scriptName = 'train.py';
+        const args: string[] = [
+          '--input',
+          options.input ?? 'train.jsonl',
+          '--output',
+          options.output ?? 'model.pkl',
+        ];
+        if (options.balance !== false) args.push('--balance');
+        if (options.calibrate !== false) args.push('--calibrate');
+        await runMlPython(scriptName, args);
+        process.exit(0);
+      } catch (error) {
+        console.error(colors.red('Error:'), (error as Error).message);
+        process.exit(1);
+      }
+    }
+  );
+
+program
+  .command('train-behavioral')
+  .description('Train behavioral ML model')
+  .option('--input <file>', 'Behavioral training data JSONL input file', 'train-behavioral.jsonl')
+  .option('--no-balance', 'Disable class balancing')
+  .option('--no-calibrate', 'Disable probability calibration')
+  .action(async (options: { input?: string; balance?: boolean; calibrate?: boolean }) => {
+    try {
+      const scriptName = 'train-behavioral.py';
+      const args: string[] = ['--input', options.input ?? 'train-behavioral.jsonl'];
+      if (options.balance !== false) args.push('--balance');
+      if (options.calibrate !== false) args.push('--calibrate');
+      await runMlPython(scriptName, args);
+      process.exit(0);
+    } catch (error) {
+      console.error(colors.red('Error:'), (error as Error).message);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('serve')
+  .description('Start ML scoring service')
+  .option('--port <number>', 'Service port', '8000')
+  .action(async (options: { port?: string }) => {
+    try {
+      await runMlPython('serve.py', ['--port', options.port ?? '8000']);
+      process.exit(0);
+    } catch (error) {
+      console.error(colors.red('Error:'), (error as Error).message);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('build')
+  .description('Run workspace build (developer convenience)')
+  .action(async () => {
+    try {
+      await runWorkspaceNpmScript('build');
+      process.exit(0);
+    } catch (error) {
+      console.error(colors.red('Error:'), (error as Error).message);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('test')
+  .description('Run workspace tests (developer convenience)')
+  .action(async () => {
+    try {
+      await runWorkspaceNpmScript('test');
+      process.exit(0);
+    } catch (error) {
+      console.error(colors.red('Error:'), (error as Error).message);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('lint')
+  .description('Run workspace lint checks (developer convenience)')
+  .action(async () => {
+    try {
+      await runWorkspaceNpmScript('lint');
+      process.exit(0);
+    } catch (error) {
+      console.error(colors.red('Error:'), (error as Error).message);
+      process.exit(1);
+    }
+  });
 
 // Sign package (compute CID, optional pin)
 program
