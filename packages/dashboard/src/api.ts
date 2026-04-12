@@ -164,6 +164,9 @@ export async function getMlStatus(): Promise<{
   hint?: string;
   serveAvailable?: boolean;
   serveHint?: string;
+  serveShapAvailable?: boolean;
+  serveNote?: string;
+  mlServiceUrl?: string | null;
 }> {
   return fetchApi('/ml/status');
 }

@@ -62,6 +62,8 @@ export default function ML() {
   const [available, setAvailable] = useState<boolean | null>(null)
   const [serveAvailable, setServeAvailable] = useState<boolean | null>(null)
   const [serveHint, setServeHint] = useState<string | null>(null)
+  const [serveNote, setServeNote] = useState<string | null>(null)
+  const [mlServiceUrl, setMlServiceUrl] = useState<string | null>(null)
   const [running, setRunning] = useState<Cmd>(null)
   const [output, setOutput] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -86,6 +88,8 @@ export default function ML() {
         setAvailable(r.available)
         setServeAvailable(r.serveAvailable ?? false)
         setServeHint(r.serveHint ?? null)
+        setServeNote(r.serveNote ?? null)
+        setMlServiceUrl(r.mlServiceUrl ?? null)
       })
       .catch((e) => {
         if (isApiUnavailableError(e)) setApiUnavailable(true)
@@ -246,9 +250,21 @@ export default function ML() {
       <div className="card-minimal">
         <h3>Serve</h3>
         {serveAvailable ? (
-          <p className="text-green-600 dark:text-green-400 text-sm font-medium">
-            ML scoring server is running.
-          </p>
+          <>
+            <p className="text-green-600 dark:text-green-400 text-sm font-medium">
+              ML scoring server is running
+              {mlServiceUrl ? (
+                <>
+                  {' '}
+                  (<code className="text-xs break-all">{mlServiceUrl}</code>)
+                </>
+              ) : null}
+              .
+            </p>
+            {serveNote && (
+              <p className="text-neutral-500 dark:text-neutral-400 text-xs mt-2">{serveNote}</p>
+            )}
+          </>
         ) : (
           <p className="text-neutral-500 dark:text-neutral-400 text-sm">
             {serveHint ?? 'Start the ML server with make ml-serve or npm run ml:serve (port 8000).'}

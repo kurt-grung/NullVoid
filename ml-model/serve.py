@@ -3,6 +3,7 @@
 Serve the trained model via FastAPI.
 POST /score accepts {"features": {...}} and returns {"score": 0.0-1.0}.
 Supports explain, batch scoring, model info, and feature importance.
+GET /health returns ok, behavioral_loaded, and shap (whether SHAP is installed).
 
 Usage:
   python serve.py
@@ -26,6 +27,18 @@ try:
 except ImportError:
     print("Install: pip install fastapi uvicorn scikit-learn joblib", file=__import__("sys").stderr)
     raise
+
+
+def _shap_available() -> bool:
+    try:
+        import shap  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
+SHAP_AVAILABLE = _shap_available()
 
 app = FastAPI(title="NullVoid ML Score API")
 
@@ -372,21 +385,23 @@ def explain_post(req: ScoreRequest) -> dict:
     sorted_contrib = sorted(contributions.items(), key=lambda x: abs(x[1]), reverse=True)
     top = dict(sorted_contrib[:10])
     reasons = get_top_reasons(req.features, importance, top_n=5)
-    try:
-        import shap
-        base = get_base_estimator(model)
-        if base is not None and hasattr(base, "predict_proba"):
-            explainer = shap.TreeExplainer(base)
-            shap_vals = explainer.shap_values([vec])
-            if isinstance(shap_vals, list):
-                shap_vals = shap_vals[1] if len(shap_vals) > 1 else shap_vals[0]
-            if shap_vals is not None and len(shap_vals) > 0:
-                sv = shap_vals[0]
-                top = {keys[i]: float(sv[i]) for i in range(min(len(keys), len(sv)))}
-                top = dict(sorted(top.items(), key=lambda x: abs(x[1]), reverse=True)[:10])
-    except ImportError:
-        pass
-    return {"contributions": top, "reasons": reasons}
+    if SHAP_AVAILABLE:
+        try:
+            import shap
+
+            base = get_base_estimator(model)
+            if base is not None and hasattr(base, "predict_proba"):
+                explainer = shap.TreeExplainer(base)
+                shap_vals = explainer.shap_values([vec])
+                if isinstance(shap_vals, list):
+                    shap_vals = shap_vals[1] if len(shap_vals) > 1 else shap_vals[0]
+                if shap_vals is not None and len(shap_vals) > 0:
+                    sv = shap_vals[0]
+                    top = {keys[i]: float(sv[i]) for i in range(min(len(keys), len(sv)))}
+                    top = dict(sorted(top.items(), key=lambda x: abs(x[1]), reverse=True)[:10])
+        except Exception:
+            pass
+    return {"contributions": top, "reasons": reasons, "shap": SHAP_AVAILABLE}
 
 
 @app.post("/behavioral-score")
@@ -463,6 +478,9 @@ def health():
     return {
         "ok": model is not None,
         "behavioral_loaded": behavioral_model is not None,
+        "ensemble_loaded": ensemble_model is not None,
+        "shap": SHAP_AVAILABLE,
+        "shap": SHAP_AVAILABLE,
         "ensemble_loaded": ensemble_model is not None,
     }
 

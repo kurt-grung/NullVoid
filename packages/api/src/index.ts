@@ -498,22 +498,42 @@ app.get(
     const mlServiceUrl = process.env['ML_SERVICE_URL']?.replace(/\/$/, '');
     let serveAvailable = false;
     let serveHint: string | undefined;
+    let serveShapAvailable: boolean | undefined;
+    let serveNote: string | undefined;
     if (mlServiceUrl) {
       try {
         const r = await fetch(`${mlServiceUrl}/health`, { signal: AbortSignal.timeout(3000) });
         serveAvailable = r.ok;
         if (!r.ok) serveHint = `ML service at ${mlServiceUrl} returned ${r.status}`;
+        else {
+          try {
+            const h = (await r.json()) as { shap?: boolean };
+            if (typeof h['shap'] === 'boolean') {
+              serveShapAvailable = h['shap'];
+              if (!h['shap']) {
+                serveNote =
+                  'Scorer is up without SHAP. For TreeExplainer-backed POST /explain, run: pip install -r ml-model/requirements-optional.txt on the ML host.';
+              }
+            }
+          } catch {
+            /* ignore non-JSON health */
+          }
+        }
       } catch {
         serveHint = `ML service at ${mlServiceUrl} is not reachable`;
       }
     } else {
-      serveHint = 'Set ML_SERVICE_URL (e.g. https://your-ml.up.railway.app) or run make ml-serve locally';
+      serveHint =
+        'Set ML_SERVICE_URL (e.g. https://your-ml.up.railway.app) or run npm run ml:serve / make ml-serve on port 8000';
     }
     res.json({
       available: ML_AVAILABLE,
       hint: ML_AVAILABLE ? undefined : 'ML commands only work when API runs locally (make api)',
       serveAvailable,
       serveHint: serveAvailable ? undefined : serveHint,
+      serveShapAvailable,
+      serveNote: serveAvailable ? serveNote : undefined,
+      mlServiceUrl: mlServiceUrl ?? null,
     });
   })
 );

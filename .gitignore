@@ -87,6 +87,9 @@ public
 tmp/
 temp/
 
+# Local ML train/val split artifacts (npm run ml:heldout-dependency)
+ml-model/.eval-cache/
+
 # Logs
 logs
 *.log
