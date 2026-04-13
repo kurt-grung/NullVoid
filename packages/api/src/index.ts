@@ -90,7 +90,7 @@ function requireTenantHeaders(
   return tenant;
 }
 
-function sanitizeScanTarget(rawTarget: unknown): string {
+function sanitizeScanTarget(rawTarget: unknown): { display: string; resolved: string } {
   const candidate = typeof rawTarget === 'string' ? rawTarget.trim() : '.';
   const normalizedInput = candidate.length > 0 ? candidate : '.';
   if (normalizedInput.includes('\0')) {
@@ -103,7 +103,7 @@ function sanitizeScanTarget(rawTarget: unknown): string {
   if (relative.startsWith('..') || path.isAbsolute(relative)) {
     throw new Error(`Target must resolve inside configured scan root: ${SCAN_ROOT}`);
   }
-  return resolved;
+  return { display: normalizedInput, resolved };
 }
 
 function parseResultJson(
@@ -172,7 +172,6 @@ function enforceTenantAccess(
   if (!reqOrg || !orgId) return false;
   if (orgId !== reqOrg) return false;
   if (teamId && reqTeam !== teamId) return false;
-  if (!teamId && reqTeam) return false;
   return true;
 }
 
@@ -185,9 +184,10 @@ app.post(
     if (!tenant) return;
     const { organizationId, teamId } = tenant;
 
-    let target: string;
+    let displayTarget: string;
+    let resolvedTarget: string;
     try {
-      target = sanitizeScanTarget(req.body?.target);
+      ({ display: displayTarget, resolved: resolvedTarget } = sanitizeScanTarget(req.body?.target));
     } catch (error) {
       res.status(400).json({ error: (error as Error).message });
       return;
@@ -199,14 +199,14 @@ app.post(
       id,
       organizationId,
       teamId,
-      target,
+      target: displayTarget,
       status: 'pending',
     });
 
     await updateScan(id, { status: 'running' });
     const scan = getScanFn();
     try {
-      const result = await scan(target, { depth: 5 });
+      const result = await scan(resolvedTarget, { depth: 5 });
       const completedAt = new Date().toISOString();
       await updateScan(id, {
         status: 'completed',
@@ -216,7 +216,7 @@ app.post(
       res.status(200).json({
         id,
         status: 'completed',
-        target,
+        target: displayTarget,
         result,
         createdAt,
         completedAt,
@@ -232,7 +232,7 @@ app.post(
       res.status(500).json({
         id,
         status: 'failed',
-        target,
+        target: displayTarget,
         error: 'Scan execution failed',
         createdAt,
         completedAt,
