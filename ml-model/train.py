@@ -109,7 +109,7 @@ def main():
         )
         sys.exit(1)
 
-    can_stratify = len(classes) > 1 and all(y.count(c) >= 2 for c in classes)
+    can_stratify = len(classes) > 1 and all(y.count(c) >= max(2, int(1 / args.test_size) + 1) for c in classes)
     if can_stratify:
         stratify = y
         X_train, X_test, y_train, y_test = train_test_split(
