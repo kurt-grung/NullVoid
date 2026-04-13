@@ -31,6 +31,24 @@ import { NLP_CONFIG, COMMUNITY_CONFIG, TRUST_CONFIG } from './config';
 
 const BEHAVIORAL_MODEL_TIMEOUT = 5000;
 
+const PRIVATE_IP_PATTERN =
+  /^(localhost|127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.|::1|fd[0-9a-f]{2}:)/i;
+
+function validateExternalUrl(urlStr: string, label: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(urlStr);
+  } catch {
+    throw new Error(`${label}: invalid URL "${urlStr}"`);
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error(`${label}: only http/https URLs are allowed`);
+  }
+  if (PRIVATE_IP_PATTERN.test(parsed.hostname)) {
+    throw new Error(`${label}: requests to private/loopback addresses are not allowed`);
+  }
+}
+
 async function fetchBehavioralScoreFromUrl(
   baseUrl: string,
   features: Record<string, number>,
@@ -38,6 +56,12 @@ async function fetchBehavioralScoreFromUrl(
 ): Promise<number | null> {
   const url = baseUrl.replace(/\/$/, '') + '/behavioral-score';
   return new Promise((resolve) => {
+    try {
+      validateExternalUrl(url, 'BEHAVIORAL_MODEL_URL');
+    } catch {
+      resolve(null);
+      return;
+    }
     const payload = JSON.stringify({ features, explain: false });
     const u = new URL(url);
     const options = {

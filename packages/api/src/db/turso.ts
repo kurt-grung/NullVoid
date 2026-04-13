@@ -148,31 +148,33 @@ export async function listScans(options: {
   organizationId?: string;
   teamId?: string;
   limit?: number;
+  offset?: number;
 }): Promise<ScanRow[]> {
   await ensureSchema();
-  const { organizationId, teamId, limit = 50 } = options;
+  const { organizationId, teamId, limit = 50, offset = 0 } = options;
   const l = Math.min(limit, 100);
+  const o = Math.max(0, offset);
   const c = getClient();
   let r;
   if (organizationId && teamId) {
     r = await c.execute({
-      sql: 'SELECT * FROM scans WHERE organization_id = ? AND team_id = ? ORDER BY created_at DESC LIMIT ?',
-      args: [organizationId, teamId, l],
+      sql: 'SELECT * FROM scans WHERE organization_id = ? AND team_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?',
+      args: [organizationId, teamId, l, o],
     });
   } else if (organizationId) {
     r = await c.execute({
-      sql: 'SELECT * FROM scans WHERE organization_id = ? ORDER BY created_at DESC LIMIT ?',
-      args: [organizationId, l],
+      sql: 'SELECT * FROM scans WHERE organization_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?',
+      args: [organizationId, l, o],
     });
   } else if (teamId) {
     r = await c.execute({
-      sql: 'SELECT * FROM scans WHERE team_id = ? ORDER BY created_at DESC LIMIT ?',
-      args: [teamId, l],
+      sql: 'SELECT * FROM scans WHERE team_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?',
+      args: [teamId, l, o],
     });
   } else {
     r = await c.execute({
-      sql: 'SELECT * FROM scans ORDER BY created_at DESC LIMIT ?',
-      args: [l],
+      sql: 'SELECT * FROM scans ORDER BY created_at DESC LIMIT ? OFFSET ?',
+      args: [l, o],
     });
   }
   return r.rows.map((row) => ({

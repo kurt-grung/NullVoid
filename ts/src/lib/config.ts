@@ -44,6 +44,12 @@ function loadNullvoidRc(): void {
             rc['DEPENDENCY_CONFUSION_CONFIG'] as Record<string, unknown>
           );
         }
+        if (rc['RISK_CONFIG']) {
+          deepMerge(
+            RISK_CONFIG as unknown as Record<string, unknown>,
+            rc['RISK_CONFIG'] as Record<string, unknown>
+          );
+        }
         break;
       }
     } catch {

@@ -162,9 +162,11 @@ export class InputValidator {
     const normalizedPath = path.normalize(filePath);
     const absolutePath = path.resolve(basePath, normalizedPath);
 
-    // Ensure path is within allowed boundaries
+    // Ensure path is within allowed boundaries using path.relative to avoid
+    // startsWith false-passes on sibling dirs (e.g. /base passing for /base2).
     const baseAbsolute = path.resolve(basePath);
-    if (!absolutePath.startsWith(baseAbsolute)) {
+    const relative = path.relative(baseAbsolute, absolutePath);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
       throw new PathTraversalError('Path traversal attempt detected', {
         inputPath: filePath,
         resolvedPath: absolutePath,

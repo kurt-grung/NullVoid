@@ -480,8 +480,6 @@ def health():
         "behavioral_loaded": behavioral_model is not None,
         "ensemble_loaded": ensemble_model is not None,
         "shap": SHAP_AVAILABLE,
-        "shap": SHAP_AVAILABLE,
-        "ensemble_loaded": ensemble_model is not None,
     }
 
 

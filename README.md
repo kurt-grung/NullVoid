@@ -713,6 +713,7 @@ make dashboard
 | **ML** | Run export/train for dependency confusion and behavioral models (API must run locally) |
 
 - **Reports**: `GET /api/report/:scanId?format=html|markdown&compliance=soc2|iso27001`
+- **API Docs**: Swagger UI at `http://localhost:3001/api-docs`; OpenAPI JSON at `/api-docs.json`
 - **Stop all**: `make kill` stops API, dashboard, and ML server
 
 ### **ML Model (optional)**
@@ -1050,11 +1051,21 @@ Configure via `.nullvoidrc` or environment:
     "ML_DETECTION": {
       "ML_MODEL_URL": "http://localhost:8000/score",
       "BEHAVIORAL_MODEL_URL": "http://localhost:8000/behavioral-score",
-      "ML_EXPLAIN": true
+      "ML_EXPLAIN": true,
+      "MODEL_TIMEOUT": 5000,
+      "ML_PREDICTIVE_THRESHOLD": 0.4
     }
+  },
+  "RISK_CONFIG": {
+    "highRiskThreshold": 7,
+    "criticalRiskThreshold": 9
   }
 }
 ```
+
+- `MODEL_TIMEOUT` — max milliseconds to wait for the ML service (default `5000`)
+- `ML_PREDICTIVE_THRESHOLD` — minimum score to flag a package as high-risk via ML (default `0.4`)
+- `RISK_CONFIG` — override composite risk thresholds without redeploying
 
 Or: `export NULLVOID_ML_MODEL_URL=http://localhost:8000/score`
 
@@ -1076,6 +1087,18 @@ NULLVOID_TIMELINE_CRITICAL=1
 # Registry request timeout (ms)
 NULLVOID_REGISTRY_TIMEOUT=10000
 ```
+
+### **🔒 API Server Security**
+
+The REST API (`packages/api`) enforces the following by default:
+
+| Setting | Default | Notes |
+|---------|---------|-------|
+| `CORS_ORIGIN` | `*` | **Set an explicit origin in production.** The server logs a warning if left as wildcard. |
+| `NULLVOID_API_KEY` | _(unset — open)_ | Set to enable `X-API-Key` auth on all routes. |
+| Rate limiting | 10 req/min (`POST /scan`), 20 req/min (ML routes) | Configurable via `express-rate-limit`. |
+| Request body cap | 256 kb | Requests over this limit return `413`. |
+| `GET /scans` pagination | `?limit=50&offset=0` | `limit` is clamped to `[1, 100]`; `offset` to `≥ 0`. |
 
 
 ## 🗺️ **Roadmap**

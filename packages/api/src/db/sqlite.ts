@@ -98,27 +98,29 @@ export async function listScans(options: {
   organizationId?: string;
   teamId?: string;
   limit?: number;
+  offset?: number;
 }): Promise<ScanRow[]> {
-  const { organizationId, teamId, limit = 50 } = options;
+  const { organizationId, teamId, limit = 50, offset = 0 } = options;
   const l = Math.min(limit, 100);
+  const o = Math.max(0, offset);
   if (organizationId && teamId) {
     const stmt = getDb().prepare(
-      'SELECT * FROM scans WHERE organization_id = ? AND team_id = ? ORDER BY created_at DESC LIMIT ?'
+      'SELECT * FROM scans WHERE organization_id = ? AND team_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
     );
-    return stmt.all(organizationId, teamId, l) as ScanRow[];
+    return stmt.all(organizationId, teamId, l, o) as ScanRow[];
   }
   if (organizationId) {
     const stmt = getDb().prepare(
-      'SELECT * FROM scans WHERE organization_id = ? ORDER BY created_at DESC LIMIT ?'
+      'SELECT * FROM scans WHERE organization_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
     );
-    return stmt.all(organizationId, l) as ScanRow[];
+    return stmt.all(organizationId, l, o) as ScanRow[];
   }
   if (teamId) {
     const stmt = getDb().prepare(
-      'SELECT * FROM scans WHERE team_id = ? ORDER BY created_at DESC LIMIT ?'
+      'SELECT * FROM scans WHERE team_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
     );
-    return stmt.all(teamId, l) as ScanRow[];
+    return stmt.all(teamId, l, o) as ScanRow[];
   }
-  const stmt = getDb().prepare('SELECT * FROM scans ORDER BY created_at DESC LIMIT ?');
-  return stmt.all(l) as ScanRow[];
+  const stmt = getDb().prepare('SELECT * FROM scans ORDER BY created_at DESC LIMIT ? OFFSET ?');
+  return stmt.all(l, o) as ScanRow[];
 }

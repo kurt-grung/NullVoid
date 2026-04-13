@@ -647,7 +647,12 @@ export async function scan(
                         }
                         return [];
                       })
-                      .catch(() => [])
+                      .catch((err: Error) => {
+                        if (options.verbose) {
+                          logger.warn(`NLP query failed for ${depName}: ${err.message}`);
+                        }
+                        return [];
+                      })
                   );
                 }
               }
