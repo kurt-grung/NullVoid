@@ -10,6 +10,7 @@ import * as path from 'path';
 import * as http from 'http';
 import * as https from 'https';
 import { DEPENDENCY_CONFUSION_CONFIG } from './config';
+import { ML_FEATURE_SCHEMA_VERSION } from './mlFeatureKeys';
 import { analyzeTimeline } from './timelineAnalysis';
 import {
   analyzeCommitPatterns,
@@ -43,7 +44,57 @@ const ML_ENSEMBLE_URL = ML_CFG.ML_ENSEMBLE_URL || null;
 const ML_MODEL_PATH = ML_CFG.ML_MODEL_PATH || null;
 const ML_EXPLAIN = ML_CFG.ML_EXPLAIN === true;
 const COMMIT_PATTERN_ENABLED = ML_CFG.COMMIT_PATTERN_ANALYSIS !== false;
-const MODEL_TIMEOUT = 5000;
+const MODEL_TIMEOUT = ML_CFG.MODEL_TIMEOUT ?? 5000;
+const PREDICTIVE_THRESHOLD = ML_CFG.ML_PREDICTIVE_THRESHOLD ?? 0.4;
+
+/** One-time schema version check against the remote ML service */
+let schemaVersionChecked = false;
+async function checkSchemaVersionOnce(serviceUrl: string): Promise<void> {
+  if (schemaVersionChecked) return;
+  schemaVersionChecked = true;
+  try {
+    const infoUrl = serviceUrl.replace(/\/$/, '') + '/model-info';
+    const u = new URL(infoUrl);
+    const mod = u.protocol === 'https:' ? https : http;
+    await new Promise<void>((resolve) => {
+      const req = mod.get(
+        {
+          hostname: u.hostname,
+          port: u.port || (u.protocol === 'https:' ? 443 : 80),
+          path: u.pathname,
+          timeout: 3000,
+        },
+        (res) => {
+          let data = '';
+          res.on('data', (chunk) => (data += chunk));
+          res.on('end', () => {
+            try {
+              const info = JSON.parse(data) as { feature_schema_version?: number };
+              const serverVersion = info.feature_schema_version;
+              if (serverVersion != null && serverVersion !== ML_FEATURE_SCHEMA_VERSION) {
+                console.warn(
+                  `[mlDetection] Feature schema version mismatch: scanner has v${ML_FEATURE_SCHEMA_VERSION}, ` +
+                    `ML service at ${serviceUrl} has v${serverVersion}. ` +
+                    'Scores may be inaccurate. Retrain or redeploy to align versions.'
+                );
+              }
+            } catch {
+              /* non-JSON or empty response, ignore */
+            }
+            resolve();
+          });
+        }
+      );
+      req.on('error', () => resolve());
+      req.on('timeout', () => {
+        req.destroy();
+        resolve();
+      });
+    });
+  } catch {
+    /* never let a version check crash the scanner */
+  }
+}
 
 export interface MLDetectionConfig {
   ML_SCORING?: boolean;
@@ -55,6 +106,8 @@ export interface MLDetectionConfig {
   BEHAVIORAL_MODEL_URL?: string | null;
   ML_EXPLAIN?: boolean;
   COMMIT_PATTERN_ANALYSIS?: boolean;
+  MODEL_TIMEOUT?: number;
+  ML_PREDICTIVE_THRESHOLD?: number;
 }
 
 export interface FeatureVector {
@@ -369,6 +422,8 @@ async function getModelScoreFromPath(
 async function computeThreatScoreFromModel(
   features: FeatureVector
 ): Promise<{ score: number | null; reasons?: string[]; importance?: Record<string, number> }> {
+  const activeUrl = ML_ENSEMBLE_URL ?? ML_MODEL_URL;
+  if (activeUrl) await checkSchemaVersionOnce(activeUrl);
   if (ML_ENSEMBLE_URL) {
     const result = await fetchModelScoreFromUrl(
       ML_ENSEMBLE_URL,
@@ -463,7 +518,7 @@ export async function runMLDetection(params: MLDetectionParams): Promise<MLDetec
   const aboveThreshold =
     enabled && (threatScore >= ANOMALY_THRESHOLD || anomalyScore >= ANOMALY_THRESHOLD);
   const predictiveScore = computePredictiveScore(features);
-  const predictiveRisk = enabled && !aboveThreshold && predictiveScore >= 0.4;
+  const predictiveRisk = enabled && !aboveThreshold && predictiveScore >= PREDICTIVE_THRESHOLD;
   return {
     enabled,
     anomalyScore,

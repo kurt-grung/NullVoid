@@ -175,7 +175,12 @@ export async function runCommunityAnalysis(
         headers: { 'User-Agent': 'NullVoid-Security-Scanner/2.1.0' },
         validateStatus: (s) => s === 200,
       })
-      .catch(() => ({ data: null })),
+      .catch((err: Error) => {
+        console.warn(
+          `[communityAnalysis] Registry fetch failed for ${packageName}: ${err.message}`
+        );
+        return { data: null };
+      }),
     cfg.USE_DOWNLOADS ? fetchNpmDownloads(packageName, cfg) : Promise.resolve(0),
     fetchPackageDocs(packageName, version, { TIMEOUT_MS: timeout }),
   ]);

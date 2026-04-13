@@ -72,6 +72,7 @@ export async function listScans(options: {
   organizationId?: string;
   teamId?: string;
   limit?: number;
+  offset?: number;
 }): Promise<ScanRow[]> {
   return (await db()).listScans(options);
 }

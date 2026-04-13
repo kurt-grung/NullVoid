@@ -13,6 +13,24 @@ import axios from 'axios';
 // CIDv1 raw (0x55) sha2-256 (0x12): manual construction for CJS/ESM compatibility
 const RAW_CODEC = 0x55;
 const SHA256_CODE = 0x12;
+
+const PRIVATE_IP_PATTERN =
+  /^(localhost|127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.|::1|fd[0-9a-f]{2}:)/i;
+
+function validatePinServiceUrl(urlStr: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(urlStr);
+  } catch {
+    throw new Error(`PIN_SERVICE_URL: invalid URL "${urlStr}"`);
+  }
+  if (parsed.protocol !== 'https:') {
+    throw new Error('PIN_SERVICE_URL: only HTTPS URLs are allowed for pin services');
+  }
+  if (PRIVATE_IP_PATTERN.test(parsed.hostname)) {
+    throw new Error('PIN_SERVICE_URL: requests to private/loopback addresses are not allowed');
+  }
+}
 const SHA256_SIZE = 32;
 
 export interface VerificationResult {
@@ -111,6 +129,12 @@ export async function publishToIPFS(
 
   if (!pinUrl || !token) {
     return { cid, pinned: false };
+  }
+
+  try {
+    validatePinServiceUrl(pinUrl);
+  } catch (err) {
+    return { cid, pinned: false, error: (err as Error).message };
   }
 
   try {

@@ -49,6 +49,7 @@ function loadStore(): Record<string, TrustRecord> {
     }
   } catch {
     /* ignore */
+    console.warn(`[trustNetwork] Failed to load trust store from ${getStorePath()}`);
   }
   return {};
 }
@@ -63,6 +64,7 @@ function saveStore(store: Record<string, TrustRecord>): void {
     fs.writeFileSync(storePath, JSON.stringify(store, null, 2), 'utf8');
   } catch {
     /* ignore write errors */
+    console.warn(`[trustNetwork] Failed to persist trust store to ${getStorePath()}`);
   }
 }
 

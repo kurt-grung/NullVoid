@@ -10,6 +10,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import rateLimit from 'express-rate-limit';
+import swaggerJsdoc from 'swagger-jsdoc';
+import swaggerUi from 'swagger-ui-express';
 
 const execAsync = promisify(exec);
 import {
@@ -49,6 +52,12 @@ const isRailway = !!(process.env['RAILWAY_PROJECT_ID'] ?? process.env['RAILWAY_E
 const app = express();
 // CORS: allow dashboard on Vercel (or other origins) to call API on Railway
 const corsOrigin = process.env['CORS_ORIGIN'] ?? '*';
+if (corsOrigin === '*' && process.env['NODE_ENV'] === 'production') {
+  console.warn(
+    '[nullvoid-api] CORS_ORIGIN is unset; defaulting to wildcard (*). ' +
+    'Set CORS_ORIGIN to an explicit origin in production.'
+  );
+}
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', corsOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -66,7 +75,109 @@ app.use((req, _res, next) => {
   }
   next();
 });
-app.use(express.json());
+app.use(express.json({ limit: '256kb' }));
+
+/** Rate limiter for expensive scan/ML routes */
+const scanRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests — please wait before submitting another scan.' },
+});
+
+const mlRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many ML requests — please slow down.' },
+});
+
+/** OpenAPI 3.0 specification */
+const openApiSpec = swaggerJsdoc({
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'NullVoid API',
+      version: '1.0.0',
+      description: 'NullVoid security scanner REST API — scan orchestration, results, multi-tenant management, and ML operations.',
+    },
+    components: {
+      securitySchemes: {
+        apiKey: { type: 'apiKey', in: 'header', name: 'X-API-Key' },
+      },
+      parameters: {
+        OrgId: { name: 'X-Organization-Id', in: 'header', schema: { type: 'string' } },
+        TeamId: { name: 'X-Team-Id', in: 'header', schema: { type: 'string' } },
+      },
+    },
+    paths: {
+      '/health': {
+        get: {
+          summary: 'Health check',
+          parameters: [{ name: 'platform', in: 'query', schema: { type: 'string', enum: ['1'] } }],
+          responses: { 200: { description: 'ok' } },
+        },
+      },
+      '/scan': {
+        post: {
+          summary: 'Trigger a synchronous scan',
+          security: [{ apiKey: [] }],
+          requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { target: { type: 'string' } }, required: ['target'] } } } },
+          responses: { 200: { description: 'Scan result' }, 400: { description: 'Bad request' }, 401: { description: 'Unauthorized' }, 500: { description: 'Scan failed' } },
+        },
+      },
+      '/scan/{id}': {
+        get: {
+          summary: 'Get scan by ID',
+          security: [{ apiKey: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { 200: { description: 'Scan row' }, 403: { description: 'Forbidden' }, 404: { description: 'Not found' } },
+        },
+      },
+      '/scans': {
+        get: {
+          summary: 'List scans',
+          security: [{ apiKey: [] }],
+          parameters: [
+            { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 50 } },
+            { name: 'offset', in: 'query', schema: { type: 'integer', minimum: 0, default: 0 } },
+          ],
+          responses: { 200: { description: 'List of scans' } },
+        },
+      },
+      '/report/{scanId}': {
+        get: {
+          summary: 'Generate report for a completed scan',
+          security: [{ apiKey: [] }],
+          parameters: [
+            { name: 'scanId', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'format', in: 'query', schema: { type: 'string', enum: ['html', 'markdown'], default: 'html' } },
+            { name: 'compliance', in: 'query', schema: { type: 'string', enum: ['soc2', 'iso27001'] } },
+          ],
+          responses: { 200: { description: 'Report content' }, 400: { description: 'Scan not completed' }, 403: { description: 'Forbidden' }, 404: { description: 'Not found' } },
+        },
+      },
+      '/organizations': {
+        get: { summary: 'List organizations (scoped to caller org when key is set)', security: [{ apiKey: [] }], responses: { 200: { description: 'List of organizations' } } },
+        post: { summary: 'Create organization', security: [{ apiKey: [] }], requestBody: { content: { 'application/json': { schema: { type: 'object', properties: { name: { type: 'string' } } } } } }, responses: { 201: { description: 'Created' } } },
+      },
+      '/teams': {
+        get: { summary: 'List teams', security: [{ apiKey: [] }], parameters: [{ name: 'organizationId', in: 'query', schema: { type: 'string' } }], responses: { 200: { description: 'List of teams' } } },
+        post: { summary: 'Create team', security: [{ apiKey: [] }], requestBody: { content: { 'application/json': { schema: { type: 'object', properties: { organizationId: { type: 'string' }, name: { type: 'string' } }, required: ['organizationId'] } } } }, responses: { 201: { description: 'Created' } } },
+      },
+      '/ml/metrics': { get: { summary: 'ML training metadata', security: [{ apiKey: [] }], responses: { 200: { description: 'Training metrics' } } } },
+      '/ml/status': { get: { summary: 'ML service status', security: [{ apiKey: [] }], responses: { 200: { description: 'Status object' } } } },
+      '/ml/drift': { get: { summary: 'Model drift statistics', security: [{ apiKey: [] }], responses: { 200: { description: 'Drift result' }, 503: { description: 'ML_SERVICE_URL not set' } } } },
+      '/ml/feedback': { post: { summary: 'Submit prediction feedback', security: [{ apiKey: [] }], requestBody: { content: { 'application/json': { schema: { type: 'object', properties: { packageName: { type: 'string' }, version: { type: 'string' }, label: { type: 'integer', enum: [0, 1] }, scanId: { type: 'string' } }, required: ['packageName', 'version', 'label', 'scanId'] } } } }, responses: { 200: { description: 'ok' }, 400: { description: 'Invalid payload' } } } },
+    },
+  },
+  apis: [],
+});
+
+app.get('/api-docs.json', (_req: Request, res: Response) => { res.json(openApiSpec); });
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiSpec));
 
 function getTenantHeaders(req: Request): { organizationId?: string; teamId?: string } {
   return {
@@ -178,6 +289,7 @@ function enforceTenantAccess(
 /** POST /scan - run scan synchronously (required for Vercel serverless; no background jobs) */
 app.post(
   '/scan',
+  scanRateLimit,
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
     const tenant = requireTenantHeaders(req, res);
@@ -278,8 +390,10 @@ app.get(
     const { organizationId, teamId } = tenant;
 
     const parsedLimit = parseInt(req.query.limit as string, 10);
-    const limit = Number.isFinite(parsedLimit) ? Math.min(parsedLimit, 100) : 50;
-    const rows = await listScans({ organizationId, teamId, limit });
+    const limit = Number.isFinite(parsedLimit) ? Math.max(1, Math.min(parsedLimit, 100)) : 50;
+    const parsedOffset = parseInt(req.query.offset as string, 10);
+    const offset = Number.isFinite(parsedOffset) ? Math.max(0, parsedOffset) : 0;
+    const rows = await listScans({ organizationId, teamId, limit, offset });
     const scans = rows.map((r) => ({
       id: r.id,
       status: r.status,
@@ -346,7 +460,16 @@ app.get(
 /** GET /organizations - list organizations */
 app.get(
   '/organizations',
-  asyncHandler(async (_req: Request, res: Response) => {
+  asyncHandler(async (req: Request, res: Response) => {
+    if (API_KEY) {
+      const tenant = requireTenantHeaders(req, res);
+      if (!tenant) return;
+      if (tenant.organizationId) {
+        const org = await getOrganization(tenant.organizationId);
+        res.json({ organizations: org ? [org] : [] });
+        return;
+      }
+    }
     const orgs = await listOrganizations();
     res.json({ organizations: orgs });
   })
@@ -380,7 +503,12 @@ app.post(
 app.get(
   '/teams',
   asyncHandler(async (req: Request, res: Response) => {
-    const orgId = req.query.organizationId as string | undefined;
+    let orgId: string | undefined = req.query.organizationId as string | undefined;
+    if (API_KEY) {
+      const tenant = requireTenantHeaders(req, res);
+      if (!tenant) return;
+      orgId = tenant.organizationId ?? orgId;
+    }
     const teams = await listTeams(orgId);
     res.json({ teams });
   })
@@ -443,6 +571,7 @@ async function runMlCommand(cmd: string): Promise<{ stdout: string; stderr: stri
 
 app.post(
   '/ml/export',
+  mlRateLimit,
   requireAuth,
   asyncHandler(async (_req: Request, res: Response) => {
     if (!ML_AVAILABLE) {
@@ -468,6 +597,7 @@ app.post(
 
 app.post(
   '/ml/train',
+  mlRateLimit,
   requireAuth,
   asyncHandler(async (_req: Request, res: Response) => {
     if (!ML_AVAILABLE) {
@@ -493,6 +623,7 @@ app.post(
 
 app.post(
   '/ml/export-behavioral',
+  mlRateLimit,
   requireAuth,
   asyncHandler(async (_req: Request, res: Response) => {
     if (!ML_AVAILABLE) {
@@ -520,6 +651,7 @@ app.post(
 
 app.post(
   '/ml/train-behavioral',
+  mlRateLimit,
   requireAuth,
   asyncHandler(async (_req: Request, res: Response) => {
     if (!ML_AVAILABLE) {
@@ -546,6 +678,7 @@ app.post(
 /** GET /ml/metrics - last training metadata from ml-model/ (local clone); CI held-out metrics are in the ml-eval-report artifact */
 app.get(
   '/ml/metrics',
+  requireAuth,
   asyncHandler(async (_req: Request, res: Response) => {
     const mlDir = path.join(ROOT, 'ml-model');
     const readJson = (name: string): Record<string, unknown> | null => {
@@ -566,6 +699,7 @@ app.get(
 
 app.get(
   '/ml/status',
+  requireAuth,
   asyncHandler(async (_req: Request, res: Response) => {
     const mlServiceUrl = process.env['ML_SERVICE_URL']?.replace(/\/$/, '');
     let serveAvailable = false;
@@ -612,6 +746,7 @@ app.get(
 
 app.get(
   '/ml/drift',
+  requireAuth,
   asyncHandler(async (_req: Request, res: Response) => {
     const mlServiceUrl = process.env['ML_SERVICE_URL']?.replace(/\/$/, '');
     if (!mlServiceUrl) {
