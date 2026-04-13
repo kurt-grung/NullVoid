@@ -15,7 +15,7 @@ try {
         error: 'API failed to load',
         message: msg.includes('Cannot find module')
           ? 'Build output missing. Ensure npm run build runs and produces packages/api/dist.'
-          : msg,
+          : 'Unexpected startup error. Check deployment logs for details.',
         hint: 'Check Vercel build logs. Add TURSO_DATABASE_URL and TURSO_AUTH_TOKEN for database.',
       })
     );

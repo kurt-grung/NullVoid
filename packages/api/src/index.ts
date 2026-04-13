@@ -41,6 +41,7 @@ function getScanFn(): (target: string, options?: object) => Promise<unknown> {
 
 const PORT = parseInt(process.env['PORT'] ?? process.env['NULLVOID_API_PORT'] ?? '3001', 10);
 const API_KEY = process.env['NULLVOID_API_KEY'] ?? null;
+const SCAN_ROOT = path.resolve(process.env['NULLVOID_SCAN_ROOT'] ?? process.cwd());
 
 /** Platform detection: Railway sets RAILWAY_PROJECT_ID / RAILWAY_ENVIRONMENT_ID */
 const isRailway = !!(process.env['RAILWAY_PROJECT_ID'] ?? process.env['RAILWAY_ENVIRONMENT_ID']);
@@ -66,6 +67,55 @@ app.use((req, _res, next) => {
   next();
 });
 app.use(express.json());
+
+function getTenantHeaders(req: Request): { organizationId?: string; teamId?: string } {
+  return {
+    organizationId: req.headers['x-organization-id'] as string | undefined,
+    teamId: req.headers['x-team-id'] as string | undefined,
+  };
+}
+
+function requireTenantHeaders(
+  req: Request,
+  res: Response
+): { organizationId?: string; teamId?: string } | null {
+  const tenant = getTenantHeaders(req);
+  if (!API_KEY) return tenant;
+  if (!tenant.organizationId) {
+    res.status(400).json({
+      error: 'X-Organization-Id is required when API key auth is enabled',
+    });
+    return null;
+  }
+  return tenant;
+}
+
+function sanitizeScanTarget(rawTarget: unknown): { display: string; resolved: string } {
+  const candidate = typeof rawTarget === 'string' ? rawTarget.trim() : '.';
+  const normalizedInput = candidate.length > 0 ? candidate : '.';
+  if (normalizedInput.includes('\0')) {
+    throw new Error('Target contains invalid null byte');
+  }
+  const resolved = path.isAbsolute(normalizedInput)
+    ? path.resolve(normalizedInput)
+    : path.resolve(SCAN_ROOT, normalizedInput);
+  const relative = path.relative(SCAN_ROOT, resolved);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error(`Target must resolve inside configured scan root: ${SCAN_ROOT}`);
+  }
+  return { display: normalizedInput, resolved };
+}
+
+function parseResultJson(
+  rawResultJson: string | null
+): Record<string, unknown> | undefined {
+  if (!rawResultJson) return undefined;
+  try {
+    return JSON.parse(rawResultJson) as Record<string, unknown>;
+  } catch {
+    return undefined;
+  }
+}
 
 function authMiddleware(req: Request, res: Response, next: () => void): void {
   if (API_KEY) {
@@ -118,10 +168,10 @@ function enforceTenantAccess(
   teamId?: string | null
 ): boolean {
   if (!API_KEY) return true;
-  const reqOrg = req.headers['x-organization-id'] as string | undefined;
-  const reqTeam = req.headers['x-team-id'] as string | undefined;
-  if (orgId && reqOrg && orgId !== reqOrg) return false;
-  if (teamId && reqTeam && teamId !== reqTeam) return false;
+  const { organizationId: reqOrg, teamId: reqTeam } = getTenantHeaders(req);
+  if (!reqOrg || !orgId) return false;
+  if (orgId !== reqOrg) return false;
+  if (teamId && reqTeam !== teamId) return false;
   return true;
 }
 
@@ -130,9 +180,18 @@ app.post(
   '/scan',
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
-    const target = (req.body?.target as string) ?? '.';
-    const organizationId = req.headers['x-organization-id'] as string | undefined;
-    const teamId = req.headers['x-team-id'] as string | undefined;
+    const tenant = requireTenantHeaders(req, res);
+    if (!tenant) return;
+    const { organizationId, teamId } = tenant;
+
+    let displayTarget: string;
+    let resolvedTarget: string;
+    try {
+      ({ display: displayTarget, resolved: resolvedTarget } = sanitizeScanTarget(req.body?.target));
+    } catch (error) {
+      res.status(400).json({ error: (error as Error).message });
+      return;
+    }
 
     const id = `scan-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const createdAt = new Date().toISOString();
@@ -140,14 +199,14 @@ app.post(
       id,
       organizationId,
       teamId,
-      target,
+      target: displayTarget,
       status: 'pending',
     });
 
     await updateScan(id, { status: 'running' });
     const scan = getScanFn();
     try {
-      const result = await scan(target, { depth: 5 });
+      const result = await scan(resolvedTarget, { depth: 5 });
       const completedAt = new Date().toISOString();
       await updateScan(id, {
         status: 'completed',
@@ -157,7 +216,7 @@ app.post(
       res.status(200).json({
         id,
         status: 'completed',
-        target,
+        target: displayTarget,
         result,
         createdAt,
         completedAt,
@@ -173,8 +232,8 @@ app.post(
       res.status(500).json({
         id,
         status: 'failed',
-        target,
-        error: msg,
+        target: displayTarget,
+        error: 'Scan execution failed',
         createdAt,
         completedAt,
       });
@@ -186,6 +245,8 @@ app.post(
 app.get(
   '/scan/:id',
   asyncHandler(async (req: Request, res: Response) => {
+    const tenant = requireTenantHeaders(req, res);
+    if (!tenant) return;
     const row = await getScan(req.params.id);
     if (!row) {
       res.status(404).json({ error: 'Scan not found' });
@@ -195,7 +256,7 @@ app.get(
       res.status(403).json({ error: 'Forbidden' });
       return;
     }
-    const result = row.result_json ? JSON.parse(row.result_json) : undefined;
+    const result = parseResultJson(row.result_json);
     res.json({
       id: row.id,
       status: row.status,
@@ -212,10 +273,13 @@ app.get(
 app.get(
   '/scans',
   asyncHandler(async (req: Request, res: Response) => {
-    const orgId = req.headers['x-organization-id'] as string | undefined;
-    const teamId = req.headers['x-team-id'] as string | undefined;
-    const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
-    const rows = await listScans({ organizationId: orgId, teamId, limit });
+    const tenant = requireTenantHeaders(req, res);
+    if (!tenant) return;
+    const { organizationId, teamId } = tenant;
+
+    const parsedLimit = parseInt(req.query.limit as string, 10);
+    const limit = Number.isFinite(parsedLimit) ? Math.min(parsedLimit, 100) : 50;
+    const rows = await listScans({ organizationId, teamId, limit });
     const scans = rows.map((r) => ({
       id: r.id,
       status: r.status,
@@ -233,6 +297,8 @@ app.get(
 app.get(
   '/report/:scanId',
   asyncHandler(async (req: Request, res: Response) => {
+    const tenant = requireTenantHeaders(req, res);
+    if (!tenant) return;
     const row = await getScan(req.params.scanId);
     if (!row) {
       res.status(404).json({ error: 'Scan not found' });
@@ -242,7 +308,11 @@ app.get(
       res.status(403).json({ error: 'Forbidden' });
       return;
     }
-    const result = row.result_json ? (JSON.parse(row.result_json) as Record<string, unknown>) : undefined;
+    const result = parseResultJson(row.result_json);
+    if (row.result_json && !result) {
+      res.status(500).json({ error: 'Stored scan result is invalid JSON' });
+      return;
+    }
     if (!result || row.status !== 'completed') {
       res.status(400).json({ error: 'Scan not completed or no result' });
       return;
@@ -612,18 +682,21 @@ app.use((err: unknown, _req: Request, res: Response, next: (err?: unknown) => vo
 /** Final error handler: always send response to prevent FUNCTION_INVOCATION_FAILED */
 app.use((err: unknown, _req: Request, res: Response, _next: () => void) => {
   if (res.headersSent) return;
-  const e = err as Error;
-  const logHint = isRailway ? 'Check Railway logs for details.' : process.env['VERCEL'] ? 'Check Vercel logs for details.' : (e?.message ?? 'Unknown error');
+  const logHint = isRailway
+    ? 'Check Railway logs for details.'
+    : process.env['VERCEL']
+      ? 'Check Vercel logs for details.'
+      : 'Check local server logs for details.';
   res.status(500).json({
     error: 'Internal server error',
     message: logHint,
   });
 });
 
-// Export for Vercel serverless; listen when running standalone
-if (process.env['VERCEL'] === '1') {
-  module.exports = app;
-} else {
+module.exports = app;
+
+// Listen only when this file is executed directly.
+if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`NullVoid API listening on port ${PORT}`);
   });

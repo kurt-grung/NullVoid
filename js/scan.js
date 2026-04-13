@@ -68,7 +68,10 @@ const packageCache = new PackageCache({
  */
 function getNpmGlobalPrefix() {
   try {
-    return execSync('npm config get prefix', { encoding: 'utf8' }).trim();
+    return execSync('npm config get prefix', {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim();
   } catch (error) {
     logger.warn('Could not get npm global prefix', { error: error.message });
     return '/usr/local'; // fallback
