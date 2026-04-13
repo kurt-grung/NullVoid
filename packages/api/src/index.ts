@@ -693,10 +693,10 @@ app.use((err: unknown, _req: Request, res: Response, _next: () => void) => {
   });
 });
 
-// Export for Vercel serverless; listen when running standalone
-if (process.env['VERCEL'] === '1') {
-  module.exports = app;
-} else {
+module.exports = app;
+
+// Listen only when this file is executed directly.
+if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`NullVoid API listening on port ${PORT}`);
   });

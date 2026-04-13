@@ -51,6 +51,7 @@ export function getRepoRoot(dir: string): string | null {
       cwd: dir,
       encoding: 'utf8',
       timeout: GIT_TIMEOUT,
+      stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
     return root || null;
   } catch {
@@ -63,7 +64,12 @@ export function getRepoRoot(dir: string): string | null {
  */
 function git(cmd: string, cwd: string): string | null {
   try {
-    return execSync(cmd, { cwd, encoding: 'utf8', timeout: GIT_TIMEOUT }).trim();
+    return execSync(cmd, {
+      cwd,
+      encoding: 'utf8',
+      timeout: GIT_TIMEOUT,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
   } catch {
     return null;
   }
