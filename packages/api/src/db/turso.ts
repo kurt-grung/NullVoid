@@ -152,6 +152,9 @@ export async function listScans(options: {
   await ensureSchema();
   const { organizationId, teamId, limit = 50 } = options;
   const l = Math.min(limit, 100);
+  if (!organizationId) {
+    return [];
+  }
   const c = getClient();
   let r;
   if (organizationId && teamId) {
@@ -164,16 +167,8 @@ export async function listScans(options: {
       sql: 'SELECT * FROM scans WHERE organization_id = ? ORDER BY created_at DESC LIMIT ?',
       args: [organizationId, l],
     });
-  } else if (teamId) {
-    r = await c.execute({
-      sql: 'SELECT * FROM scans WHERE team_id = ? ORDER BY created_at DESC LIMIT ?',
-      args: [teamId, l],
-    });
   } else {
-    r = await c.execute({
-      sql: 'SELECT * FROM scans ORDER BY created_at DESC LIMIT ?',
-      args: [l],
-    });
+    return [];
   }
   return r.rows.map((row) => ({
     id: row.id,

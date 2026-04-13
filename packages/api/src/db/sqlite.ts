@@ -101,6 +101,9 @@ export async function listScans(options: {
 }): Promise<ScanRow[]> {
   const { organizationId, teamId, limit = 50 } = options;
   const l = Math.min(limit, 100);
+  if (!organizationId) {
+    return [];
+  }
   if (organizationId && teamId) {
     const stmt = getDb().prepare(
       'SELECT * FROM scans WHERE organization_id = ? AND team_id = ? ORDER BY created_at DESC LIMIT ?'
@@ -113,12 +116,5 @@ export async function listScans(options: {
     );
     return stmt.all(organizationId, l) as ScanRow[];
   }
-  if (teamId) {
-    const stmt = getDb().prepare(
-      'SELECT * FROM scans WHERE team_id = ? ORDER BY created_at DESC LIMIT ?'
-    );
-    return stmt.all(teamId, l) as ScanRow[];
-  }
-  const stmt = getDb().prepare('SELECT * FROM scans ORDER BY created_at DESC LIMIT ?');
-  return stmt.all(l) as ScanRow[];
+  return [];
 }

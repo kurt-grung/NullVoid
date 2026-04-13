@@ -5,7 +5,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
+import axios from 'axios';
 import {
   computePackageCID,
   verifyPackageCID,
@@ -68,9 +69,11 @@ describe('IPFS Verification', () => {
   });
 
   describe('fetchFromIPFS', () => {
-    it('should return null for invalid CID (no network)', async () => {
+    it('should return null when gateway request fails', async () => {
+      const spy = jest.spyOn(axios, 'get').mockRejectedValueOnce(new Error('network down'));
       const result = await fetchFromIPFS('bafkreinvalid', { GATEWAY_URL: 'https://ipfs.io' });
       expect(result).toBeNull();
+      spy.mockRestore();
     });
   });
 });
