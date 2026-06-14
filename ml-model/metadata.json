@@ -24,7 +24,7 @@
     "trustScore"
   ],
   "feature_schema_version": 1,
-  "training_date": "2026-06-07T04:29:12.377052Z",
+  "training_date": "2026-06-14T04:29:26.261086Z",
   "dataset_size": 1608,
   "class_distribution": {
     "good": 3,
