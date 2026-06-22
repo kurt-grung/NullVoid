@@ -20,31 +20,31 @@ while (( SECONDS < deadline )); do
     exit 1
   fi
 
-  mapfile -t rows < <(gh pr checks "${PR}" --json name,state,bucket -q '.[] | [.name,.state,.bucket] | @tsv')
-
   pending=0
   failed=0
-  for row in "${rows[@]}"; do
-    IFS=$'\t' read -r name state bucket <<< "${row}"
+  total=0
+  while IFS=$'\t' read -r name state bucket; do
+    [[ -z "${name}" ]] && continue
+    total=$((total + 1))
     if [[ "${state}" == "FAILURE" || "${state}" == "ERROR" || "${bucket}" == "fail" ]]; then
       echo "FAIL: ${name} (${state})"
       failed=$((failed + 1))
     elif [[ "${state}" == "PENDING" || "${state}" == "IN_PROGRESS" || "${state}" == "QUEUED" || "${state}" == "WAITING" ]]; then
       pending=$((pending + 1))
     fi
-  done
+  done < <(gh pr checks "${PR}" --json name,state,bucket -q '.[] | [.name,.state,.bucket] | @tsv')
 
   if (( failed > 0 )); then
     echo "PR #${PR} has ${failed} failing check(s). Fix, push, and re-run babysit-pr.sh." >&2
     exit 2
   fi
 
-  if (( pending == 0 )) && (( ${#rows[@]} > 0 )); then
+  if (( pending == 0 )) && (( total > 0 )); then
     echo "All checks passed for PR #${PR}."
     exit 0
   fi
 
-  echo "Waiting… (${pending} pending, ${#rows[@]} total checks)"
+  echo "Waiting… (${pending} pending, ${total} total checks)"
   sleep "${POLL_SECONDS}"
 done
 
