@@ -7,7 +7,6 @@ const shared = {
   },
   moduleFileExtensions: ['ts', 'js', 'json'],
   setupFilesAfterEnv: ['<rootDir>/test/setup.ts'],
-  verbose: true,
   clearMocks: true,
   restoreMocks: true,
 };
