@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getScan, getReportUrl, type ScanDetail, type Threat } from '../api'
 import { useOrgTeam } from '../context/OrgTeamContext'
+import Breadcrumbs from '../components/Breadcrumbs'
+import DependencyTreeView, { type GraphNode } from '../components/DependencyTree'
 
 function ThreatRow({ t }: { t: Threat }) {
   const [expanded, setExpanded] = useState(false)
@@ -91,8 +93,11 @@ export default function ScanDetailView() {
           ? 'bg-green-500 text-white'
           : 'bg-red-500 text-white'
 
+  const supplyChainGraph = r?.metadata?.supplyChainGraph as { root?: unknown } | undefined
+
   return (
     <>
+      <Breadcrumbs items={[{ label: 'Scans', to: '/scans' }, { label: scan.target }]} />
       <p><Link to="/scans">← Back to Scans</Link></p>
       <h1>Scan: {scan.target}</h1>
       <div className="flex gap-2 items-center mb-4 flex-wrap">
@@ -204,6 +209,11 @@ export default function ScanDetailView() {
               </div>
             </div>
           )}
+
+          <div className="card-minimal">
+            <h3>Dependency tree</h3>
+            <DependencyTreeView graph={supplyChainGraph as { root?: GraphNode } | undefined} />
+          </div>
 
           <div className="card-minimal">
             <h3>Threats ({threats.length})</h3>

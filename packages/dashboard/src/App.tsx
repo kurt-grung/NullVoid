@@ -11,6 +11,11 @@ import ML from './views/ML'
 import Settings from './views/Settings'
 import Trends from './views/Trends'
 import Search from './views/Search'
+import ScanCompare from './views/ScanCompare'
+import Schedules from './views/Schedules'
+import ConfigEditor from './views/ConfigEditor'
+import NotificationBell from './components/NotificationBell'
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { getHealth, getOrganizations, getTeams } from './api'
 import { useOrgTeam } from './context/OrgTeamContext'
 import './index.css'
@@ -122,6 +127,22 @@ function NavWithHealth() {
           ML
         </NavLink>
         <NavLink
+          to="/schedules"
+          className={({ isActive }) =>
+            `text-sm font-medium transition-colors ${isActive ? 'text-black dark:text-white no-underline' : 'text-neutral-500 dark:text-neutral-400 hover:text-black dark:hover:text-white no-underline'}`
+          }
+        >
+          Schedules
+        </NavLink>
+        <NavLink
+          to="/config"
+          className={({ isActive }) =>
+            `text-sm font-medium transition-colors ${isActive ? 'text-black dark:text-white no-underline' : 'text-neutral-500 dark:text-neutral-400 hover:text-black dark:hover:text-white no-underline'}`
+          }
+        >
+          Config
+        </NavLink>
+        <NavLink
           to="/settings"
           className={({ isActive }) =>
             `text-sm font-medium transition-colors ${isActive ? 'text-black dark:text-white no-underline' : 'text-neutral-500 dark:text-neutral-400 hover:text-black dark:hover:text-white no-underline'}`
@@ -159,6 +180,7 @@ function NavWithHealth() {
         </div>
       )}
       <div className="ml-auto flex items-center gap-3">
+        <NotificationBell />
         {apiHealthy !== null && (
           <span
             className="flex items-center gap-1.5 text-xs font-medium"
@@ -185,6 +207,26 @@ function NavWithHealth() {
   )
 }
 
+function AppRoutes() {
+  useKeyboardShortcuts()
+  return (
+    <Routes>
+      <Route path="/" element={<Executive />} />
+      <Route path="/scans" element={<Scans />} />
+      <Route path="/scans/compare" element={<ScanCompare />} />
+      <Route path="/scans/:id" element={<ScanDetail />} />
+      <Route path="/compliance" element={<Compliance />} />
+      <Route path="/reports" element={<Reports />} />
+      <Route path="/trends" element={<Trends />} />
+      <Route path="/search" element={<Search />} />
+      <Route path="/ml" element={<ML />} />
+      <Route path="/schedules" element={<Schedules />} />
+      <Route path="/config" element={<ConfigEditor />} />
+      <Route path="/settings" element={<Settings />} />
+    </Routes>
+  )
+}
+
 function App() {
   return (
     <BrowserRouter basename={basename}>
@@ -192,17 +234,7 @@ function App() {
         <div className="flex flex-col min-h-screen">
           <NavWithHealth />
           <main className="flex-1 px-8 py-10 max-w-[1200px] mx-auto w-full">
-            <Routes>
-              <Route path="/" element={<Executive />} />
-              <Route path="/scans" element={<Scans />} />
-              <Route path="/scans/:id" element={<ScanDetail />} />
-              <Route path="/compliance" element={<Compliance />} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/trends" element={<Trends />} />
-              <Route path="/search" element={<Search />} />
-              <Route path="/ml" element={<ML />} />
-              <Route path="/settings" element={<Settings />} />
-            </Routes>
+            <AppRoutes />
           </main>
           <SpeedInsights />
         </div>

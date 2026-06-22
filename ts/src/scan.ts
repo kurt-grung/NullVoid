@@ -21,6 +21,9 @@ import { SCAN_CONFIG, PARALLEL_CONFIG, NLP_CONFIG } from './lib/config';
 import { computeCompositeRisk } from './lib/riskScoring';
 import { runNlpAnalysis } from './lib/nlpAnalysis';
 import { runMLDetection, buildFeatureVector } from './lib/mlDetection';
+import { isNpmPackageSpec, parsePackageSpec, downloadPackageToTemp } from './lib/remotePackageScan';
+import { buildSupplyChainGraph } from './lib/supplyChainGraph';
+import { buildDependencyTree } from './lib/dependencyTree';
 import { getGitHistorySync } from './lib/dependencyConfusion';
 import { getPackageCreationDate } from './lib/dependencyConfusion';
 import { analyzePackageName } from './lib/dependencyConfusion';
@@ -516,6 +519,7 @@ export async function scan(
   let filesScanned = 0;
   let directoryStructure: DirectoryStructure | undefined;
   let performanceData: PerformanceMetrics;
+  let graphRoot: string | null = null;
 
   // Reset performance metrics
   performanceMetrics.duration = 0;
@@ -533,6 +537,7 @@ export async function scan(
     // Check if target is a directory
     if (fs.existsSync(target) && fs.statSync(target).isDirectory()) {
       const rootPath = path.resolve(target);
+      graphRoot = rootPath;
       const ignoreDirs = loadNullvoidIgnore(rootPath);
       const scanOptions = ignoreDirs.length > 0 ? { ...options, ignoreDirs } : options;
       const directoryResult = await scanDirectory(target, scanOptions, progressCallback);
@@ -753,8 +758,37 @@ export async function scan(
             logger.warn(`Failed to scan file ${target}: ${(error as Error).message}`);
           }
         }
+      } else if (isNpmPackageSpec(target)) {
+        const spec = parsePackageSpec(target);
+        if (spec) {
+          const resolved = await downloadPackageToTemp(spec.name, spec.version);
+          if (resolved) {
+            try {
+              if (options.verbose) {
+                logger.info(`Scanning remote package ${resolved.packageName}@${resolved.version}`);
+              }
+              const dirResult = await scanDirectory(resolved.extractDir, options, progressCallback);
+              threats.push(...dirResult.threats);
+              filesScanned = dirResult.filesScanned;
+              packagesScanned = 1;
+              directoryStructure = dirResult.directoryStructure;
+              graphRoot = resolved.extractDir;
+            } finally {
+              resolved.cleanup();
+            }
+          } else {
+            threats.push({
+              type: 'PACKAGE_NOT_FOUND',
+              message: `Could not download package: ${target}`,
+              filePath: target,
+              filename: path.basename(target),
+              severity: 'MEDIUM',
+              details: `Package ${spec.name}@${spec.version} was not found on the npm registry.`,
+              confidence: 0.9,
+            });
+          }
+        }
       } else {
-        // Assume it's a package name (placeholder for npm package scanning)
         threats.push({
           type: 'PACKAGE_NOT_FOUND',
           message: `Package or file not found: ${target}`,
@@ -762,7 +796,7 @@ export async function scan(
           filename: path.basename(target),
           severity: 'LOW',
           details:
-            'This appears to be a package name, but npm package scanning is not yet implemented in the TypeScript version.',
+            'Path does not exist and target is not a valid npm package spec (name or name@version).',
           confidence: 0.5,
         });
       }
@@ -852,6 +886,17 @@ export async function scan(
       )
     : 0;
 
+  const scanRoot = graphRoot;
+  let supplyChainGraphPayload: ReturnType<typeof buildSupplyChainGraph> | undefined;
+  if (scanRoot) {
+    try {
+      const { tree } = buildDependencyTree(scanRoot);
+      supplyChainGraphPayload = buildSupplyChainGraph(tree, filteredThreats);
+    } catch {
+      /* optional enrichment */
+    }
+  }
+
   return {
     threats: filteredThreats,
     metrics: performanceData,
@@ -868,6 +913,7 @@ export async function scan(
       target,
       scanTime: new Date().toISOString(),
       options,
+      ...(supplyChainGraphPayload ? { supplyChainGraph: supplyChainGraphPayload } : {}),
     },
     directoryStructure: directoryStructure
       ? {

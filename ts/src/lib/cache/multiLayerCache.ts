@@ -13,6 +13,7 @@ import type {
 import { LRUCache } from '../cache';
 import { CACHE_LAYER_CONFIG } from '../config';
 import { logger } from '../logger';
+import { createRedisCache, type RedisCache } from './redisCache';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
@@ -24,10 +25,13 @@ export class MultiLayerCache<T = unknown> {
   private l1Cache: LRUCache<T>;
   private l2Enabled: boolean;
   private l2CacheDir: string;
+  private l3Cache: RedisCache | null;
+  private l3Enabled: boolean;
   private promotionStrategy: CachePromotionStrategy;
   private stats: {
     l1: LayerCacheStats;
     l2: LayerCacheStats;
+    l3: LayerCacheStats;
   };
 
   constructor() {
@@ -57,10 +61,13 @@ export class MultiLayerCache<T = unknown> {
     // Set promotion strategy
     this.promotionStrategy = CACHE_LAYER_CONFIG.PROMOTION_STRATEGY;
 
-    // Initialize stats
+    this.l3Enabled = Boolean((CACHE_LAYER_CONFIG.L3 as { enabled?: boolean }).enabled);
+    this.l3Cache = this.l3Enabled ? createRedisCache() : null;
+
     this.stats = {
       l1: this.createEmptyStats('L1'),
       l2: this.createEmptyStats('L2'),
+      l3: this.createEmptyStats('L3'),
     };
   }
 
@@ -109,6 +116,26 @@ export class MultiLayerCache<T = unknown> {
     this.updateHitRate('L1');
     this.updateHitRate('L2');
 
+    if (this.l3Enabled && this.l3Cache) {
+      try {
+        const l3Value = await this.l3Cache.get<T>(key);
+        if (l3Value !== null) {
+          this.stats.l3.hits++;
+          this.updateHitRate('L3');
+          this.l1Cache.set(key, l3Value);
+          return {
+            success: true,
+            value: l3Value,
+            layer: 'L3',
+          };
+        }
+        this.stats.l3.misses++;
+        this.updateHitRate('L3');
+      } catch (error) {
+        logger.warn(`L3 cache read error for key ${key}`, { error: String(error) });
+      }
+    }
+
     return {
       success: false,
       layer: 'L1',
@@ -132,6 +159,15 @@ export class MultiLayerCache<T = unknown> {
       }
     }
 
+    if (this.l3Enabled && this.l3Cache) {
+      try {
+        const l3Ttl = ttl || CACHE_LAYER_CONFIG.L3.defaultTTL;
+        await this.l3Cache.set(key, value, l3Ttl);
+      } catch (error) {
+        logger.warn(`L3 cache write error for key ${key}`, { error: String(error) });
+      }
+    }
+
     return {
       success: true,
       value,
@@ -150,6 +186,16 @@ export class MultiLayerCache<T = unknown> {
         await this.deleteFromL2(key);
       } catch (error) {
         logger.warn(`L2 cache delete error for key ${key}`, {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    if (this.l3Enabled && this.l3Cache) {
+      try {
+        await this.l3Cache.delete(key);
+      } catch (error) {
+        logger.warn(`L3 cache delete error for key ${key}`, {
           error: error instanceof Error ? error.message : String(error),
         });
       }
@@ -183,6 +229,13 @@ export class MultiLayerCache<T = unknown> {
     // Reset stats
     this.stats.l1 = this.createEmptyStats('L1');
     this.stats.l2 = this.createEmptyStats('L2');
+    this.stats.l3 = this.createEmptyStats('L3');
+  }
+
+  async close(): Promise<void> {
+    if (this.l3Cache) {
+      await this.l3Cache.close();
+    }
   }
 
   /**
@@ -206,15 +259,20 @@ export class MultiLayerCache<T = unknown> {
       }
     }
 
-    const totalHits = this.stats.l1.hits + this.stats.l2.hits;
-    const totalMisses = this.stats.l1.misses + this.stats.l2.misses;
+    const totalHits = this.stats.l1.hits + this.stats.l2.hits + this.stats.l3.hits;
+    const totalMisses = this.stats.l1.misses + this.stats.l2.misses + this.stats.l3.misses;
     const overallHitRate = totalHits + totalMisses > 0 ? totalHits / (totalHits + totalMisses) : 0;
+
+    if (this.l3Enabled && this.l3Cache) {
+      const status = this.l3Cache.getStatus();
+      this.stats.l3.utilization = status.connected ? 1 : 0;
+    }
 
     return {
       layers: {
         L1: { ...this.stats.l1 },
         L2: { ...this.stats.l2 },
-        L3: this.createEmptyStats('L3'), // L3 not implemented yet
+        L3: { ...this.stats.l3 },
       },
       totalHits,
       totalMisses,
@@ -314,7 +372,8 @@ export class MultiLayerCache<T = unknown> {
    * Update hit rate for layer
    */
   private updateHitRate(layer: CacheLayer): void {
-    const stats = this.stats[layer.toLowerCase() as 'l1' | 'l2'];
+    const key = layer.toLowerCase() as 'l1' | 'l2' | 'l3';
+    const stats = this.stats[key];
     const total = stats.hits + stats.misses;
     if (total > 0) {
       stats.hitRate = stats.hits / total;

@@ -122,9 +122,9 @@ NullVoid aims to be the most comprehensive and accurate static analysis security
 - **Azure DevOps**: Azure DevOps pipeline integration — *example added* ([azure-pipelines.example.yml](azure-pipelines.example.yml))
 - **GitLab CI Enhancement**: Enhanced GitLab CI integration — *example added* (README + [.gitlab-ci.example.yml](.gitlab-ci.example.yml))
 
-#### **Configuration UI** *(deferred)*
-- **Web-based Interface**: Browser-based configuration interface — *deferred*
-- **Visual Rule Builder**: Drag-and-drop rule configuration — *deferred*
+#### **Configuration UI** *(deferred → Phase 4)*
+- **Web-based Interface**: Browser-based configuration interface — *Phase 4*
+- **Visual Rule Builder**: Drag-and-drop rule configuration — *Phase 4*
 - **Template Library**: Pre-built configuration templates for common scenarios
 - **Configuration Validation**: Real-time configuration validation and suggestions — *CLI validation added* ([scripts/validate-config.js](../scripts/validate-config.js); see [CONFIGURATION.md](CONFIGURATION.md#configuration-validation))
 - *Scope: web UI / rule builder to be prioritized after IDE and CI/CD polish.*
@@ -206,7 +206,7 @@ NullVoid aims to be the most comprehensive and accurate static analysis security
 #### **Natural Language Processing**
 - **Documentation Analysis**: Analysis of package documentation for security indicators — *implemented* (`fetchPackageDocs`, `analyzeDocsNLP`)
 - **Issue Analysis**: Analysis of GitHub issues and discussions for security concerns — *implemented* (`fetchGitHubIssues`, `analyzeIssuesNLP`)
-- **Review Analysis**: Analysis of package reviews and ratings for security insights — *deferred*
+- **Review Analysis**: Analysis of package reviews and ratings for security insights — *Phase 2*
 - **Commit Message Analysis**: Analysis of commit messages for security indicators — *implemented* (`commitPatternAnalysis.js`)
 
 ### **⛓️ Blockchain Integration**
@@ -215,7 +215,7 @@ NullVoid aims to be the most comprehensive and accurate static analysis security
 - **Blockchain-based Signing**: Package signing using blockchain technology — *implemented* (IPFS CID via `ts/src/lib/ipfsVerification.ts`)
 - **Decentralized Verification**: Distributed package verification system — *implemented* (`verifyPackageCID`, `fetchFromIPFS`)
 - **Cryptographic Proofs**: Mathematical proof of package integrity — *implemented* (CIDv1 sha2-256)
-- **Smart Contracts**: Automated security policy enforcement via smart contracts — *deferred*
+- **Smart Contracts**: Automated security policy enforcement via smart contracts — *Phase 5*
 
 #### **Decentralized Verification**
 - **Distributed Trust**: Distributed trust model for package verification — *implemented* (IPFS content-addressing)
@@ -235,6 +235,25 @@ NullVoid aims to be the most comprehensive and accurate static analysis security
 - `nullvoid register-on-chain <path>` — Register package CID on blockchain — *implemented*
 - `nullvoid verify-on-chain <spec> --cid <cid>` — Verify package against blockchain — *implemented*
 - `nullvoid verify-consensus <spec>` — Multi-source consensus verification — *implemented*
+
+---
+
+## 🗺️ **Advanced Roadmap (Phase-Based)**
+
+Full detail: [ADVANCED_ROADMAP.md](ADVANCED_ROADMAP.md). Track epics on [GitHub Projects](https://github.com/kurt-grung/NullVoid/projects).
+
+No fixed calendar dates — advance by **exit criteria** per phase.
+
+| Phase | Focus | Deferred items mapped here |
+|-------|--------|----------------------------|
+| **0 — Foundation** | Retire `js/` mirror, L3 Redis cache, remote npm scan, E2E + perf tests | TypeScript migration cleanup, L3 stub in `multiLayerCache.ts` |
+| **1 — Detection** | Custom rule engine, supply chain graph, C/I/A composite risk in reports | Supply chain mapping, custom rules (ROADMAP enterprise) |
+| **2 — ML production** | Embedded scoring default, drift alerts, feedback → retrain | ML scaffold → always-on; review analysis (deferred NLP) |
+| **3 — Enterprise** | Job runner, scheduled scans, webhooks/SSE, audit log, RBAC, GraphQL, SDKs | GraphQL, webhooks, audit logging (ROADMAP enterprise) |
+| **4 — Experience** | Dashboard Phase 4–5, web config UI, VS Code v2, rule marketplace | Configuration UI (deferred), dashboard compare/tree/schedules |
+| **5 — Trust & policy** | On-chain policy enforcement, trust network, plugin API, compliance automation | Smart contract policy (deferred), plugin ecosystem |
+
+**Start here (highest leverage):** retire `js/` → job runner + schedules → embedded ML → scan compare + dependency tree → webhooks + audit.
 
 ---
 

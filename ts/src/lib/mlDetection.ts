@@ -11,6 +11,7 @@ import * as http from 'http';
 import * as https from 'https';
 import { DEPENDENCY_CONFUSION_CONFIG } from './config';
 import { ML_FEATURE_SCHEMA_VERSION } from './mlFeatureKeys';
+import { resolveEmbeddedMlServiceUrl } from './embeddedModel';
 import { analyzeTimeline } from './timelineAnalysis';
 import {
   analyzeCommitPatterns,
@@ -422,7 +423,8 @@ async function getModelScoreFromPath(
 async function computeThreatScoreFromModel(
   features: FeatureVector
 ): Promise<{ score: number | null; reasons?: string[]; importance?: Record<string, number> }> {
-  const activeUrl = ML_ENSEMBLE_URL ?? ML_MODEL_URL;
+  const embeddedUrl = resolveEmbeddedMlServiceUrl();
+  const activeUrl = ML_ENSEMBLE_URL ?? ML_MODEL_URL ?? embeddedUrl;
   if (activeUrl) await checkSchemaVersionOnce(activeUrl);
   if (ML_ENSEMBLE_URL) {
     const result = await fetchModelScoreFromUrl(
@@ -435,6 +437,10 @@ async function computeThreatScoreFromModel(
   }
   if (ML_MODEL_URL) {
     const result = await fetchModelScoreFromUrl(ML_MODEL_URL, features, MODEL_TIMEOUT, ML_EXPLAIN);
+    if (result.score != null) return result;
+  }
+  if (!ML_MODEL_URL && !ML_ENSEMBLE_URL && embeddedUrl) {
+    const result = await fetchModelScoreFromUrl(embeddedUrl, features, MODEL_TIMEOUT, ML_EXPLAIN);
     if (result.score != null) return result;
   }
   if (ML_MODEL_PATH) {

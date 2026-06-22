@@ -219,3 +219,35 @@ export async function runMlTrainBehavioral(): Promise<{ ok: boolean; stdout?: st
   if (!res.ok) throw new Error(data.error ?? data.hint ?? 'Train behavioral failed');
   return data;
 }
+
+export interface ScheduleEntry {
+  id: string;
+  target: string;
+  cronExpression: string;
+  enabled: boolean;
+  createdAt: string;
+}
+
+export async function getSchedules(): Promise<{ schedules: ScheduleEntry[] }> {
+  return fetchApi('/schedules');
+}
+
+export async function createSchedule(target: string, cronExpression: string): Promise<ScheduleEntry> {
+  return fetchApi('/schedule', {
+    method: 'POST',
+    body: JSON.stringify({ target, cronExpression }),
+  });
+}
+
+export async function deleteSchedule(id: string): Promise<{ ok: boolean }> {
+  return fetchApi(`/schedule/${id}`, { method: 'DELETE' });
+}
+
+export async function submitMlFeedback(payload: {
+  packageName: string;
+  version: string;
+  label: 0 | 1;
+  scanId: string;
+}): Promise<{ ok: boolean }> {
+  return fetchApi('/ml/feedback', { method: 'POST', body: JSON.stringify(payload) });
+}

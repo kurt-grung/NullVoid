@@ -27,6 +27,8 @@ import {
   getScan,
   listScans,
 } from './db';
+import { registerEnterpriseRoutes, dispatchWebhooks, appendAudit } from './enterprise/routes';
+import { startScheduleRunner } from './enterprise/jobs';
 
 /** Wrap async route handlers so rejections reach error middleware */
 const asyncHandler =
@@ -61,7 +63,7 @@ if (corsOrigin === '*' && process.env['NODE_ENV'] === 'production') {
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', corsOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key, X-Organization-Id, X-Team-Id');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key, X-Organization-Id, X-Team-Id, X-NullVoid-Role');
   if (req.method === 'OPTIONS') {
     res.sendStatus(204);
     return;
@@ -254,6 +256,8 @@ function requireAuth(req: Request, res: Response, next: () => void): void {
 
 app.use(authMiddleware);
 
+registerEnterpriseRoutes(app, requireAuth);
+
 /** GET / - API info (avoids "Cannot GET /api" when visiting /api directly) */
 app.get('/', (_req: Request, res: Response) => {
   res.json({
@@ -269,6 +273,11 @@ app.get('/', (_req: Request, res: Response) => {
       teams: 'GET /api/teams',
       mlMetrics: 'GET /api/ml/metrics',
       mlDrift: 'GET /api/ml/drift',
+      schedules: 'GET /api/schedules',
+      schedule: 'POST /api/schedule',
+      webhooks: 'GET /api/webhooks',
+      audit: 'GET /api/audit',
+      graphql: 'GET /api/graphql',
     },
   });
 });
@@ -316,6 +325,17 @@ app.post(
     });
 
     await updateScan(id, { status: 'running' });
+    appendAudit({
+      id: `audit-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      organizationId,
+      teamId,
+      actor: 'api-key',
+      action: 'scan.triggered',
+      resourceType: 'scan',
+      resourceId: id,
+      details: { target: displayTarget },
+      createdAt: new Date().toISOString(),
+    });
     const scan = getScanFn();
     try {
       const result = await scan(resolvedTarget, { depth: 5 });
@@ -324,6 +344,21 @@ app.post(
         status: 'completed',
         resultJson: JSON.stringify(result),
         completedAt,
+      });
+      void dispatchWebhooks(
+        'scan.completed',
+        { scanId: id, target: displayTarget, status: 'completed' },
+        organizationId
+      );
+      appendAudit({
+        id: `audit-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        organizationId,
+        teamId,
+        actor: 'api-key',
+        action: 'scan.completed',
+        resourceType: 'scan',
+        resourceId: id,
+        createdAt: completedAt,
       });
       res.status(200).json({
         id,
@@ -341,6 +376,11 @@ app.post(
         error: msg,
         completedAt,
       });
+      void dispatchWebhooks(
+        'scan.failed',
+        { scanId: id, target: displayTarget, status: 'failed', error: msg },
+        organizationId
+      );
       res.status(500).json({
         id,
         status: 'failed',
@@ -834,5 +874,6 @@ module.exports = app;
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`NullVoid API listening on port ${PORT}`);
+    startScheduleRunner();
   });
 }
