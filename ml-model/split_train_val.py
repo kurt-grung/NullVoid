@@ -58,6 +58,19 @@ def _parse_iso_ts(value: Any) -> Optional[datetime]:
         return None
 
 
+def _label_counts(rows: List[Dict[str, Any]]) -> Dict[str, int]:
+    labels = [int(r.get("label", 0)) for r in rows]
+    return {
+        "good": sum(1 for v in labels if v == 0),
+        "bad": sum(1 for v in labels if v == 1),
+    }
+
+
+def _has_both_classes(rows: List[Dict[str, Any]]) -> bool:
+    counts = _label_counts(rows)
+    return counts["good"] > 0 and counts["bad"] > 0
+
+
 def time_based_split(
     rows: List[Dict[str, Any]], val_fraction: float, time_field: str
 ) -> Optional[Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]]:
@@ -126,7 +139,20 @@ def main() -> None:
         tb = time_based_split(rows, args.val_fraction, args.time_field)
         if tb is not None:
             train_rows, val_rows = tb
-            split_mode = "time_newest_val"
+            if _has_both_classes(train_rows) and _has_both_classes(val_rows):
+                split_mode = "time_newest_val"
+            else:
+                train_rows = []
+                val_rows = []
+                print(
+                    json.dumps(
+                        {
+                            "time_split_skipped": True,
+                            "reason": "Time-based split left train or validation with only one class; using stratified split.",
+                        }
+                    ),
+                    file=sys.stderr,
+                )
         else:
             print(
                 json.dumps(
@@ -162,16 +188,14 @@ def main() -> None:
     write_jsonl(Path(args.train_out), train_rows)
     write_jsonl(Path(args.val_out), val_rows)
 
-    yt = [int(r.get("label", 0)) for r in train_rows]
-    yv = [int(r.get("label", 0)) for r in val_rows]
     print(
         json.dumps(
             {
                 "total": len(rows),
                 "train": len(train_rows),
                 "val": len(val_rows),
-                "train_labels": {"good": sum(1 for v in yt if v == 0), "bad": sum(1 for v in yt if v == 1)},
-                "val_labels": {"good": sum(1 for v in yv if v == 0), "bad": sum(1 for v in yv if v == 1)},
+                "train_labels": _label_counts(train_rows),
+                "val_labels": _label_counts(val_rows),
                 "stratified": can_stratify if split_mode != "time_newest_val" else False,
                 "split_mode": split_mode,
             }
