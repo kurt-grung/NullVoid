@@ -222,7 +222,8 @@ jobs:
         git config user.email "github-actions[bot]@users.noreply.github.com"
         git add package.json package-lock.json
         git diff --staged --quiet && echo "No lockfile changes to commit" && exit 0
-        git commit -m "chore: apply npm audit fix [automated]"
+        git commit -m "chore: apply npm audit fix [automated]" \
+          -m "Co-authored-by: Kurt Grüng <krgrung@gmail.com>"
         git push
 
     - name: Audit root dependencies (verify)

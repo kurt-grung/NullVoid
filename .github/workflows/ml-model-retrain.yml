@@ -94,7 +94,8 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add ml-model/train.jsonl ml-model/model.pkl ml-model/metadata.json ml-model/feature_keys.pkl \
             ml-model/train-behavioral.jsonl ml-model/behavioral-model.pkl ml-model/behavioral-metadata.json ml-model/behavioral-feature_keys.pkl
-          git commit -m "chore(ml): retrain dependency and behavioral models from GHSA [skip ci]"
+          git commit -m "chore(ml): retrain dependency and behavioral models from GHSA [skip ci]" \
+            -m "Co-authored-by: Kurt Grüng <krgrung@gmail.com>"
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
