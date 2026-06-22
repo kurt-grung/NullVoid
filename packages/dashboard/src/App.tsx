@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, NavLink, Link } from 'react-router-dom'
-import { Moon, StatusSmall, Sun } from './icons/geist-icons'
+import { Moon, Sun } from './icons/geist-icons'
 import { SpeedInsights } from '@vercel/speed-insights/react'
 import { OrgTeamProvider } from './context/OrgTeamContext'
 import Executive from './views/Executive'
@@ -187,10 +187,8 @@ function NavWithHealth() {
             className="flex items-center gap-1.5 text-xs font-medium"
             title={apiHealthy ? 'API connected' : 'API unavailable'}
           >
-            <StatusSmall
-              width={8}
-              height={8}
-              className={apiHealthy ? 'text-green-500' : 'text-red-500'}
+            <span
+              className={`inline-block w-2 h-2 rounded-full ${apiHealthy ? 'bg-green-500' : 'bg-red-500'}`}
               aria-hidden
             />
             {apiHealthy ? 'Connected' : 'API unavailable'}
