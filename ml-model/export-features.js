@@ -9,7 +9,7 @@
  *   node export-features.js --from-ghsa --limit 200 --out bad.jsonl
  *
  * Git-enriched export (aligns commit/timeline features with ts/src/lib/mlDetection.ts):
- *   npm run build   # ensures ts/dist/lib exists; else js/lib is used
+ *   npm run build   # ensures ts/dist/lib exists
  *   node export-features.js --good lodash --with-git --package-root ~/clones --out train.jsonl
  *   node export-features.js --package-map ./paths.json --with-git --good lodash --out train.jsonl
  *   # paths.json: {"lodash":"/abs/path/to/lodash","@scope/pkg":"/abs/pkg"}
@@ -86,10 +86,7 @@ function getGitHistorySync(packagePath) {
  */
 function loadMlBridge() {
   const repoRoot = pathSync.join(__dirname, '..');
-  const libDirs = [
-    pathSync.join(repoRoot, 'ts', 'dist', 'lib'),
-    pathSync.join(repoRoot, 'js', 'lib'),
-  ];
+  const libDirs = [pathSync.join(repoRoot, 'ts', 'dist', 'lib')];
   let lastErr;
   for (const libDir of libDirs) {
     const mlPath = pathSync.join(libDir, 'mlDetection.js');
@@ -111,7 +108,7 @@ function loadMlBridge() {
   }
   const msg = lastErr ? lastErr.message : 'missing mlDetection.js / commitPatternAnalysis.js / dependencyConfusion.js';
   throw new Error(
-    `Could not load ML modules from ts/dist/lib or js/lib (${msg}). From repo root run: npm run build`
+    `Could not load ML modules from ts/dist/lib (${msg}). From repo root run: npm run build`
   );
 }
 

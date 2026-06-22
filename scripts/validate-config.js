@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * Validate NullVoid configuration (js/lib/config.js).
+ * Validate NullVoid configuration (ts/dist/lib/config.js).
  * Run from repo root: node scripts/validate-config.js
  * Exits 0 if valid, 1 with messages if invalid.
  */
 
 const path = require('path');
 
-const configPath = path.resolve(__dirname, '..', 'js', 'lib', 'config.js');
+const configPath = path.resolve(__dirname, '..', 'ts', 'dist', 'lib', 'config.js');
 let config;
 try {
   config = require(configPath);

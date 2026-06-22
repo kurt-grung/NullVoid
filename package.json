@@ -3,8 +3,7 @@
   "version": "2.1.0",
   "workspaces": [
     "packages/*",
-    "ts",
-    "js"
+    "ts"
   ],
   "packageManager": "npm@11.6.2",
   "description": "Detect malicious code",
@@ -14,18 +13,17 @@
     "nullvoid": "./ts/dist/bin/nullvoid.js"
   },
   "scripts": {
-    "build": "turbo run build --filter=!@nullvoid/js --filter=!nullvoid-vscode",
+    "build": "turbo run build --filter=!nullvoid-vscode",
     "build:watch": "cd ts && npm run build:watch",
     "dev": "cd ts && npm run dev",
-    "test": "npm run test:js && npm run test:api && npm run test:ts",
-    "test:js": "cd js && npm test",
+    "test": "npm run test:ts && npm run test:api",
     "test:ts": "cd ts && npm test",
     "test:api": "npm run test -w @nullvoid/api",
-    "test:unit": "cd js && npm run test:unit",
-    "test:integration": "cd js && npm run test:integration",
-    "test:performance": "cd js && npm run test:performance",
-    "test:watch": "cd js && npm run test:watch",
-    "test:coverage": "cd js && npm run test:coverage",
+    "test:unit": "cd ts && npm run test:unit",
+    "test:integration": "cd ts && npm run test:integration",
+    "test:performance": "cd ts && npm run test:performance",
+    "test:watch": "cd ts && npm run test:watch",
+    "test:coverage": "cd ts && npm run test:coverage",
     "scan": "node ts/dist/scan.js",
     "scan:dev": "cd ts && npm run scan:dev",
     "ml:serve": "node ts/dist/bin/nullvoid.js serve --port 8000",

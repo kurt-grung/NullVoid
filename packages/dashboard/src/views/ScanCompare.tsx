@@ -20,21 +20,27 @@ export default function ScanCompare() {
   const { organizationId, teamId } = useOrgTeam()
   const [scanA, setScanA] = useState<ScanDetail | null>(null)
   const [scanB, setScanB] = useState<ScanDetail | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [loadedKey, setLoadedKey] = useState('')
+
+  const fetchKey = `${id1}|${id2}|${organizationId ?? ''}|${teamId ?? ''}`
+  const loading = Boolean(id1 && id2 && loadedKey !== fetchKey)
 
   useEffect(() => {
     if (!id1 || !id2) return
-    setLoading(true)
+    let cancelled = false
     Promise.all([
       getScan(id1, organizationId ?? undefined, teamId ?? undefined),
       getScan(id2, organizationId ?? undefined, teamId ?? undefined),
-    ])
-      .then(([a, b]) => {
-        setScanA(a)
-        setScanB(b)
-      })
-      .finally(() => setLoading(false))
-  }, [id1, id2, organizationId, teamId])
+    ]).then(([a, b]) => {
+      if (cancelled) return
+      setScanA(a)
+      setScanB(b)
+      setLoadedKey(fetchKey)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [fetchKey, id1, id2, organizationId, teamId])
 
   if (!id1 || !id2) {
     return (

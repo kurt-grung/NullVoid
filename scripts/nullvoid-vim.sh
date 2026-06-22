@@ -5,10 +5,7 @@
 set -e
 cd "${1:-.}"
 tmp=$(mktemp 2>/dev/null || echo /tmp/nullvoid-vim-$$.json)
-# Prefer local CLI: JS uses "scan . --output json"; TS uses " . -f json"
-if [ -f "js/bin/nullvoid.js" ]; then
-  node js/bin/nullvoid.js scan . --output json > "$tmp" 2>/dev/null || true
-elif [ -f "ts/dist/bin/nullvoid.js" ]; then
+if [ -f "ts/dist/bin/nullvoid.js" ]; then
   node ts/dist/bin/nullvoid.js . -f json > "$tmp" 2>/dev/null || true
 else
   npx nullvoid scan . --output json > "$tmp" 2>/dev/null || true
