@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, NavLink, Link } from 'react-router-dom'
+import { Moon, StatusSmall, Sun } from './icons/geist-icons'
 import { SpeedInsights } from '@vercel/speed-insights/react'
 import { OrgTeamProvider } from './context/OrgTeamContext'
 import Executive from './views/Executive'
@@ -186,8 +187,10 @@ function NavWithHealth() {
             className="flex items-center gap-1.5 text-xs font-medium"
             title={apiHealthy ? 'API connected' : 'API unavailable'}
           >
-            <span
-              className={`inline-block w-2 h-2 rounded-full ${apiHealthy ? 'bg-green-500' : 'bg-red-500'}`}
+            <StatusSmall
+              width={8}
+              height={8}
+              className={apiHealthy ? 'text-green-500' : 'text-red-500'}
               aria-hidden
             />
             {apiHealthy ? 'Connected' : 'API unavailable'}
@@ -200,7 +203,11 @@ function NavWithHealth() {
           title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
           aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
         >
-          {theme === 'dark' ? <span className="inline-block w-5 h-5 rounded-full bg-white" /> : <span className="inline-block w-5 h-5 rounded-full bg-black" />}
+          {theme === 'dark' ? (
+            <Sun width={16} height={16} aria-hidden />
+          ) : (
+            <Moon width={16} height={16} aria-hidden />
+          )}
         </button>
       </div>
     </nav>

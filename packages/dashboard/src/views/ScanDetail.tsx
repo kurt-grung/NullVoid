@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ArrowLeft, ChevronRight } from '../icons/geist-icons'
 import { useParams, Link } from 'react-router-dom'
 import { getScan, getReportUrl, type ScanDetail, type Threat } from '../api'
 import { useOrgTeam } from '../context/OrgTeamContext'
@@ -27,7 +28,12 @@ function ThreatRow({ t }: { t: Threat }) {
             className="shrink-0 mt-0.5 p-0.5 rounded hover:bg-surface-muted dark:hover:bg-dark-muted transition-colors text-neutral-500 dark:text-neutral-400"
             aria-expanded={expanded}
           >
-            <span className={`inline-block w-4 h-4 transition-transform ${expanded ? 'rotate-90' : ''}`}>▶</span>
+            <ChevronRight
+              width={16}
+              height={16}
+              className={`transition-transform ${expanded ? 'rotate-90' : ''}`}
+              aria-hidden
+            />
           </button>
         )}
         <div className="flex-1 min-w-0">
@@ -98,7 +104,12 @@ export default function ScanDetailView() {
   return (
     <>
       <Breadcrumbs items={[{ label: 'Scans', to: '/scans' }, { label: scan.target }]} />
-      <p><Link to="/scans">← Back to Scans</Link></p>
+      <p>
+        <Link to="/scans" className="inline-flex items-center gap-1.5 no-underline hover:underline">
+          <ArrowLeft width={16} height={16} aria-hidden />
+          Back to Scans
+        </Link>
+      </p>
       <h1>Scan: {scan.target}</h1>
       <div className="flex gap-2 items-center mb-4 flex-wrap">
         <span className={`badge-minimal ${statusClass}`}>

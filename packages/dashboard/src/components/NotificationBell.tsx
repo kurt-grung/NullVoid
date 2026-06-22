@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Bell } from '../icons/geist-icons'
 import { getScans, type ScanSummary } from '../api'
 
 export default function NotificationBell() {
@@ -35,7 +36,7 @@ export default function NotificationBell() {
         className="px-2 py-1 rounded hover:bg-surface-muted dark:hover:bg-dark-muted"
         aria-label={`Notifications${unread ? `, ${unread} unread` : ''}`}
       >
-        🔔
+        <Bell width={16} height={16} className="text-neutral-700 dark:text-neutral-300" aria-hidden />
         {unread > 0 && (
           <span className="absolute -top-1 -right-1 text-[10px] bg-red-600 text-white rounded-full px-1 min-w-[16px]">
             {unread}

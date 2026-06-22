@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Moon, Sun } from '../icons/geist-icons'
 import { getApiKey, setApiKey } from '../api'
 
 const DEFAULT_SCAN_TARGET = 'nullvoid-default-scan-target'
@@ -89,23 +90,25 @@ export default function Settings() {
           <button
             type="button"
             onClick={() => handleThemeChange('light')}
-            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
               theme === 'light'
                 ? 'bg-black dark:bg-white text-white dark:text-black'
                 : 'bg-surface-muted dark:bg-dark-muted text-neutral-600 dark:text-neutral-400 hover:bg-surface dark:hover:bg-dark-surface'
             }`}
           >
+            <Sun width={16} height={16} aria-hidden />
             Light
           </button>
           <button
             type="button"
             onClick={() => handleThemeChange('dark')}
-            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
               theme === 'dark'
                 ? 'bg-black dark:bg-white text-white dark:text-black'
                 : 'bg-surface-muted dark:bg-dark-muted text-neutral-600 dark:text-neutral-400 hover:bg-surface dark:hover:bg-dark-surface'
             }`}
           >
+            <Moon width={16} height={16} aria-hidden />
             Dark
           </button>
         </div>
