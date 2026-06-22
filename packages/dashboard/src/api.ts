@@ -100,7 +100,9 @@ async function fetchApi<T>(path: string, opts?: RequestInit): Promise<T> {
         throw new Error('Database not configured. Add TURSO_DATABASE_URL and TURSO_AUTH_TOKEN in Vercel → Settings → Environment Variables.');
       }
     }
-    const msg = text.startsWith('<') ? `API error ${res.status}: Ensure NullVoid API is running on port 3001` : text;
+    const msg = text.startsWith('<')
+      ? `API error ${res.status}: API not reachable. Set VITE_API_URL in Vercel to your Railway API URL (see docs/DEPLOYMENT.md), or run the API locally on port 3001.`
+      : text;
     throw new Error(msg);
   }
   return res.json();
