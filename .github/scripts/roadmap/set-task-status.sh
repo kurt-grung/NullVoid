@@ -3,6 +3,7 @@ set -euo pipefail
 
 OWNER="${GITHUB_OWNER:-kurt-grung}"
 PROJECT_NUMBER="${PROJECT_NUMBER:-3}"
+PROJECT_ID="${PROJECT_ID:-PVT_kwHOCloSbs4BbWmB}"
 ISSUE_NUMBER="${1:?usage: set-task-status.sh <issue-number> <Todo|In Progress|Done>}"
 STATUS_NAME="${2:?usage: set-task-status.sh <issue-number> <Todo|In Progress|Done>}"
 
@@ -20,7 +21,10 @@ if [[ -z "${ITEM_ID}" || "${ITEM_ID}" == "null" ]]; then
   exit 1
 fi
 
-gh project item-edit "${PROJECT_NUMBER}" --owner "${OWNER}" --id "${ITEM_ID}" \
-  --field-id "${FIELD_ID}" --single-select-option-id "${OPTION_ID}"
+gh project item-edit \
+  --project-id "${PROJECT_ID}" \
+  --id "${ITEM_ID}" \
+  --field-id "${FIELD_ID}" \
+  --single-select-option-id "${OPTION_ID}"
 
 echo "Set #${ISSUE_NUMBER} → ${STATUS_NAME}"
