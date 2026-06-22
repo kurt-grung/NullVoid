@@ -30,11 +30,22 @@ If a check name does not appear, open **Actions**, run the workflow once on a PR
 
 ## Local parity before pushing
 
+Pre-push hook runs `npm run ci:check` automatically. Run manually anytime:
+
 ```bash
 npm ci
+npm run ci:check
+```
+
+`ci:check` mirrors the **Tests / quality** job (build, lint, type-check, format, unit-test isolation) plus the **Tests / test** job (`npm test`).
+
+Individual steps:
+
+```bash
 npm run build
 npm run lint
 npm run type-check
 npm run format:check
+bash .github/scripts/verify-unit-test-isolation.sh
 npm test
 ```

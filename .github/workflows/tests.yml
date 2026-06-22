@@ -38,6 +38,9 @@ jobs:
       - name: Format (Prettier)
         run: npm run format:check
 
+      - name: Verify unit test isolation
+        run: bash .github/scripts/verify-unit-test-isolation.sh
+
   test:
     runs-on: ubuntu-latest
 

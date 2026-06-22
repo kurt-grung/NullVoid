@@ -53,6 +53,7 @@
     "format": "prettier --write \"ts/src/**/*.ts\"",
     "format:check": "prettier --check \"ts/src/**/*.ts\"",
     "type-check": "cd ts && npm run type-check",
+    "ci:check": "bash scripts/ci-check.sh",
     "prepare": "husky",
     "prepublishOnly": "npm run build"
   },
@@ -121,7 +122,10 @@
   "lint-staged": {
     "ts/src/**/*.ts": [
       "prettier --write",
-      "eslint --fix"
+      "eslint --fix --config ts/eslint.config.mjs"
+    ],
+    "packages/dashboard/**/*.{ts,tsx}": [
+      "eslint --fix --config packages/dashboard/eslint.config.js"
     ]
   },
   "overrides": {
