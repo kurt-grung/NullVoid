@@ -37,6 +37,19 @@ Use [GitHub Projects](https://docs.github.com/en/issues/planning-and-tracking-wi
 6. **Connect to repository**
    - Project settings → **Manage** → Add **NullVoid** repository
 
+## Automation (Cursor)
+
+In Cursor, run **`/do`** to list open project tasks, or **`/do next`** to pick the next epic, implement, and open a PR. Commits from `/do` include `Co-authored-by: Kurt Grüng <krgrung@gmail.com>`.
+
+Scripts (from repo root):
+
+```bash
+bash .github/scripts/roadmap/list-open-tasks.sh
+bash .github/scripts/roadmap/pick-next-task.sh
+```
+
+Requires `gh auth refresh -h github.com -s project,read:project`.
+
 ## Labels
 
 | Label | Color | Use for |
