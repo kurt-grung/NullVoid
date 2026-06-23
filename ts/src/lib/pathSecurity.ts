@@ -372,22 +372,57 @@ export function validatePackageName(packageName: string): boolean {
     return false;
   }
 
-  // Check for path traversal in package name
   for (const pattern of PATH_SECURITY_CONFIG.traversalPatterns) {
     if (pattern.test(packageName)) {
       return false;
     }
   }
 
-  // Check for command injection patterns
   for (const pattern of PATH_SECURITY_CONFIG.injectionPatterns) {
     if (pattern.test(packageName)) {
       return false;
     }
   }
 
-  // Check against npm package name rules
+  if (packageName.startsWith('@')) {
+    const slashIndex = packageName.indexOf('/');
+    if (slashIndex <= 1 || slashIndex === packageName.length - 1) {
+      return false;
+    }
+    const scope = packageName.slice(1, slashIndex);
+    const name = packageName.slice(slashIndex + 1);
+    return (
+      VALIDATION_CONFIG.PACKAGE_NAME_PATTERN.test(scope) &&
+      VALIDATION_CONFIG.PACKAGE_NAME_PATTERN.test(name)
+    );
+  }
+
   return VALIDATION_CONFIG.PACKAGE_NAME_PATTERN.test(packageName);
+}
+
+export function assertSafeTarballEntry(entryPath: string, extractRoot: string): void {
+  if (!entryPath || entryPath.includes('\0')) {
+    throw new PathTraversalError('Invalid tarball entry path', entryPath, extractRoot);
+  }
+
+  const normalized = entryPath.replace(/\\/g, '/');
+  if (normalized.startsWith('/') || /^[a-zA-Z]:/.test(normalized)) {
+    throw new PathTraversalError('Absolute path in tarball entry', entryPath, extractRoot);
+  }
+
+  if (normalized.split('/').some((segment) => segment === '..')) {
+    throw new PathTraversalError('Parent traversal in tarball entry', entryPath, extractRoot);
+  }
+
+  const resolvedRoot = path.resolve(extractRoot);
+  const resolvedEntry = path.resolve(extractRoot, entryPath);
+  if (resolvedEntry !== resolvedRoot && !resolvedEntry.startsWith(resolvedRoot + path.sep)) {
+    throw new PathTraversalError(
+      'Tarball entry escapes extraction directory',
+      entryPath,
+      resolvedEntry
+    );
+  }
 }
 
 /**
