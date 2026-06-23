@@ -7,10 +7,6 @@ const scanRoot = path.join(os.tmpdir(), 'nullvoid-scan-target-root');
 
 beforeAll(() => {
   fs.mkdirSync(scanRoot, { recursive: true });
-  const tsDistRemote = path.resolve(__dirname, '../../../ts/dist/lib/remotePackageScan.js');
-  if (!fs.existsSync(tsDistRemote)) {
-    throw new Error('ts/dist not found — run npm run build before api tests');
-  }
 });
 
 describe('sanitizeScanTarget', () => {
