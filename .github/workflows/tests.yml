@@ -118,6 +118,28 @@ jobs:
           retention-days: 30
           if-no-files-found: ignore
 
+  performance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Run performance benchmarks
+        run: npm run test:performance
+        env:
+          CI: true
+
   e2e:
     runs-on: ubuntu-latest
     steps:

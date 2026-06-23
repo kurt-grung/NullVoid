@@ -22,4 +22,7 @@ bash .github/scripts/verify-unit-test-isolation.sh
 echo "==> test"
 npm test
 
+echo "==> test:performance"
+npm run test:performance
+
 echo "ci-check: all passed"

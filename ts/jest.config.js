@@ -32,9 +32,14 @@ module.exports = {
       displayName: 'integration',
       testMatch: [
         '<rootDir>/test/integration/**/*.test.ts',
-        '<rootDir>/test/performance/**/*.test.ts',
         '<rootDir>/src/test/integration/**/*.test.ts',
       ],
+      testTimeout: 60000,
+    },
+    {
+      ...shared,
+      displayName: 'performance',
+      testMatch: ['<rootDir>/test/performance/**/*.test.ts'],
       testTimeout: 60000,
     },
   ],
