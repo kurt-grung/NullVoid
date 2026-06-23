@@ -138,3 +138,7 @@ dev/
 packages/vscode-extension/out/
 packages/vscode-extension/tsc
 *.vsix
+
+# Playwright E2E artifacts
+packages/dashboard/test-results/
+packages/dashboard/playwright-report/
