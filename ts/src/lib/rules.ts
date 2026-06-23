@@ -271,38 +271,93 @@ export const ENHANCED_RULES: EnhancedRules = {
  * @param options - Loading options
  * @returns Parsed rules object
  */
+function parseRulesPayload(parsed: Record<string, unknown>): EnhancedRules {
+  const raw =
+    parsed['detection_rules'] && typeof parsed['detection_rules'] === 'object'
+      ? (parsed['detection_rules'] as Record<string, unknown>)
+      : parsed;
+  return normalizeRules(raw as Record<string, Partial<RuleConfig>>);
+}
+
+export function normalizeRuleConfig(rule: Partial<RuleConfig>): RuleConfig {
+  return {
+    patterns: Array.isArray(rule.patterns) ? rule.patterns : [],
+    severity: rule.severity ?? 'MEDIUM',
+    description: rule.description ?? '',
+    confidence_threshold:
+      typeof rule.confidence_threshold === 'number' ? rule.confidence_threshold : 0.5,
+    ...(rule.entropy_threshold !== undefined ? { entropy_threshold: rule.entropy_threshold } : {}),
+  };
+}
+
+export function normalizeRules(rules: Record<string, Partial<RuleConfig>>): EnhancedRules {
+  const normalized: EnhancedRules = {};
+  for (const [name, config] of Object.entries(rules)) {
+    if (config && typeof config === 'object') {
+      normalized[name] = normalizeRuleConfig(config);
+    }
+  }
+  return normalized;
+}
+
+export function parseRulesContent(
+  content: string,
+  format: 'json' | 'yaml' | 'auto' = 'auto'
+): EnhancedRules {
+  let parsed: Record<string, unknown>;
+  if (format === 'yaml') {
+    parsed = (yaml.load(content, { schema: yaml.JSON_SCHEMA }) as Record<string, unknown>) || {};
+  } else if (format === 'json') {
+    parsed = JSON.parse(content) as Record<string, unknown>;
+  } else {
+    const trimmed = content.trim();
+    parsed =
+      trimmed.startsWith('{') || trimmed.startsWith('[')
+        ? (JSON.parse(content) as Record<string, unknown>)
+        : (yaml.load(content, { schema: yaml.JSON_SCHEMA }) as Record<string, unknown>) || {};
+  }
+  return parseRulesPayload(parsed);
+}
+
+export function parseRulesObject(value: unknown): EnhancedRules {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Rules must be a JSON object');
+  }
+  return parseRulesPayload(value as Record<string, unknown>);
+}
+
 export function loadRules(rulesPath: string, options: RulesLoadingOptions = {}): EnhancedRules {
   if (!rulesPath || !fs.existsSync(rulesPath)) {
+    if (options.mergeWithDefaults === false) {
+      throw new Error(`Rules file not found: ${rulesPath}`);
+    }
     return ENHANCED_RULES;
   }
 
   try {
     const fileContent = fs.readFileSync(rulesPath, 'utf8');
     const ext = path.extname(rulesPath).toLowerCase();
+    const format =
+      options.format ??
+      (ext === '.yaml' || ext === '.yml' ? 'yaml' : ext === '.json' ? 'json' : 'auto');
+    const parsedRules = parseRulesContent(fileContent, format);
 
-    let parsedRules: Record<string, unknown>;
-
-    if (ext === '.yaml' || ext === '.yml' || options.format === 'yaml') {
-      parsedRules =
-        (yaml.load(fileContent, { schema: yaml.JSON_SCHEMA }) as Record<string, unknown>) || {};
-    } else if (ext === '.json' || options.format === 'json') {
-      parsedRules = JSON.parse(fileContent) as Record<string, unknown>;
-    } else {
-      throw new Error(`Unsupported file format: ${ext}`);
+    if (options.validateRules) {
+      const { valid, errors } = validateRules(parsedRules);
+      if (!valid) {
+        throw new Error(errors.join('; '));
+      }
     }
 
-    // Extract rules from nested structure if present
-    if (parsedRules['detection_rules']) {
-      parsedRules = parsedRules['detection_rules'] as Record<string, unknown>;
-    }
-
-    // Merge with defaults if requested
     if (options.mergeWithDefaults !== false) {
-      return mergeRules(parsedRules as EnhancedRules);
+      return mergeRules(parsedRules);
     }
 
-    return parsedRules as EnhancedRules;
+    return parsedRules;
   } catch (error) {
+    if (options.mergeWithDefaults === false) {
+      throw error;
+    }
     console.warn(`Warning: Could not load rules from ${rulesPath}: ${(error as Error).message}`);
     return ENHANCED_RULES;
   }

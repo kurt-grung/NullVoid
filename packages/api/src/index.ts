@@ -30,6 +30,7 @@ import {
 import { registerEnterpriseRoutes, dispatchWebhooks, appendAudit } from './enterprise/routes';
 import { startScheduleRunner } from './enterprise/jobs';
 import { sanitizeScanTarget } from './scanTarget';
+import { buildScanRulesOptions, validateRulesPayload, rulesTemplate } from './customRules';
 
 /** Wrap async route handlers so rejections reach error middleware */
 const asyncHandler =
@@ -58,13 +59,16 @@ const corsOrigin = process.env['CORS_ORIGIN'] ?? '*';
 if (corsOrigin === '*' && process.env['NODE_ENV'] === 'production') {
   console.warn(
     '[nullvoid-api] CORS_ORIGIN is unset; defaulting to wildcard (*). ' +
-    'Set CORS_ORIGIN to an explicit origin in production.'
+      'Set CORS_ORIGIN to an explicit origin in production.'
   );
 }
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', corsOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key, X-Organization-Id, X-Team-Id, X-NullVoid-Role');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'Content-Type, X-API-Key, X-Organization-Id, X-Team-Id, X-NullVoid-Role'
+  );
   if (req.method === 'OPTIONS') {
     res.sendStatus(204);
     return;
@@ -104,7 +108,8 @@ const openApiSpec = swaggerJsdoc({
     info: {
       title: 'NullVoid API',
       version: '1.0.0',
-      description: 'NullVoid security scanner REST API — scan orchestration, results, multi-tenant management, and ML operations.',
+      description:
+        'NullVoid security scanner REST API — scan orchestration, results, multi-tenant management, and ML operations.',
     },
     components: {
       securitySchemes: {
@@ -127,8 +132,24 @@ const openApiSpec = swaggerJsdoc({
         post: {
           summary: 'Trigger a synchronous scan',
           security: [{ apiKey: [] }],
-          requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { target: { type: 'string' } }, required: ['target'] } } } },
-          responses: { 200: { description: 'Scan result' }, 400: { description: 'Bad request' }, 401: { description: 'Unauthorized' }, 500: { description: 'Scan failed' } },
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: { target: { type: 'string' } },
+                  required: ['target'],
+                },
+              },
+            },
+          },
+          responses: {
+            200: { description: 'Scan result' },
+            400: { description: 'Bad request' },
+            401: { description: 'Unauthorized' },
+            500: { description: 'Scan failed' },
+          },
         },
       },
       '/scan/{id}': {
@@ -136,7 +157,11 @@ const openApiSpec = swaggerJsdoc({
           summary: 'Get scan by ID',
           security: [{ apiKey: [] }],
           parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-          responses: { 200: { description: 'Scan row' }, 403: { description: 'Forbidden' }, 404: { description: 'Not found' } },
+          responses: {
+            200: { description: 'Scan row' },
+            403: { description: 'Forbidden' },
+            404: { description: 'Not found' },
+          },
         },
       },
       '/scans': {
@@ -144,7 +169,11 @@ const openApiSpec = swaggerJsdoc({
           summary: 'List scans',
           security: [{ apiKey: [] }],
           parameters: [
-            { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 50 } },
+            {
+              name: 'limit',
+              in: 'query',
+              schema: { type: 'integer', minimum: 1, maximum: 100, default: 50 },
+            },
             { name: 'offset', in: 'query', schema: { type: 'integer', minimum: 0, default: 0 } },
           ],
           responses: { 200: { description: 'List of scans' } },
@@ -156,30 +185,123 @@ const openApiSpec = swaggerJsdoc({
           security: [{ apiKey: [] }],
           parameters: [
             { name: 'scanId', in: 'path', required: true, schema: { type: 'string' } },
-            { name: 'format', in: 'query', schema: { type: 'string', enum: ['html', 'markdown'], default: 'html' } },
-            { name: 'compliance', in: 'query', schema: { type: 'string', enum: ['soc2', 'iso27001'] } },
+            {
+              name: 'format',
+              in: 'query',
+              schema: { type: 'string', enum: ['html', 'markdown'], default: 'html' },
+            },
+            {
+              name: 'compliance',
+              in: 'query',
+              schema: { type: 'string', enum: ['soc2', 'iso27001'] },
+            },
           ],
-          responses: { 200: { description: 'Report content' }, 400: { description: 'Scan not completed' }, 403: { description: 'Forbidden' }, 404: { description: 'Not found' } },
+          responses: {
+            200: { description: 'Report content' },
+            400: { description: 'Scan not completed' },
+            403: { description: 'Forbidden' },
+            404: { description: 'Not found' },
+          },
         },
       },
       '/organizations': {
-        get: { summary: 'List organizations (scoped to caller org when key is set)', security: [{ apiKey: [] }], responses: { 200: { description: 'List of organizations' } } },
-        post: { summary: 'Create organization', security: [{ apiKey: [] }], requestBody: { content: { 'application/json': { schema: { type: 'object', properties: { name: { type: 'string' } } } } } }, responses: { 201: { description: 'Created' } } },
+        get: {
+          summary: 'List organizations (scoped to caller org when key is set)',
+          security: [{ apiKey: [] }],
+          responses: { 200: { description: 'List of organizations' } },
+        },
+        post: {
+          summary: 'Create organization',
+          security: [{ apiKey: [] }],
+          requestBody: {
+            content: {
+              'application/json': {
+                schema: { type: 'object', properties: { name: { type: 'string' } } },
+              },
+            },
+          },
+          responses: { 201: { description: 'Created' } },
+        },
       },
       '/teams': {
-        get: { summary: 'List teams', security: [{ apiKey: [] }], parameters: [{ name: 'organizationId', in: 'query', schema: { type: 'string' } }], responses: { 200: { description: 'List of teams' } } },
-        post: { summary: 'Create team', security: [{ apiKey: [] }], requestBody: { content: { 'application/json': { schema: { type: 'object', properties: { organizationId: { type: 'string' }, name: { type: 'string' } }, required: ['organizationId'] } } } }, responses: { 201: { description: 'Created' } } },
+        get: {
+          summary: 'List teams',
+          security: [{ apiKey: [] }],
+          parameters: [{ name: 'organizationId', in: 'query', schema: { type: 'string' } }],
+          responses: { 200: { description: 'List of teams' } },
+        },
+        post: {
+          summary: 'Create team',
+          security: [{ apiKey: [] }],
+          requestBody: {
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: { organizationId: { type: 'string' }, name: { type: 'string' } },
+                  required: ['organizationId'],
+                },
+              },
+            },
+          },
+          responses: { 201: { description: 'Created' } },
+        },
       },
-      '/ml/metrics': { get: { summary: 'ML training metadata', security: [{ apiKey: [] }], responses: { 200: { description: 'Training metrics' } } } },
-      '/ml/status': { get: { summary: 'ML service status', security: [{ apiKey: [] }], responses: { 200: { description: 'Status object' } } } },
-      '/ml/drift': { get: { summary: 'Model drift statistics', security: [{ apiKey: [] }], responses: { 200: { description: 'Drift result' }, 503: { description: 'ML_SERVICE_URL not set' } } } },
-      '/ml/feedback': { post: { summary: 'Submit prediction feedback', security: [{ apiKey: [] }], requestBody: { content: { 'application/json': { schema: { type: 'object', properties: { packageName: { type: 'string' }, version: { type: 'string' }, label: { type: 'integer', enum: [0, 1] }, scanId: { type: 'string' } }, required: ['packageName', 'version', 'label', 'scanId'] } } } }, responses: { 200: { description: 'ok' }, 400: { description: 'Invalid payload' } } } },
+      '/ml/metrics': {
+        get: {
+          summary: 'ML training metadata',
+          security: [{ apiKey: [] }],
+          responses: { 200: { description: 'Training metrics' } },
+        },
+      },
+      '/ml/status': {
+        get: {
+          summary: 'ML service status',
+          security: [{ apiKey: [] }],
+          responses: { 200: { description: 'Status object' } },
+        },
+      },
+      '/ml/drift': {
+        get: {
+          summary: 'Model drift statistics',
+          security: [{ apiKey: [] }],
+          responses: {
+            200: { description: 'Drift result' },
+            503: { description: 'ML_SERVICE_URL not set' },
+          },
+        },
+      },
+      '/ml/feedback': {
+        post: {
+          summary: 'Submit prediction feedback',
+          security: [{ apiKey: [] }],
+          requestBody: {
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    packageName: { type: 'string' },
+                    version: { type: 'string' },
+                    label: { type: 'integer', enum: [0, 1] },
+                    scanId: { type: 'string' },
+                  },
+                  required: ['packageName', 'version', 'label', 'scanId'],
+                },
+              },
+            },
+          },
+          responses: { 200: { description: 'ok' }, 400: { description: 'Invalid payload' } },
+        },
+      },
     },
   },
   apis: [],
 });
 
-app.get('/api-docs.json', (_req: Request, res: Response) => { res.json(openApiSpec); });
+app.get('/api-docs.json', (_req: Request, res: Response) => {
+  res.json(openApiSpec);
+});
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiSpec));
 
 function getTenantHeaders(req: Request): { organizationId?: string; teamId?: string } {
@@ -204,9 +326,7 @@ function requireTenantHeaders(
   return tenant;
 }
 
-function parseResultJson(
-  rawResultJson: string | null
-): Record<string, unknown> | undefined {
+function parseResultJson(rawResultJson: string | null): Record<string, unknown> | undefined {
   if (!rawResultJson) return undefined;
   try {
     return JSON.parse(rawResultJson) as Record<string, unknown>;
@@ -253,6 +373,8 @@ app.get('/', (_req: Request, res: Response) => {
       scans: 'GET /api/scans',
       scan: 'GET /api/scan/:id',
       triggerScan: 'POST /api/scan',
+      validateRules: 'POST /api/rules/validate',
+      rulesTemplate: 'GET /api/rules/template?format=yaml|json',
       report: 'GET /api/report/:scanId?format=html|markdown&compliance=soc2|iso27001',
       organizations: 'GET /api/organizations',
       teams: 'GET /api/teams',
@@ -267,11 +389,7 @@ app.get('/', (_req: Request, res: Response) => {
   });
 });
 
-function enforceTenantAccess(
-  req: Request,
-  orgId?: string | null,
-  teamId?: string | null
-): boolean {
+function enforceTenantAccess(req: Request, orgId?: string | null, teamId?: string | null): boolean {
   if (!API_KEY) return true;
   const { organizationId: reqOrg, teamId: reqTeam } = getTenantHeaders(req);
   if (!reqOrg || !orgId) return false;
@@ -279,6 +397,30 @@ function enforceTenantAccess(
   if (teamId && reqTeam !== teamId) return false;
   return true;
 }
+
+/** POST /rules/validate - validate custom detection rules (JSON/YAML body) */
+app.post(
+  '/rules/validate',
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const result = validateRulesPayload(req.body?.rules ?? req.body);
+    if (result.valid) {
+      res.status(200).json({ valid: true, errors: [] });
+      return;
+    }
+    res.status(400).json({ valid: false, errors: result.errors });
+  })
+);
+
+/** GET /rules/template - example rules file for YAML or JSON */
+app.get('/rules/template', requireAuth, (req: Request, res: Response) => {
+  const format = req.query.format === 'json' ? 'json' : 'yaml';
+  const content = rulesTemplate(format);
+  res
+    .status(200)
+    .type(format === 'json' ? 'application/json' : 'text/yaml')
+    .send(content);
+});
 
 /** POST /scan - run scan synchronously (required for Vercel serverless; no background jobs) */
 app.post(
@@ -297,6 +439,21 @@ app.post(
         req.body?.target,
         SCAN_ROOT
       ));
+    } catch (error) {
+      res.status(400).json({ error: (error as Error).message });
+      return;
+    }
+
+    let scanRulesOptions: ReturnType<typeof buildScanRulesOptions> = {};
+    try {
+      scanRulesOptions = buildScanRulesOptions(
+        {
+          rulesFile: req.body?.rulesFile as string | undefined,
+          rules: req.body?.rules,
+          mergeRulesWithDefaults: req.body?.mergeRulesWithDefaults as boolean | undefined,
+        },
+        SCAN_ROOT
+      );
     } catch (error) {
       res.status(400).json({ error: (error as Error).message });
       return;
@@ -326,7 +483,7 @@ app.post(
     });
     const scan = getScanFn();
     try {
-      const result = await scan(resolvedTarget, { depth: 5 });
+      const result = await scan(resolvedTarget, { depth: 5, ...scanRulesOptions });
       const completedAt = new Date().toISOString();
       await updateScan(id, {
         status: 'completed',
@@ -460,7 +617,8 @@ app.get(
       return;
     }
     if (!result.metadata) result.metadata = {};
-    (result.metadata as Record<string, unknown>)['target'] = (result.metadata as Record<string, unknown>)['target'] ?? row.target;
+    (result.metadata as Record<string, unknown>)['target'] =
+      (result.metadata as Record<string, unknown>)['target'] ?? row.target;
 
     const format = (req.query.format as string) || 'html';
     const compliance = req.query.compliance as 'soc2' | 'iso27001' | undefined;
@@ -475,7 +633,10 @@ app.get(
     if (format === 'markdown') {
       const md = reporting.generateMarkdownReport(result, opts);
       res.setHeader('Content-Type', 'text/markdown');
-      res.setHeader('Content-Disposition', `attachment; filename="nullvoid-${String(row.target).replace(/[^a-zA-Z0-9.-]/g, '_')}-report.md"`);
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="nullvoid-${String(row.target).replace(/[^a-zA-Z0-9.-]/g, '_')}-report.md"`
+      );
       res.send(md);
     } else {
       const html = reporting.generateHtmlReport(result, opts);
@@ -690,7 +851,9 @@ app.post(
       return;
     }
     try {
-      const { stdout, stderr } = await runMlCommand('node ts/dist/bin/nullvoid.js train-behavioral');
+      const { stdout, stderr } = await runMlCommand(
+        'node ts/dist/bin/nullvoid.js train-behavioral'
+      );
       res.json({ ok: true, stdout: stdout.trim(), stderr: stderr.trim() });
     } catch (err) {
       const e = err as { stdout?: string; stderr?: string; message?: string };

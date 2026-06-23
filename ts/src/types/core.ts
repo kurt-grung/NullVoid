@@ -29,6 +29,12 @@ export interface ScanOptions {
   debug?: boolean;
   /** Custom rules file */
   rulesFile?: string;
+  /** Inline custom rules (JSON/YAML object or detection_rules map) */
+  rules?: Record<string, unknown>;
+  /** Merge inline/file rules with built-in defaults (default: true) */
+  mergeRulesWithDefaults?: boolean;
+  /** Validate custom rules before scanning */
+  validateRules?: boolean;
   /** SARIF output file */
   sarifFile?: string;
   /** Output directory */
