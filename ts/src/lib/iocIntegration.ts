@@ -17,6 +17,7 @@ import type {
 import type { MultiLayerCacheStats } from '../types/cache-types';
 import { LRUCache } from './cache';
 import { MultiLayerCache } from './cache/multiLayerCache';
+import type { RedisCache } from './cache/redisCache';
 import { getCacheAnalytics } from './cache/cacheAnalytics';
 import { IOC_CONFIG } from './config';
 import { logger } from './logger';
@@ -351,6 +352,14 @@ export class IoCIntegrationManager {
       return stats;
     }
     return (this.cache as LRUCache<IoCResponse>).getStats();
+  }
+
+  getL3CacheStatus(): ReturnType<RedisCache['getStatus']> | null {
+    if (!this.useMultiLayer) {
+      return null;
+    }
+    const multiLayer = this.cache as MultiLayerCache<IoCResponse>;
+    return multiLayer.getL3Status();
   }
 
   /**

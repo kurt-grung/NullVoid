@@ -84,6 +84,9 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   },
+  "optionalDependencies": {
+    "redis": "^4.7.0"
+  },
   "overrides": {
     "js-yaml": "^4.1.1"
   },

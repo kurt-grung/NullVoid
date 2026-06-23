@@ -7,6 +7,8 @@ import type { L3CacheConfig } from '../../types/cache-types';
 import { CACHE_LAYER_CONFIG } from '../config';
 import { logger } from '../logger';
 
+const REDIS_KEY_PREFIX = 'nullvoid:cache:';
+
 /**
  * Redis client interface (to avoid requiring redis as a dependency)
  */
@@ -29,6 +31,7 @@ export class RedisCache {
   private available = false;
   private connectionAttempts = 0;
   private readonly maxConnectionAttempts = 3;
+  private trackedKeys = new Set<string>();
 
   constructor(config?: Partial<L3CacheConfig>) {
     this.config = {
@@ -153,13 +156,17 @@ export class RedisCache {
   /**
    * Get value from Redis
    */
+  private redisKey(key: string): string {
+    return `${REDIS_KEY_PREFIX}${key}`;
+  }
+
   async get<T>(key: string): Promise<T | null> {
     if (!this.config.enabled || !this.available || !this.client) {
       return null;
     }
 
     try {
-      const value = await this.client.get(key);
+      const value = await this.client.get(this.redisKey(key));
       if (value === null) {
         return null;
       }
@@ -200,7 +207,9 @@ export class RedisCache {
       const ttlSeconds = ttl ? Math.floor(ttl / 1000) : undefined;
 
       if (this.client) {
-        await this.client.set(key, serialized, ttlSeconds ? { EX: ttlSeconds } : undefined);
+        const redisKey = this.redisKey(key);
+        await this.client.set(redisKey, serialized, ttlSeconds ? { EX: ttlSeconds } : undefined);
+        this.trackedKeys.add(redisKey);
         return true;
       }
       return false;
@@ -220,7 +229,9 @@ export class RedisCache {
     }
 
     try {
-      const result = await this.client.del(key);
+      const redisKey = this.redisKey(key);
+      const result = await this.client.del(redisKey);
+      this.trackedKeys.delete(redisKey);
       return result > 0;
     } catch (error) {
       logger.debug(`Redis delete error for key ${key}`, { error: String(error) });
@@ -238,7 +249,7 @@ export class RedisCache {
     }
 
     try {
-      const result = await this.client.exists(key);
+      const result = await this.client.exists(this.redisKey(key));
       return result > 0;
     } catch (error) {
       logger.debug(`Redis exists error for key ${key}`, { error: String(error) });
@@ -270,9 +281,21 @@ export class RedisCache {
     };
   }
 
-  /**
-   * Close Redis connection
-   */
+  async clear(): Promise<void> {
+    if (!this.config.enabled || !this.available || !this.client) {
+      return;
+    }
+
+    for (const redisKey of this.trackedKeys) {
+      try {
+        await this.client.del(redisKey);
+      } catch (error) {
+        logger.debug(`Redis clear error for key ${redisKey}`, { error: String(error) });
+      }
+    }
+    this.trackedKeys.clear();
+  }
+
   async close(): Promise<void> {
     if (this.client) {
       try {
