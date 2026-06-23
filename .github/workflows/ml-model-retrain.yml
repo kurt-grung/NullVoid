@@ -15,7 +15,7 @@ permissions:
 
 concurrency:
   group: ml-model-retrain-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   retrain:
@@ -93,23 +93,6 @@ jobs:
 
       - name: Commit and push model updates
         if: steps.changes.outputs.changed == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add ml-model/train.jsonl ml-model/model.pkl ml-model/metadata.json ml-model/feature_keys.pkl \
-            ml-model/train-behavioral.jsonl ml-model/behavioral-model.pkl ml-model/behavioral-metadata.json ml-model/behavioral-feature_keys.pkl
-          git commit -m "chore(ml): retrain dependency and behavioral models from GHSA [skip ci]" \
-            -m "Co-authored-by: Kurt Grüng <krgrung@gmail.com>"
-          branch="${{ github.ref_name }}"
-          for attempt in 1 2 3 4 5; do
-            git pull --rebase origin "$branch"
-            if git push origin "HEAD:$branch"; then
-              exit 0
-            fi
-            echo "Push rejected (attempt ${attempt}/5), retrying..."
-            sleep $((attempt * 2))
-          done
-          echo "Failed to push model updates after 5 attempts"
-          exit 1
+        run: bash .github/scripts/ml-retrain-push.sh "${{ github.ref_name }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
