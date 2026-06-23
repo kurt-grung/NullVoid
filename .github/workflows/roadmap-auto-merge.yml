@@ -2,7 +2,9 @@ name: Roadmap auto-merge
 
 on:
   workflow_run:
-    workflows: [Tests]
+    workflows:
+      - Tests
+      - NullVoid Security Scan
     types: [completed]
 
 permissions:
@@ -56,9 +58,14 @@ jobs:
               per_page: 100,
             });
 
-            const relevant = checkRuns.check_runs.filter(
-              (c) => c.name !== 'squash-merge-when-green' && c.name !== 'Roadmap auto-merge'
-            );
+            const ignoredChecks = new Set([
+              'squash-merge-when-green',
+              'Roadmap auto-merge',
+              'in-progress',
+              'done-on-merge',
+            ]);
+
+            const relevant = checkRuns.check_runs.filter((c) => !ignoredChecks.has(c.name));
             const incomplete = relevant.filter((c) => c.status !== 'completed');
             const failed = relevant.filter(
               (c) => c.status === 'completed' && c.conclusion !== 'success' && c.conclusion !== 'skipped'
