@@ -5,6 +5,8 @@ import {
   mergeRules,
   validateRules,
   loadRules,
+  parseRulesObject,
+  normalizeRules,
   type EnhancedRules,
 } from '../../src/lib/rules';
 
@@ -81,5 +83,34 @@ describe('loadRules', () => {
   it('returns ENHANCED_RULES when the path does not exist', () => {
     const rules = loadRules('/nonexistent/path/rules.json');
     expect(rules).toEqual(expect.objectContaining(ENHANCED_RULES));
+  });
+});
+
+describe('parseRulesObject', () => {
+  it('extracts detection_rules and normalizes defaults', () => {
+    const rules = parseRulesObject({
+      detection_rules: {
+        custom: {
+          patterns: ['evilPattern'],
+          severity: 'HIGH',
+          description: 'custom threat',
+        },
+      },
+    });
+    expect(rules['custom']?.confidence_threshold).toBe(0.5);
+    expect(rules['custom']?.patterns).toEqual(['evilPattern']);
+  });
+
+  it('rejects non-object input', () => {
+    expect(() => parseRulesObject([])).toThrow('Rules must be a JSON object');
+  });
+});
+
+describe('normalizeRules', () => {
+  it('fills default confidence_threshold', () => {
+    const rules = normalizeRules({
+      x: { patterns: ['a'], severity: 'LOW', description: 'd' },
+    });
+    expect(rules['x']?.confidence_threshold).toBe(0.5);
   });
 });

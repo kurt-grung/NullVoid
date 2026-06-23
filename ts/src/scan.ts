@@ -14,6 +14,7 @@ import { validateScanOptions } from './lib/validation';
 import { isNullVoidCode } from './lib/nullvoidDetection';
 import { detectMalware } from './lib/detection';
 import { filterThreatsBySeverity } from './lib/detection';
+import { detectFileThreats } from './lib/customRuleEngine';
 import { queryIoCProviders, mergeIoCThreats } from './lib/iocScanIntegration';
 import { analyzeDependencyConfusion } from './lib/dependencyConfusion';
 import { getOptimalWorkerCount, getOptimalChunkSize, chunkPackages } from './lib/parallel';
@@ -57,6 +58,14 @@ const CODE_THREAT_TYPES = new Set([
   'DEPENDENCY_CONFUSION_PREDICTIVE_RISK',
 ]);
 
+function isCodeThreatType(type: string): boolean {
+  return (
+    CODE_THREAT_TYPES.has(type) ||
+    type.startsWith('ENHANCED_RULE_') ||
+    type.startsWith('AGGREGATE_')
+  );
+}
+
 function findPackageRoot(filePath: string): string | null {
   let dir = path.isAbsolute(filePath)
     ? path.dirname(filePath)
@@ -98,7 +107,7 @@ async function exportThreatsToTraining(
   const lines: string[] = [];
 
   for (const threat of threats) {
-    if (!threat.filePath || !CODE_THREAT_TYPES.has(threat.type)) continue;
+    if (!threat.filePath || !isCodeThreatType(threat.type)) continue;
     const pkgRoot = findPackageRoot(threat.filePath);
     if (!pkgRoot) continue;
     const pkgRootNorm = path.resolve(pkgRoot);
@@ -415,7 +424,7 @@ async function processPaths(
           }
           continue;
         }
-        const fileThreats = detectMalware(content, fullPath);
+        const fileThreats = detectFileThreats(content, fullPath, options, detectMalware);
         threats.push(...fileThreats);
         filesScanned++;
       } catch (error) {
@@ -441,7 +450,7 @@ async function processPaths(
           if (isNullVoidCode(fullPath)) {
             continue;
           }
-          const fileThreats = detectMalware(content, fullPath);
+          const fileThreats = detectFileThreats(content, fullPath, options, detectMalware);
           chunkThreats.push(...fileThreats);
           chunkScanned++;
         } catch (error) {
@@ -721,7 +730,7 @@ export async function scan(
                   const depConfusionThreats = await analyzeDependencyConfusion(packagesToAnalyze);
                   threats.push(...depConfusionThreats);
                   for (const t of depConfusionThreats) {
-                    if (t.filePath && CODE_THREAT_TYPES.has(t.type)) {
+                    if (t.filePath && isCodeThreatType(t.type)) {
                       const root = findPackageRoot(t.filePath);
                       if (root) depConfusionThreatPackageRoots.add(path.resolve(root));
                     }
@@ -750,7 +759,7 @@ export async function scan(
       if (fs.existsSync(target)) {
         try {
           const content = fs.readFileSync(target, 'utf8');
-          const fileThreats = detectMalware(content, target);
+          const fileThreats = detectFileThreats(content, target, options, detectMalware);
           threats.push(...fileThreats);
           filesScanned = 1;
         } catch (error) {

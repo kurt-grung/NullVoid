@@ -1125,6 +1125,55 @@ program
     }
   });
 
+const rulesCmd = program.command('rules').description('Custom detection rules');
+
+rulesCmd
+  .command('validate')
+  .description('Validate a custom rules file (JSON or YAML)')
+  .argument('<file>', 'Rules file path')
+  .action((file: string) => {
+    try {
+      const { loadRules, validateRules } = require('../lib/rules') as typeof import('../lib/rules');
+      const rules = loadRules(path.resolve(file), {
+        mergeWithDefaults: false,
+        validateRules: false,
+      });
+      const { valid, errors } = validateRules(rules);
+      if (!valid) {
+        console.error('Invalid rules:');
+        for (const err of errors) {
+          console.error(`  - ${err}`);
+        }
+        process.exit(1);
+      }
+      console.log(`Rules valid (${Object.keys(rules).length} rule(s))`);
+      process.exit(0);
+    } catch (error) {
+      console.error('Error:', (error as Error).message);
+      process.exit(1);
+    }
+  });
+
+rulesCmd
+  .command('init')
+  .description('Write an example rules template file')
+  .argument('[file]', 'Output path', 'rules/custom-rules.yml')
+  .option('-f, --format <format>', 'json or yaml', 'yaml')
+  .action((file: string, options: { format?: string }) => {
+    try {
+      const { createExampleRules } = require('../lib/rules') as typeof import('../lib/rules');
+      const format = options.format === 'json' ? 'json' : 'yaml';
+      const outPath = path.resolve(file);
+      fs.mkdirSync(path.dirname(outPath), { recursive: true });
+      createExampleRules(outPath, format);
+      console.log(`Example rules written to ${outPath}`);
+      process.exit(0);
+    } catch (error) {
+      console.error('Error:', (error as Error).message);
+      process.exit(1);
+    }
+  });
+
 // Main scan command (default action)
 program
   .argument('[target]', 'Package name, directory, or file to scan (defaults to current directory)')

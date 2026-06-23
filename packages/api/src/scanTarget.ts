@@ -56,3 +56,25 @@ export function sanitizeScanTarget(
   }
   return { display: normalizedInput, resolved };
 }
+
+export function sanitizeRulesFilePath(rawPath: unknown, scanRoot: string): string {
+  const candidate = typeof rawPath === 'string' ? rawPath.trim() : '';
+  if (!candidate) {
+    throw new Error('rulesFile must be a non-empty string');
+  }
+  if (candidate.includes('\0')) {
+    throw new Error('rulesFile contains invalid null byte');
+  }
+
+  const resolved = path.isAbsolute(candidate)
+    ? path.resolve(candidate)
+    : path.resolve(scanRoot, candidate);
+  const relative = path.relative(scanRoot, resolved);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error(`rulesFile must resolve inside configured scan root: ${scanRoot}`);
+  }
+  if (!resolved.endsWith('.json') && !resolved.endsWith('.yaml') && !resolved.endsWith('.yml')) {
+    throw new Error('rulesFile must be a .json, .yaml, or .yml file');
+  }
+  return resolved;
+}
