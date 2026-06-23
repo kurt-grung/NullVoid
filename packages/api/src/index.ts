@@ -29,6 +29,7 @@ import {
 } from './db';
 import { registerEnterpriseRoutes, dispatchWebhooks, appendAudit } from './enterprise/routes';
 import { startScheduleRunner } from './enterprise/jobs';
+import { sanitizeScanTarget } from './scanTarget';
 
 /** Wrap async route handlers so rejections reach error middleware */
 const asyncHandler =
@@ -203,22 +204,6 @@ function requireTenantHeaders(
   return tenant;
 }
 
-function sanitizeScanTarget(rawTarget: unknown): { display: string; resolved: string } {
-  const candidate = typeof rawTarget === 'string' ? rawTarget.trim() : '.';
-  const normalizedInput = candidate.length > 0 ? candidate : '.';
-  if (normalizedInput.includes('\0')) {
-    throw new Error('Target contains invalid null byte');
-  }
-  const resolved = path.isAbsolute(normalizedInput)
-    ? path.resolve(normalizedInput)
-    : path.resolve(SCAN_ROOT, normalizedInput);
-  const relative = path.relative(SCAN_ROOT, resolved);
-  if (relative.startsWith('..') || path.isAbsolute(relative)) {
-    throw new Error(`Target must resolve inside configured scan root: ${SCAN_ROOT}`);
-  }
-  return { display: normalizedInput, resolved };
-}
-
 function parseResultJson(
   rawResultJson: string | null
 ): Record<string, unknown> | undefined {
@@ -308,7 +293,10 @@ app.post(
     let displayTarget: string;
     let resolvedTarget: string;
     try {
-      ({ display: displayTarget, resolved: resolvedTarget } = sanitizeScanTarget(req.body?.target));
+      ({ display: displayTarget, resolved: resolvedTarget } = sanitizeScanTarget(
+        req.body?.target,
+        SCAN_ROOT
+      ));
     } catch (error) {
       res.status(400).json({ error: (error as Error).message });
       return;

@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as https from 'https';
 import * as tar from 'tar';
 import { createLogger } from './logger';
+import { assertSafeTarballEntry, validatePackageName } from './pathSecurity';
 
 const logger = createLogger('remotePackageScan');
 
@@ -110,6 +111,11 @@ export async function downloadPackageToTemp(
   packageName: string,
   version = 'latest'
 ): Promise<ResolvedRemotePackage | null> {
+  if (!validatePackageName(packageName)) {
+    logger.warn(`Rejected invalid package name: ${packageName}`);
+    return null;
+  }
+
   const metadata = await fetchRegistryMetadata(packageName);
   if (!metadata) return null;
 
@@ -125,14 +131,6 @@ export async function downloadPackageToTemp(
   const tarball = await fetchBuffer(tarballUrl);
   const extractDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nullvoid-pkg-'));
   const tarballPath = path.join(os.tmpdir(), `nullvoid-dl-${Date.now()}.tgz`);
-  fs.writeFileSync(tarballPath, tarball);
-  await tar.extract({ file: tarballPath, cwd: extractDir, strip: 1 });
-  try {
-    fs.unlinkSync(tarballPath);
-  } catch {
-    /* ignore */
-  }
-
   const cleanup = () => {
     try {
       fs.rmSync(extractDir, { recursive: true, force: true });
@@ -140,6 +138,37 @@ export async function downloadPackageToTemp(
       logger.warn(`Failed to remove temp package dir: ${(error as Error).message}`);
     }
   };
+
+  try {
+    fs.writeFileSync(tarballPath, tarball);
+    await tar.extract({
+      file: tarballPath,
+      cwd: extractDir,
+      strip: 1,
+      onentry(entry) {
+        try {
+          assertSafeTarballEntry(entry.path, extractDir);
+        } catch (error) {
+          entry.destroy(error as Error);
+        }
+      },
+    });
+  } catch (error) {
+    cleanup();
+    try {
+      fs.unlinkSync(tarballPath);
+    } catch {
+      /* ignore */
+    }
+    logger.warn(`Failed to extract package tarball: ${(error as Error).message}`);
+    return null;
+  }
+
+  try {
+    fs.unlinkSync(tarballPath);
+  } catch {
+    /* ignore */
+  }
 
   return {
     extractDir,

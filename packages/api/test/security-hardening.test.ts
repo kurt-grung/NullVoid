@@ -82,6 +82,16 @@ describe('API security hardening', () => {
     expect(res.body.error).toContain('inside configured scan root');
   });
 
+  it('rejects invalid npm package name targets in /scan', async () => {
+    const res = await request(app)
+      .post('/scan')
+      .set(authHeaders(orgAId))
+      .send({ target: 'evil;curl' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('Invalid npm package name');
+  });
+
   it('blocks cross-tenant access to scan details and reports', async () => {
     const scanId = `scan-${Date.now()}-tenant`;
     await db.insertScan({

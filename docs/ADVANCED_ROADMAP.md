@@ -21,7 +21,6 @@ See also: [ROADMAP.md](ROADMAP.md) (release history and current status), [dashbo
 | Gap | Location |
 |-----|----------|
 | L3 Redis cache stub | `ts/src/lib/cache/multiLayerCache.ts` |
-| Remote npm package scan placeholder | `ts/src/scan.ts` |
 | ML runtime rule-based + optional HTTP | `ts/src/lib/mlDetection.ts` |
 | No webhooks, GraphQL, schedules, audit log | `packages/api/src/index.ts` |
 | Dual `js/` + `ts/` maintenance | `js/` workspace |

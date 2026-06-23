@@ -3,8 +3,9 @@
  * Migrated from test/integration/scan.test.js to TypeScript
  */
 
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { scan } from '../../src/scan';
+import * as remotePackageScan from '../../src/lib/remotePackageScan';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -90,6 +91,37 @@ describe('Scan Integration Tests', () => {
       expect(result.threats.length).toBeGreaterThan(0);
       expect(result.threats[0]?.type).toBe('MALICIOUS_CODE_STRUCTURE');
       expect(result.threats[0]?.severity).toBe('CRITICAL');
+    });
+
+    it('should scan a remote npm package spec via tarball extract', async () => {
+      const maliciousFile = path.join(tempDir, 'malicious.js');
+      fs.writeFileSync(
+        maliciousFile,
+        `
+        const _0x112fa8 = "malicious";
+        const fs = require('fs');
+        eval("malicious code");
+      `
+      );
+
+      const downloadSpy = jest.spyOn(remotePackageScan, 'downloadPackageToTemp').mockResolvedValue({
+        extractDir: tempDir,
+        packageName: 'mock-malware',
+        version: '1.0.0',
+        cleanup: () => undefined,
+      });
+
+      const result = await scan('mock-malware@1.0.0', {
+        verbose: false,
+        iocEnabled: false,
+        all: false,
+      });
+
+      expect(downloadSpy).toHaveBeenCalledWith('mock-malware', '1.0.0');
+      expect(result.filesScanned).toBeGreaterThan(0);
+      expect(result.threats.length).toBeGreaterThan(0);
+      expect(result.metadata?.['target']).toBe('mock-malware@1.0.0');
+      downloadSpy.mockRestore();
     });
   });
 
