@@ -1196,6 +1196,11 @@ export function updateConfigFromEnv(): void {
     (CACHE_LAYER_CONFIG.L3 as Record<string, unknown>)['enabled'] = enabled;
   }
 
+  if (process.env['NULLVOID_IOC_MULTI_LAYER_CACHE']) {
+    const enabled = process.env['NULLVOID_IOC_MULTI_LAYER_CACHE'].toLowerCase() === 'true';
+    (IOC_CONFIG as Record<string, unknown>)['USE_MULTI_LAYER_CACHE'] = enabled;
+  }
+
   // Update network optimization settings
   if (process.env['NULLVOID_CONNECTION_POOL_ENABLED']) {
     const enabled = process.env['NULLVOID_CONNECTION_POOL_ENABLED'].toLowerCase() === 'true';
@@ -1211,6 +1216,15 @@ export function updateConfigFromEnv(): void {
     const enabled = process.env['NULLVOID_COMPRESSION_ENABLED'].toLowerCase() === 'true';
     (NETWORK_OPTIMIZATION_CONFIG.COMPRESSION as Record<string, unknown>)['enabled'] = enabled;
   }
+}
+
+export function applyCacheCliOptions(options: { enableRedis?: boolean }): void {
+  if (!options.enableRedis) {
+    return;
+  }
+
+  (CACHE_LAYER_CONFIG.L3 as Record<string, unknown>)['enabled'] = true;
+  (IOC_CONFIG as Record<string, unknown>)['USE_MULTI_LAYER_CACHE'] = true;
 }
 
 // Export VALIDATION_CONFIG for backward compatibility

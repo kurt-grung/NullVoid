@@ -63,6 +63,10 @@ export class CacheAnalytics {
       );
     }
 
+    if (stats.layers.L3.hits + stats.layers.L3.misses > 0 && stats.layers.L3.hitRate < 0.2) {
+      recommendations.push('L3 cache hit rate is low. Verify Redis connectivity and TTL settings.');
+    }
+
     // Overall recommendations
     if (stats.overallHitRate < 0.3) {
       recommendations.push(

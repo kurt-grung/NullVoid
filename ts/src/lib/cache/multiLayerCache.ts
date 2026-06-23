@@ -226,6 +226,14 @@ export class MultiLayerCache<T = unknown> {
       }
     }
 
+    if (this.l3Enabled && this.l3Cache) {
+      try {
+        await this.l3Cache.clear();
+      } catch (error) {
+        logger.warn(`Failed to clear L3 cache`, { error: String(error) });
+      }
+    }
+
     // Reset stats
     this.stats.l1 = this.createEmptyStats('L1');
     this.stats.l2 = this.createEmptyStats('L2');
@@ -236,6 +244,13 @@ export class MultiLayerCache<T = unknown> {
     if (this.l3Cache) {
       await this.l3Cache.close();
     }
+  }
+
+  getL3Status(): ReturnType<RedisCache['getStatus']> | null {
+    if (!this.l3Enabled || !this.l3Cache) {
+      return null;
+    }
+    return this.l3Cache.getStatus();
   }
 
   /**
@@ -266,6 +281,7 @@ export class MultiLayerCache<T = unknown> {
     if (this.l3Enabled && this.l3Cache) {
       const status = this.l3Cache.getStatus();
       this.stats.l3.utilization = status.connected ? 1 : 0;
+      this.stats.l3.size = status.connected ? this.stats.l3.hits + this.stats.l3.misses : 0;
     }
 
     return {

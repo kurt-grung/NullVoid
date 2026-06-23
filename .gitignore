@@ -101,7 +101,9 @@ pids
 *.pid.lock
 
 # IDE files
-.cursor/
+.cursor/*
+!.cursor/skills/
+!.cursor/skills/**
 .vscode/
 .idea/
 *.swp

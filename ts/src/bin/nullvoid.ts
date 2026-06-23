@@ -29,6 +29,7 @@ import {
   TRUST_CONFIG,
   BLOCKCHAIN_CONFIG,
   CONSENSUS_CONFIG,
+  applyCacheCliOptions,
   getRcScanOptions,
 } from '../lib/config';
 import colors from '../colors';
@@ -1219,6 +1220,8 @@ program
   });
 
 async function performScan(target: string | undefined, options: CliOptions) {
+  applyCacheCliOptions({ enableRedis: Boolean(options['enable-redis']) });
+
   const spinner = ora('🔍 Scanning ...').start();
 
   try {
@@ -1477,13 +1480,31 @@ async function performScan(target: string | undefined, options: CliOptions) {
         const multiLayerStats = cacheAnalytics.getSummary(statsForSummary);
 
         console.log('\n📊 Cache Statistics:');
-        console.log(`   L1 (Memory) Cache:`);
-        const l1Stats = multiLayerStats.layers['L1'];
-        if (l1Stats) {
-          console.log(`     Hit Rate: ${(l1Stats.hitRate * 100).toFixed(2)}%`);
-          console.log(`     Utilization: ${(l1Stats.utilization * 100).toFixed(2)}%`);
-          console.log(`     Size: ${l1Stats.size} items`);
+        const layerLabels: Record<string, string> = {
+          L1: 'Memory',
+          L2: 'File',
+          L3: 'Redis',
+        };
+        for (const layerKey of ['L1', 'L2', 'L3'] as const) {
+          const layerStats = multiLayerStats.layers[layerKey];
+          if (!layerStats) {
+            continue;
+          }
+          console.log(`   ${layerKey} (${layerLabels[layerKey]}) Cache:`);
+          console.log(`     Hit Rate: ${(layerStats.hitRate * 100).toFixed(2)}%`);
+          console.log(`     Utilization: ${(layerStats.utilization * 100).toFixed(2)}%`);
+          console.log(`     Size: ${layerStats.size} items`);
         }
+
+        if ('layers' in cacheStats) {
+          const l3Status = ioCManager.getL3CacheStatus();
+          if (l3Status?.enabled) {
+            console.log(
+              `   L3 Redis: ${l3Status.connected ? 'connected' : 'disconnected (using L1/L2 fallback)'}`
+            );
+          }
+        }
+
         if (multiLayerStats.recommendations.length > 0) {
           console.log(`   Recommendations:`);
           multiLayerStats.recommendations.forEach((rec) => console.log(`     - ${rec}`));
