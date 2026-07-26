@@ -55,13 +55,13 @@ jobs:
       continue-on-error: true  # do not fail job if repo has no Code Scanning enabled
       
     - name: Upload security report
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: security-report
         path: ${{ github.workspace }}/security-report.json
         
     - name: Upload SARIF artifact
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: nullvoid-sarif
         path: ${{ github.workspace }}/nullvoid-results.sarif
@@ -243,11 +243,14 @@ jobs:
       
     - name: Run NullVoid on dependencies
       run: |
+        set -e
+        REPORT="${{ github.workspace }}/dependency-scan.json"
         echo "Scanning project dependencies..."
-        node ts/dist/bin/nullvoid.js . --format json --output dependency-scan.json
-        
+        node ts/dist/bin/nullvoid.js . --format json --output "$REPORT" --no-ioc
+        test -f "$REPORT" || { echo "ERROR: dependency-scan.json was not created"; exit 1; }
+
     - name: Upload dependency scan results
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: dependency-scan-results
-        path: dependency-scan.json
+        path: ${{ github.workspace }}/dependency-scan.json
