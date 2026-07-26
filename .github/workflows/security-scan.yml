@@ -26,8 +26,11 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v5
       with:
-        node-version: '20'
+        node-version: '24'
         cache: 'npm'
+
+    - name: Enable Corepack
+      run: corepack enable
         
     - name: Install dependencies
       run: npm ci
@@ -46,19 +49,19 @@ jobs:
         node scripts/json-to-sarif.js "$REPORT" "$SARIF"
       
     - name: Upload SARIF to GitHub Code Scanning
-      uses: github/codeql-action/upload-sarif@v3
+      uses: github/codeql-action/upload-sarif@v4
       with:
         sarif_file: ${{ github.workspace }}/nullvoid-results.sarif
       continue-on-error: true  # do not fail job if repo has no Code Scanning enabled
       
     - name: Upload security report
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: security-report
         path: ${{ github.workspace }}/security-report.json
         
     - name: Upload SARIF artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: nullvoid-sarif
         path: ${{ github.workspace }}/nullvoid-results.sarif
@@ -198,11 +201,17 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v5
       with:
-        node-version: '20'
+        node-version: '24'
         cache: 'npm'
+
+    - name: Enable Corepack
+      run: corepack enable
 
     - name: Install dependencies
       run: npm ci
+
+    - name: Sync dependency tree
+      run: npm install --ignore-scripts
 
     - name: Audit root dependencies
       id: audit
@@ -213,7 +222,7 @@ jobs:
       if: steps.audit.outcome == 'failure'
       run: |
         npm audit fix || true
-        npm install
+        npm install --ignore-scripts
 
     - name: Commit and push audit fixes
       if: steps.audit.outcome == 'failure'
@@ -238,7 +247,7 @@ jobs:
         node ts/dist/bin/nullvoid.js . --format json --output dependency-scan.json
         
     - name: Upload dependency scan results
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: dependency-scan-results
         path: dependency-scan.json
