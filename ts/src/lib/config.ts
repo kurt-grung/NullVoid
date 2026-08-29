@@ -50,6 +50,12 @@ function loadNullvoidRc(): void {
             rc['RISK_CONFIG'] as Record<string, unknown>
           );
         }
+        if (rc['SUPPLY_CHAIN_CONFIG']) {
+          deepMerge(
+            SUPPLY_CHAIN_CONFIG as unknown as Record<string, unknown>,
+            rc['SUPPLY_CHAIN_CONFIG'] as Record<string, unknown>
+          );
+        }
         break;
       }
     } catch {
@@ -139,6 +145,17 @@ export const RISK_CONFIG = {
     integrity: 0.45,
     availability: 0.2,
   } as Record<string, number>,
+} as const;
+
+/**
+ * Supply chain graph configuration (dependency risk propagation)
+ */
+export const SUPPLY_CHAIN_CONFIG = {
+  MAX_DEPTH: 6,
+  MAX_NODES: 5000,
+  PROPAGATION_DECAY: 0.85,
+  PROPAGATION_THRESHOLD: 0.3,
+  DEEP_DEPENDENCY_DEPTH: 2,
 } as const;
 
 /**

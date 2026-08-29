@@ -1751,12 +1751,12 @@ function displayResults(results: ScanResult, options: CliOptions) {
 
   // Add dependency tree information if available
   if (results.dependencyTree || (results.packagesScanned && results.packagesScanned > 0)) {
-    console.log(`   Max depth reached: ${results.dependencyTree?.maxDepth || options.depth || 5}`);
+    console.log(`   Max depth reached: ${results.dependencyTree?.maxDepth ?? options.depth ?? 5}`);
     console.log(
-      `   Packages with threats: ${results.dependencyTree?.packagesWithThreats || results.threats.filter((t) => t.package).length}`
+      `   Packages with threats: ${results.dependencyTree?.packagesWithThreats ?? results.threats.filter((t) => t.package).length}`
     );
     console.log(
-      `   Deep dependencies (depth ≥2): ${results.dependencyTree?.deepDependencies || 0}`
+      `   Deep dependencies (depth ≥2): ${results.dependencyTree?.deepDependencies ?? 0}`
     );
   }
 
