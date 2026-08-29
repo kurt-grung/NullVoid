@@ -23,8 +23,8 @@ import { computeCompositeRisk } from './lib/riskScoring';
 import { runNlpAnalysis } from './lib/nlpAnalysis';
 import { runMLDetection, buildFeatureVector } from './lib/mlDetection';
 import { isNpmPackageSpec, parsePackageSpec, downloadPackageToTemp } from './lib/remotePackageScan';
-import { buildSupplyChainGraph } from './lib/supplyChainGraph';
-import { buildDependencyTree } from './lib/dependencyTree';
+import { buildSupplyChainGraph, countPackagesWithThreats } from './lib/supplyChainGraph';
+import { buildDependencyTree, type DependencyTreeStats } from './lib/dependencyTree';
 import { getGitHistorySync } from './lib/dependencyConfusion';
 import { getPackageCreationDate } from './lib/dependencyConfusion';
 import { analyzePackageName } from './lib/dependencyConfusion';
@@ -897,9 +897,14 @@ export async function scan(
 
   const scanRoot = graphRoot;
   let supplyChainGraphPayload: ReturnType<typeof buildSupplyChainGraph> | undefined;
+  let dependencyStats: DependencyTreeStats | undefined;
   if (scanRoot) {
     try {
-      const { tree } = buildDependencyTree(scanRoot);
+      const { tree, stats } = buildDependencyTree(scanRoot, {
+        maxDepth: options.depth,
+        includeDevDependencies: options.includeDevDependencies,
+      });
+      dependencyStats = stats;
       supplyChainGraphPayload = buildSupplyChainGraph(tree, filteredThreats);
     } catch {
       /* optional enrichment */
@@ -932,10 +937,11 @@ export async function scan(
         }
       : { path: target, files: [], directories: [], totalDirectories: 0, totalFiles: 0 },
     dependencyTree: {
-      totalPackages: packagesScanned,
-      maxDepth: 5, // Placeholder
-      packagesWithThreats: filteredThreats.length > 0 ? 1 : 0,
-      deepDependencies: 0, // Placeholder
+      totalPackages: dependencyStats?.totalPackages ?? packagesScanned,
+      maxDepth: dependencyStats?.maxDepth ?? 0,
+      packagesWithThreats:
+        supplyChainGraphPayload?.packagesWithThreats ?? countPackagesWithThreats(filteredThreats),
+      deepDependencies: dependencyStats?.deepDependencies ?? 0,
     },
     riskAssessment,
   };

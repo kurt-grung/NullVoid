@@ -1059,6 +1059,12 @@ Configure via `.nullvoidrc` or environment:
   "RISK_CONFIG": {
     "highRiskThreshold": 7,
     "criticalRiskThreshold": 9
+  },
+  "SUPPLY_CHAIN_CONFIG": {
+    "MAX_DEPTH": 6,
+    "MAX_NODES": 5000,
+    "PROPAGATION_DECAY": 0.85,
+    "PROPAGATION_THRESHOLD": 0.3
   }
 }
 ```
@@ -1066,6 +1072,7 @@ Configure via `.nullvoidrc` or environment:
 - `MODEL_TIMEOUT` — max milliseconds to wait for the ML service (default `5000`)
 - `ML_PREDICTIVE_THRESHOLD` — minimum score to flag a package as high-risk via ML (default `0.4`)
 - `RISK_CONFIG` — override composite risk thresholds without redeploying
+- `SUPPLY_CHAIN_CONFIG` — bound dependency graph traversal and tune how far risk propagates from a compromised dependency to the packages that depend on it
 
 Or: `export NULLVOID_ML_MODEL_URL=http://localhost:8000/score`
 

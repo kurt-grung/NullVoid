@@ -2,6 +2,7 @@ export type GraphNode = {
   name: string
   version: string
   riskScore?: number
+  inheritedRisk?: number
   propagatedRisk?: number
   threatCount?: number
   children?: GraphNode[]
@@ -9,13 +10,14 @@ export type GraphNode = {
 
 function NodeRow({ node, depth = 0 }: { node: GraphNode; depth?: number }) {
   const risk = node.propagatedRisk ?? node.riskScore ?? 0
+  const isInherited = (node.riskScore ?? 0) === 0 && (node.inheritedRisk ?? 0) > 0
   return (
     <li className="text-sm">
       <div style={{ paddingLeft: depth * 12 }} className="py-1">
         <code>{node.name}@{node.version}</code>
         {risk > 0 && (
           <span className="ml-2 text-amber-600 dark:text-amber-400">
-            risk {(risk * 100).toFixed(0)}%
+            {isInherited ? 'inherited risk' : 'risk'} {(risk * 100).toFixed(0)}%
           </span>
         )}
         {(node.threatCount ?? 0) > 0 && (
