@@ -82,7 +82,7 @@ const THREAT_TO_CATEGORY: Record<ThreatType, RiskCategory> = {
   WALLET_NETWORKHOOKS: 'integrity',
 };
 
-function getThreatCategory(type: ThreatType): RiskCategory {
+export function getRiskCategory(type: ThreatType): RiskCategory {
   const category = THREAT_TO_CATEGORY[type];
   if (!category && process.env['NULLVOID_STRICT_RISK_CATEGORY'] === 'true') {
     throw new Error(`Missing RiskCategory mapping for threat type: ${type}`);
@@ -119,7 +119,7 @@ export function computeCompositeRisk(threats: Threat[]): RiskAssessment {
       bySeverity[threat.severity as SeverityLevel] += conf;
     }
 
-    const cat = getThreatCategory(threat.type as ThreatType);
+    const cat = getRiskCategory(threat.type as ThreatType);
     byCategory[cat] += conf;
   }
 
