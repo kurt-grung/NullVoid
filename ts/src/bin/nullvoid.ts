@@ -38,6 +38,14 @@ import * as packageJson from '../../package.json';
 const REPO_ROOT = path.resolve(__dirname, '../../..');
 const ML_MODEL_DIR = path.join(REPO_ROOT, 'ml-model');
 
+function buildSarifForResult(result: ScanResult): ReturnType<typeof generateSarifOutput> {
+  return generateSarifOutput(result.threats, {
+    riskAssessment: result.riskAssessment,
+    toolVersion: packageJson.version,
+    workspaceRoot: process.cwd(),
+  });
+}
+
 interface CliOptions {
   depth?: number;
   parallel?: boolean;
@@ -1428,6 +1436,16 @@ async function performScan(target: string | undefined, options: CliOptions) {
       throw scanError;
     }
 
+    if (options.sarif) {
+      fs.writeFileSync(options.sarif, JSON.stringify(buildSarifForResult(result), null, 2));
+      console.error(`✅ SARIF output written to: ${options.sarif}`);
+    }
+
+    if (options.format === 'sarif' && !options.output) {
+      console.log(JSON.stringify(buildSarifForResult(result), null, 2));
+      return;
+    }
+
     // When format is json and no output file, print JSON only to stdout (machine-readable)
     const isJsonNoOutput = (options.format === 'json' || !options.format) && !options.output;
     if (isJsonNoOutput) {
@@ -1456,6 +1474,8 @@ async function performScan(target: string | undefined, options: CliOptions) {
         fs.writeFileSync(outPath, generateHtmlReport(result, reportOpts));
       } else if (fmt === 'markdown') {
         fs.writeFileSync(outPath, generateMarkdownReport(result, reportOpts));
+      } else if (fmt === 'sarif') {
+        fs.writeFileSync(outPath, JSON.stringify(buildSarifForResult(result), null, 2));
       } else {
         fs.writeFileSync(outPath, JSON.stringify(result, null, 2));
       }
@@ -1582,12 +1602,6 @@ async function performScan(target: string | undefined, options: CliOptions) {
           console.log(`   Network stats unavailable: ${(error as Error).message}`);
         }
       }
-    }
-
-    if (options.sarif) {
-      const sarifOutput = generateSarifOutput(result.threats);
-      fs.writeFileSync(options.sarif, JSON.stringify(sarifOutput, null, 2));
-      console.log(`✅ SARIF output written to: ${options.sarif}`);
     }
   } catch (error) {
     spinner.fail('❌ Scan failed');
