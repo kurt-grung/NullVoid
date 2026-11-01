@@ -73,7 +73,7 @@ function listPackageRoots(nodeModulesDir: string): string[] {
   return roots;
 }
 
-function discoverInstalledPackageRoots(projectRoot: string): string[] {
+export function discoverInstalledPackageRoots(projectRoot: string): string[] {
   const resolvedRoot = path.resolve(projectRoot);
   const seen = new Set<string>();
   const queue: string[] = [];

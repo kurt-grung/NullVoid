@@ -53,6 +53,10 @@ export interface ScanOptions {
   dependencyConfusionEnabled?: boolean;
   /** Scan installed dependency package source under node_modules (default: true) */
   scanDependencySource?: boolean;
+  /** Analyze npm lifecycle scripts in package.json (default: true) */
+  scanLifecycleScripts?: boolean;
+  /** Max package.json files to analyze for lifecycle scripts per scan */
+  maxLifecycleScriptPackages?: number;
   /** Max installed packages to read source from per scan */
   maxDependencySourcePackages?: number;
   /** Max source files to scan under node_modules per scan */

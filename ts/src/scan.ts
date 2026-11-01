@@ -26,6 +26,7 @@ import { isNpmPackageSpec, parsePackageSpec, downloadPackageToTemp } from './lib
 import { buildSupplyChainGraph, countPackagesWithThreats } from './lib/supplyChainGraph';
 import { buildDependencyTree, type DependencyTreeStats } from './lib/dependencyTree';
 import { collectInstalledDependencySourcePaths } from './lib/dependencySourceScan';
+import { collectLifecycleScriptThreatsForProject } from './lib/lifecycleScriptAnalysis';
 import { getGitHistorySync } from './lib/dependencyConfusion';
 import { getPackageCreationDate } from './lib/dependencyConfusion';
 import { analyzePackageName } from './lib/dependencyConfusion';
@@ -260,7 +261,6 @@ const performanceMetrics: PerformanceMetrics = {
 
 // Suspicious patterns
 const SUSPICIOUS_PATTERNS = {
-  postinstall: ['rm -rf', 'curl.*|.*sh', 'wget.*|.*sh', 'bash -c.*rm', 'bash -c.*chmod'],
   dependencies: ['http://.*', 'git://.*', 'file://.*'],
   keywords: ['malware', 'virus', 'trojan', 'backdoor'],
 };
@@ -533,6 +533,9 @@ export async function scan(
   let dependencySourceStats:
     | ReturnType<typeof collectInstalledDependencySourcePaths>['stats']
     | undefined;
+  let lifecycleScriptStats:
+    | ReturnType<typeof collectLifecycleScriptThreatsForProject>['stats']
+    | undefined;
 
   // Reset performance metrics
   performanceMetrics.duration = 0;
@@ -570,6 +573,10 @@ export async function scan(
 
       // Find all package.json dirs (root + subdirs) and run dependency analysis + ML on each
       const packageDirs = collectPackageJsonDirs(target, options);
+      const lifecycleScan = collectLifecycleScriptThreatsForProject(rootPath, options, packageDirs);
+      threats.push(...lifecycleScan.threats);
+      lifecycleScriptStats = lifecycleScan.stats;
+
       const MAX_IOC_QUERIES_PER_SCAN = 30; // Cap to avoid rate limits and hangs
       let iocQueriesUsed = 0;
 
@@ -941,6 +948,7 @@ export async function scan(
       scanTime: new Date().toISOString(),
       options,
       ...(dependencySourceStats ? { dependencySourceScan: dependencySourceStats } : {}),
+      ...(lifecycleScriptStats ? { lifecycleScriptAnalysis: lifecycleScriptStats } : {}),
       ...(supplyChainGraphPayload ? { supplyChainGraph: supplyChainGraphPayload } : {}),
     },
     directoryStructure: directoryStructure

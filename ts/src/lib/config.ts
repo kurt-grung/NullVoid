@@ -164,6 +164,10 @@ export const DEPENDENCY_SOURCE_SCAN_CONFIG = {
   FILE_DEPTH: 4,
 } as const;
 
+export const LIFECYCLE_SCRIPT_ANALYSIS_CONFIG = {
+  MAX_PACKAGES: 200,
+} as const;
+
 /**
  * Entropy thresholds for different content types
  */
