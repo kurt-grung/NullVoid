@@ -19,6 +19,9 @@ npm run format:check
 echo "==> verify unit test isolation"
 bash .github/scripts/verify-unit-test-isolation.sh
 
+echo "==> verify security-scan self-scan parity"
+bash .github/scripts/verify-security-scan-parity.sh
+
 echo "==> test"
 npm test
 
