@@ -18,7 +18,6 @@ export function isConfigFile(filePath: string): boolean {
     DETECTION_PATTERNS.DOT_FILE_PATTERNS.includes(fileName) ||
     fileName.startsWith('.') ||
     DETECTION_PATTERNS.CONFIG_EXTENSIONS.some((ext) => fileName.endsWith(ext)) ||
-    DETECTION_PATTERNS.EXCLUDED_DIRECTORIES.some((dir) => filePath.includes(dir)) ||
     DETECTION_PATTERNS.GRAPHICS_FILE_PATTERNS.some((pattern) => fileName.includes(pattern))
   );
 }
