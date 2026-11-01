@@ -51,6 +51,14 @@ export interface ScanOptions {
   iocProviders?: string;
   /** Enable dependency confusion analysis (default: true) */
   dependencyConfusionEnabled?: boolean;
+  /** Scan installed dependency package source under node_modules (default: true) */
+  scanDependencySource?: boolean;
+  /** Max installed packages to read source from per scan */
+  maxDependencySourcePackages?: number;
+  /** Max source files to scan under node_modules per scan */
+  maxDependencySourceFiles?: number;
+  /** Directory depth within each dependency package for source scan */
+  dependencySourceFileDepth?: number;
   /** Export training data: append feature vectors for packages with threats to this JSONL file (label 1) */
   exportTrainingData?: string;
   /** Export training data: append feature vectors for packages with no threats to this JSONL file (label 0) */

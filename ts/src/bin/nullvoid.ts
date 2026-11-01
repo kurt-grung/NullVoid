@@ -1210,6 +1210,7 @@ program
   .option('--enable-redis', 'Enable Redis distributed cache (L3)')
   .option('--network-stats', 'Show network performance metrics')
   .option('--no-ioc', 'Disable IoC provider queries')
+  .option('--no-dependency-source', 'Skip scanning installed dependency source in node_modules')
   .option(
     '--export-training <file>',
     'Append feature vectors for packages with threats to JSONL file (label 1) for ML training'
@@ -1254,6 +1255,7 @@ program
   .option('--enable-redis', 'Enable Redis distributed cache (L3)')
   .option('--network-stats', 'Show network performance metrics')
   .option('--no-ioc', 'Disable IoC provider queries')
+  .option('--no-dependency-source', 'Skip scanning installed dependency source in node_modules')
   .option(
     '--export-training <file>',
     'Append feature vectors for packages with threats to JSONL file (label 1) for ML training'
@@ -1301,6 +1303,7 @@ async function performScan(target: string | undefined, options: CliOptions) {
       debug: options.debug || false,
       all: options.all || false,
       iocEnabled: (options as { ioc?: boolean }).ioc !== false, // Commander stores --no-ioc as options.ioc = false
+      scanDependencySource: (options as { dependencySource?: boolean }).dependencySource !== false,
     };
 
     // Add optional properties only if they exist

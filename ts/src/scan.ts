@@ -25,6 +25,7 @@ import { runMLDetection, buildFeatureVector } from './lib/mlDetection';
 import { isNpmPackageSpec, parsePackageSpec, downloadPackageToTemp } from './lib/remotePackageScan';
 import { buildSupplyChainGraph, countPackagesWithThreats } from './lib/supplyChainGraph';
 import { buildDependencyTree, type DependencyTreeStats } from './lib/dependencyTree';
+import { collectInstalledDependencySourcePaths } from './lib/dependencySourceScan';
 import { getGitHistorySync } from './lib/dependencyConfusion';
 import { getPackageCreationDate } from './lib/dependencyConfusion';
 import { analyzePackageName } from './lib/dependencyConfusion';
@@ -529,6 +530,9 @@ export async function scan(
   let directoryStructure: DirectoryStructure | undefined;
   let performanceData: PerformanceMetrics;
   let graphRoot: string | null = null;
+  let dependencySourceStats:
+    | ReturnType<typeof collectInstalledDependencySourcePaths>['stats']
+    | undefined;
 
   // Reset performance metrics
   performanceMetrics.duration = 0;
@@ -554,6 +558,15 @@ export async function scan(
       filesScanned = directoryResult.filesScanned;
       packagesScanned = directoryResult.packagesScanned;
       directoryStructure = directoryResult.directoryStructure;
+
+      const dependencySource = collectInstalledDependencySourcePaths(rootPath, scanOptions);
+      dependencySourceStats = dependencySource.stats;
+      if (dependencySource.paths.length > 0) {
+        const depScan = await processPaths(dependencySource.paths, scanOptions, progressCallback);
+        threats.push(...depScan.threats);
+        filesScanned += depScan.filesScanned;
+        packagesScanned += dependencySource.stats.packagesVisited;
+      }
 
       // Find all package.json dirs (root + subdirs) and run dependency analysis + ML on each
       const packageDirs = collectPackageJsonDirs(target, options);
@@ -927,6 +940,7 @@ export async function scan(
       target,
       scanTime: new Date().toISOString(),
       options,
+      ...(dependencySourceStats ? { dependencySourceScan: dependencySourceStats } : {}),
       ...(supplyChainGraphPayload ? { supplyChainGraph: supplyChainGraphPayload } : {}),
     },
     directoryStructure: directoryStructure

@@ -158,6 +158,12 @@ export const SUPPLY_CHAIN_CONFIG = {
   DEEP_DEPENDENCY_DEPTH: 2,
 } as const;
 
+export const DEPENDENCY_SOURCE_SCAN_CONFIG = {
+  MAX_PACKAGES: 100,
+  MAX_FILES: 800,
+  FILE_DEPTH: 4,
+} as const;
+
 /**
  * Entropy thresholds for different content types
  */

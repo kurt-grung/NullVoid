@@ -42,6 +42,9 @@ export interface ScanOptions {
   verbose?: boolean;
   parallel?: boolean;
   all?: boolean;
+  maxDependencySourcePackages?: number;
+  maxDependencySourceFiles?: number;
+  dependencySourceFileDepth?: number;
 }
 
 export interface AllowedExtension {
@@ -301,6 +304,51 @@ export function validateScanOptions(options: ScanOptions): boolean {
         'maxDepth must be an integer between 0 and 10',
         'maxDepth',
         options.maxDepth
+      );
+    }
+  }
+
+  if (options.maxDependencySourcePackages !== undefined) {
+    if (
+      typeof options.maxDependencySourcePackages !== 'number' ||
+      !Number.isInteger(options.maxDependencySourcePackages) ||
+      options.maxDependencySourcePackages < 1 ||
+      options.maxDependencySourcePackages > 500
+    ) {
+      throw new ValidationError(
+        'maxDependencySourcePackages must be an integer between 1 and 500',
+        'maxDependencySourcePackages',
+        options.maxDependencySourcePackages
+      );
+    }
+  }
+
+  if (options.maxDependencySourceFiles !== undefined) {
+    if (
+      typeof options.maxDependencySourceFiles !== 'number' ||
+      !Number.isInteger(options.maxDependencySourceFiles) ||
+      options.maxDependencySourceFiles < 1 ||
+      options.maxDependencySourceFiles > 10000
+    ) {
+      throw new ValidationError(
+        'maxDependencySourceFiles must be an integer between 1 and 10000',
+        'maxDependencySourceFiles',
+        options.maxDependencySourceFiles
+      );
+    }
+  }
+
+  if (options.dependencySourceFileDepth !== undefined) {
+    if (
+      typeof options.dependencySourceFileDepth !== 'number' ||
+      !Number.isInteger(options.dependencySourceFileDepth) ||
+      options.dependencySourceFileDepth < 1 ||
+      options.dependencySourceFileDepth > 20
+    ) {
+      throw new ValidationError(
+        'dependencySourceFileDepth must be an integer between 1 and 20',
+        'dependencySourceFileDepth',
+        options.dependencySourceFileDepth
       );
     }
   }
