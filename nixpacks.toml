@@ -1,3 +1,11 @@
-# Override Nixpacks build: API needs @nullvoid/ts + @nullvoid/api
+[variables]
+NIXPACKS_NODE_VERSION = "24"
+
+[phases.setup]
+nixPkgs = ["nodejs_24"]
+
+[phases.install]
+cmds = ["npm ci"]
+
 [phases.build]
 cmds = ["npm run api:build"]

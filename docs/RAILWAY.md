@@ -78,10 +78,13 @@ To deploy a different branch:
 
 ## Config files
 
-| Service | Config path       | Root directory |
-|---------|-------------------|----------------|
-| API     | `/railway.json`   | `/` (default)  |
-| ML      | `/ml-model/railway.json` | `ml-model` |
+| Service   | Config path                 | Root directory |
+|-----------|-----------------------------|----------------|
+| API       | `/railway.json`             | `/` (default)  |
+| Dashboard | `/railway.dashboard.json`   | `/` (default)  |
+| ML        | `/ml-model/railway.json`    | `ml-model`     |
+
+Set **Config file path** on each Railway service to the row above. The dashboard service must not reuse `/railway.json` (that starts the API). Root `nixpacks.toml` pins Node 24 for `better-sqlite3` and `engines.node`.
 
 ## ML model files
 
@@ -100,7 +103,8 @@ To train and include models:
 
 ## Troubleshooting
 
-- **API build fails**: Ensure `npm run build` completes (Turbo builds `ts` and other packages). Check Node version (≥18). If using Dockerfile, Railway builds from that.
+- **API build fails**: Run `npm ci && npm run api:build` locally. Railway must use Node 24 (`.nvmrc`, `engines.node`, `nixpacks.toml`). If Nixpacks ignores Node 24, confirm `nodejs_24` in `nixpacks.toml` or switch the service builder to Railpack.
+- **Dashboard deploy fails**: Use `/railway.dashboard.json`, not `/railway.json`. Build needs monorepo root (`npm ci && VITE_BASE=/ npm run dashboard:build`).
 - **ML build fails**: Ensure `requirements.txt` is valid and Python 3.9+ is used.
 - **Database errors**: Verify `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` in the API service.
 - **ML returns "Model not loaded"**: Train the model and commit the `.pkl` files, or accept the default score.
