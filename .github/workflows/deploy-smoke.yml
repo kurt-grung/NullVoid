@@ -1,0 +1,19 @@
+name: Deploy smoke
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  production-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Verify Railway config in repo
+        run: bash .github/scripts/verify-railway-config.sh
+
+      - name: Wait for Railway API health
+        run: bash .github/scripts/verify-production-smoke.sh

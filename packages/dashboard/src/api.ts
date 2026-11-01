@@ -1,0 +1,255 @@
+const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
+
+const API_KEY_STORAGE = 'nullvoid-api-key';
+
+export function getApiKey(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(API_KEY_STORAGE);
+}
+
+export function setApiKey(key: string | null): void {
+  if (typeof window === 'undefined') return;
+  if (key) localStorage.setItem(API_KEY_STORAGE, key);
+  else localStorage.removeItem(API_KEY_STORAGE);
+}
+
+function getAuthHeaders(): Record<string, string> {
+  const key = getApiKey();
+  if (key) return { 'X-API-Key': key };
+  return {};
+}
+
+/** Detect when API is unavailable (404, CORS, network, 503 config) - show friendly empty state */
+export function isApiUnavailableError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error);
+  return (
+    msg.includes('API error') ||
+    msg.includes('404') ||
+    msg.includes('503') ||
+    msg.includes('Failed to fetch') ||
+    msg.includes('NetworkError') ||
+    msg.includes('Ensure NullVoid API') ||
+    msg.includes('Database not configured') ||
+    msg.includes('TURSO_DATABASE_URL') ||
+    msg.includes('Build output') ||
+    msg.includes('API failed to load')
+  );
+}
+
+export interface ScanSummary {
+  id: string;
+  status: string;
+  target: string;
+  organizationId?: string;
+  teamId?: string;
+  createdAt: string;
+  completedAt?: string;
+}
+
+export interface ScanDetail extends ScanSummary {
+  result?: ScanResult;
+  error?: string;
+}
+
+export interface ScanResult {
+  threats: Threat[];
+  summary: { totalFiles: number; totalPackages: number; threatsFound: number; scanDuration: number };
+  riskAssessment?: { overall: number; byCategory: Record<string, number>; bySeverity: Record<string, number> };
+  metadata?: Record<string, unknown>;
+}
+
+export interface Threat {
+  type: string;
+  message: string;
+  severity: string;
+  confidence?: number;
+  package?: string;
+  details?: string;
+  filePath?: string;
+  lineNumber?: number;
+  sampleCode?: string;
+}
+
+export interface Organization {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface Team {
+  id: string;
+  organization_id: string;
+  name: string;
+  created_at: string;
+}
+
+async function fetchApi<T>(path: string, opts?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders(), ...opts?.headers },
+    ...opts,
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    if (res.status === 503) {
+      try {
+        const j = JSON.parse(text) as { hint?: string; message?: string };
+        const msg = j.hint ?? j.message ?? 'Service unavailable.';
+        throw new Error(msg);
+      } catch (e) {
+        if (e instanceof Error && e.message !== 'Service unavailable.') throw e;
+        throw new Error('Database not configured. Add TURSO_DATABASE_URL and TURSO_AUTH_TOKEN in Vercel → Settings → Environment Variables.');
+      }
+    }
+    const msg = text.startsWith('<')
+      ? `API error ${res.status}: API not reachable. Set VITE_API_URL in Vercel to your Railway API URL (see docs/DEPLOYMENT.md), or run the API locally on port 3001.`
+      : text;
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
+export async function getScans(orgId?: string, teamId?: string, limit = 100, offset = 0): Promise<{ scans: ScanSummary[] }> {
+  const headers: Record<string, string> = {};
+  if (orgId) headers['X-Organization-Id'] = orgId;
+  if (teamId) headers['X-Team-Id'] = teamId;
+  const l = Math.min(Math.max(1, limit), 100);
+  const o = Math.max(0, offset);
+  return fetchApi(`/scans?limit=${l}&offset=${o}`, { headers });
+}
+
+/** Report URL for a completed scan (?format=html|markdown&compliance=soc2|iso27001) */
+export function getReportUrl(
+  scanId: string,
+  format: 'html' | 'markdown' = 'html',
+  compliance?: 'soc2' | 'iso27001'
+): string {
+  const params = new URLSearchParams({ format });
+  if (compliance) params.set('compliance', compliance);
+  return `${API_BASE}/report/${scanId}?${params}`;
+}
+
+export async function getScan(id: string, orgId?: string, teamId?: string): Promise<ScanDetail> {
+  const headers: Record<string, string> = {};
+  if (orgId) headers['X-Organization-Id'] = orgId;
+  if (teamId) headers['X-Team-Id'] = teamId;
+  return fetchApi(`/scan/${id}`, { headers });
+}
+
+export async function triggerScan(target: string, orgId?: string, teamId?: string): Promise<{ id: string; status: string; target: string }> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', ...getAuthHeaders() };
+  if (orgId) headers['X-Organization-Id'] = orgId;
+  if (teamId) headers['X-Team-Id'] = teamId;
+  const res = await fetch(`${API_BASE}/scan`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ target }),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function getOrganizations(): Promise<{ organizations: Organization[] }> {
+  return fetchApi('/organizations');
+}
+
+export async function getTeams(orgId?: string): Promise<{ teams: Team[] }> {
+  return fetchApi(orgId ? `/teams?organizationId=${encodeURIComponent(orgId)}` : '/teams');
+}
+
+export async function getHealth(): Promise<{ ok: boolean }> {
+  const res = await fetch(`${API_BASE}/health`, { headers: getAuthHeaders() });
+  if (!res.ok) throw new Error('Health check failed');
+  return res.json();
+}
+
+export async function getMlStatus(): Promise<{
+  available: boolean;
+  hint?: string;
+  serveAvailable?: boolean;
+  serveHint?: string;
+  serveShapAvailable?: boolean;
+  serveNote?: string;
+  mlServiceUrl?: string | null;
+}> {
+  return fetchApi('/ml/status');
+}
+
+/** Training-time metadata from ml-model/metadata.json and behavioral-metadata.json (local API only) */
+export async function getMlMetrics(): Promise<{
+  dependency: Record<string, unknown> | null;
+  behavioral: Record<string, unknown> | null;
+  hint?: string;
+}> {
+  return fetchApi('/ml/metrics');
+}
+
+export async function getMlDrift(): Promise<{
+  driftDetected: boolean;
+  ksStatistic: number;
+  dependency?: { ksStatistic: number; recentCount: number; trainCount: number };
+  behavioral?: { ksStatistic: number; recentCount: number; trainCount: number };
+  ensemble?: { ksStatistic: number; recentCount: number; trainCount: number };
+  threshold?: number;
+}> {
+  return fetchApi('/ml/drift');
+}
+
+export async function runMlExport(): Promise<{ ok: boolean; stdout?: string; stderr?: string; error?: string }> {
+  const res = await fetch(`${API_BASE}/ml/export`, { method: 'POST', headers: getAuthHeaders() });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? data.hint ?? 'Export failed');
+  return data;
+}
+
+export async function runMlTrain(): Promise<{ ok: boolean; stdout?: string; stderr?: string; error?: string }> {
+  const res = await fetch(`${API_BASE}/ml/train`, { method: 'POST', headers: getAuthHeaders() });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? data.hint ?? 'Train failed');
+  return data;
+}
+
+export async function runMlExportBehavioral(): Promise<{ ok: boolean; stdout?: string; stderr?: string; error?: string }> {
+  const res = await fetch(`${API_BASE}/ml/export-behavioral`, { method: 'POST', headers: getAuthHeaders() });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? data.hint ?? 'Export behavioral failed');
+  return data;
+}
+
+export async function runMlTrainBehavioral(): Promise<{ ok: boolean; stdout?: string; stderr?: string; error?: string }> {
+  const res = await fetch(`${API_BASE}/ml/train-behavioral`, { method: 'POST', headers: getAuthHeaders() });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? data.hint ?? 'Train behavioral failed');
+  return data;
+}
+
+export interface ScheduleEntry {
+  id: string;
+  target: string;
+  cronExpression: string;
+  enabled: boolean;
+  createdAt: string;
+}
+
+export async function getSchedules(): Promise<{ schedules: ScheduleEntry[] }> {
+  return fetchApi('/schedules');
+}
+
+export async function createSchedule(target: string, cronExpression: string): Promise<ScheduleEntry> {
+  return fetchApi('/schedule', {
+    method: 'POST',
+    body: JSON.stringify({ target, cronExpression }),
+  });
+}
+
+export async function deleteSchedule(id: string): Promise<{ ok: boolean }> {
+  return fetchApi(`/schedule/${id}`, { method: 'DELETE' });
+}
+
+export async function submitMlFeedback(payload: {
+  packageName: string;
+  version: string;
+  label: 0 | 1;
+  scanId: string;
+}): Promise<{ ok: boolean }> {
+  return fetchApi('/ml/feedback', { method: 'POST', body: JSON.stringify(payload) });
+}

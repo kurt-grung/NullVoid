@@ -1,0 +1,47 @@
+name: Roadmap task update
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, closed]
+    branches: [main, master]
+  pull_request_target:
+    types: [closed]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  in-progress:
+    if: github.event.action != 'closed' && startsWith(github.event.pull_request.head.ref, 'feat/issue-')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Mark project card In Progress
+        env:
+          GH_TOKEN: ${{ secrets.GH_PROJECT_TOKEN }}
+        run: |
+          if [[ -z "${GH_TOKEN}" ]]; then
+            echo "Skip: add repository secret GH_PROJECT_TOKEN (gh auth token with project scope)" >&2
+            exit 0
+          fi
+          ISSUE=$(bash .github/scripts/roadmap/extract-issue-number.sh "${{ github.event.pull_request.head.ref }}")
+          bash .github/scripts/roadmap/set-task-status.sh "${ISSUE}" "In Progress"
+
+  done-on-merge:
+    if: github.event.action == 'closed' && github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'feat/issue-')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Mark project card Done
+        env:
+          GH_TOKEN: ${{ secrets.GH_PROJECT_TOKEN }}
+        run: |
+          if [[ -z "${GH_TOKEN}" ]]; then
+            echo "Skip: add repository secret GH_PROJECT_TOKEN (gh auth token with project scope)" >&2
+            exit 0
+          fi
+          ISSUE=$(bash .github/scripts/roadmap/extract-issue-number.sh "${{ github.event.pull_request.number }}")
+          bash .github/scripts/roadmap/set-task-status.sh "${ISSUE}" "Done"

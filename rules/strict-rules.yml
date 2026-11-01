@@ -1,0 +1,58 @@
+detection_rules:
+  strict_wallet_protection:
+    patterns:
+      - 'ethereum'
+      - 'bitcoin'
+      - 'wallet'
+      - 'crypto'
+      - 'blockchain'
+      - 'transaction'
+      - 'address'
+    severity: CRITICAL
+    description: 'Strict crypto-related pattern detection'
+    
+  strict_network_monitoring:
+    patterns:
+      - 'fetch'
+      - 'XMLHttpRequest'
+      - 'axios'
+      - 'request'
+      - 'http'
+      - 'https'
+    severity: HIGH
+    description: 'Strict network request monitoring'
+    
+  strict_code_analysis:
+    patterns:
+      - 'eval'
+      - 'Function'
+      - 'setTimeout'
+      - 'setInterval'
+      - 'require'
+      - 'import'
+    severity: HIGH
+    description: 'Strict code execution pattern detection'
+    
+  strict_script_analysis:
+    patterns:
+      - 'postinstall'
+      - 'preinstall'
+      - 'prepare'
+      - 'prepublish'
+      - 'install'
+      - 'build'
+    severity: CRITICAL
+    description: 'Strict package script analysis'
+
+global_config:
+  entropy_threshold: 3.0
+  max_file_size: '5MB'
+  scan_timeout: 15000
+  enable_verbose: true
+
+severity_overrides:
+  wallet_hijacking: CRITICAL
+  network_manipulation: CRITICAL
+  obfuscated_code: HIGH
+  suspicious_scripts: CRITICAL
+  crypto_mining: HIGH

@@ -1,0 +1,47 @@
+// Jenkins pipeline example: NullVoid security scan
+// Copy to Jenkinsfile or add as a pipeline stage.
+// See https://www.jenkins.io/doc/book/pipeline/syntax/
+
+pipeline {
+  agent any
+
+  options {
+    timeout(time: 15, unit: 'MINUTES')
+    buildDiscarder(logRotator(numToKeep: 20))
+  }
+
+  environment {
+    NODE_VERSION = '18'
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Install') {
+      steps {
+        sh 'npm ci'
+      }
+    }
+
+    stage('NullVoid Security Scan') {
+      steps {
+        sh 'npx nullvoid . --output json --sarif-file nullvoid-results.sarif'
+      }
+      post {
+        always {
+          archiveArtifacts artifacts: 'nullvoid-results.sarif', allowEmptyArchive: true
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      echo 'NullVoid scan complete. SARIF artifact available when generated.'
+    }
+  }
+}

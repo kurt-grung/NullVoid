@@ -1,0 +1,6 @@
+npx lint-staged
+
+# Optional: run NullVoid and block commit if threats found (set NULLVOID_PRE_COMMIT=1 to enable)
+if [ "$NULLVOID_PRE_COMMIT" = "1" ]; then
+  npm run build && node scripts/nullvoid-pre-commit.js
+fi

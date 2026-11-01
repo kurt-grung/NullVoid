@@ -1,0 +1,61 @@
+{
+  "name": "nullvoid-vscode",
+  "displayName": "NullVoid Security Scanner",
+  "description": "Run NullVoid security scans from VS Code",
+  "version": "0.1.0",
+  "publisher": "nullvoid",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other",
+    "Testing"
+  ],
+  "activationEvents": [
+    "onCommand:nullvoid.runScan",
+    "workspaceContains:package.json"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "nullvoid.runScan",
+        "title": "NullVoid: Run Security Scan"
+      }
+    ],
+    "configuration": {
+      "title": "NullVoid",
+      "properties": {
+        "nullvoid.scanOnFolderOpen": {
+          "type": "boolean",
+          "default": false,
+          "description": "Run a security scan when a workspace folder is opened."
+        },
+        "nullvoid.scanOnFolderOpenDelay": {
+          "type": "number",
+          "default": 2,
+          "minimum": 0,
+          "description": "Delay in seconds before running the scan after a folder is opened (only when scanOnFolderOpen is true)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc -p .",
+    "compile": "tsc -p .",
+    "watch": "tsc -watch -p .",
+    "package": "npm run compile && npx @vscode/vsce package --no-dependencies"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kurt-grung/NullVoid.git",
+    "directory": "packages/vscode-extension"
+  },
+  "homepage": "https://github.com/kurt-grung/NullVoid#readme",
+  "bugs": "https://github.com/kurt-grung/NullVoid/issues",
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.74.0",
+    "typescript": "^5.0.0"
+  }
+}

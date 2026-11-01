@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "${ROOT}"
+
+echo "==> build"
+npm run build
+
+echo "==> lint"
+npm run lint
+
+echo "==> type-check"
+npm run type-check
+
+echo "==> format:check"
+npm run format:check
+
+echo "==> verify unit test isolation"
+bash .github/scripts/verify-unit-test-isolation.sh
+
+echo "==> verify security-scan self-scan parity"
+bash .github/scripts/verify-security-scan-parity.sh
+
+echo "==> verify railway deploy config"
+bash .github/scripts/verify-railway-config.sh
+
+echo "==> verify railway build smoke"
+bash .github/scripts/verify-railway-build.sh
+
+echo "==> test"
+npm test
+
+echo "==> test:performance"
+npm run test:performance
+
+echo "ci-check: all passed"

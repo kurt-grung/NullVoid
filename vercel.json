@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "buildCommand": "npm ci && npm run api:build && VITE_BASE=/ npm run dashboard:build",
+  "outputDirectory": "packages/dashboard/dist",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api"
+    },
+    {
+      "source": "/((?!api|assets/|vite\\.svg|favicon\\.svg).*)",
+      "destination": "/index.html"
+    }
+  ]
+}

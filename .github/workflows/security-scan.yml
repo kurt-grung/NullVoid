@@ -1,0 +1,256 @@
+name: NullVoid Security Scan
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run security scan daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  security-events: write  # for SARIF upload to Code Scanning
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v5
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v5
+      with:
+        node-version: '24'
+        cache: 'npm'
+
+    - name: Enable Corepack
+      run: corepack enable
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build NullVoid
+      run: npm run build
+      
+    - name: Run NullVoid security scan and convert to SARIF
+      run: |
+        set -e
+        cd "${{ github.workspace }}"
+        REPORT="${{ github.workspace }}/security-report.json"
+        SARIF="${{ github.workspace }}/nullvoid-results.sarif"
+        node ts/dist/bin/nullvoid.js . --format json --output "$REPORT" --no-ioc --no-dependency-source
+        test -f "$REPORT" || { echo "ERROR: security-report.json was not created"; ls -la . 2>/dev/null || true; exit 1; }
+        node scripts/json-to-sarif.js "$REPORT" "$SARIF"
+      
+    - name: Upload SARIF to GitHub Code Scanning
+      uses: github/codeql-action/upload-sarif@v4
+      with:
+        sarif_file: ${{ github.workspace }}/nullvoid-results.sarif
+      continue-on-error: true  # do not fail job if repo has no Code Scanning enabled
+      
+    - name: Upload security report
+      uses: actions/upload-artifact@v6
+      with:
+        name: security-report
+        path: ${{ github.workspace }}/security-report.json
+        
+    - name: Upload SARIF artifact
+      uses: actions/upload-artifact@v6
+      with:
+        name: nullvoid-sarif
+        path: ${{ github.workspace }}/nullvoid-results.sarif
+        
+    - name: Comment PR with security results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v8
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          const reportPath = path.join(process.env.GITHUB_WORKSPACE || '.', 'security-report.json');
+          const marker = '## 🔍 NullVoid Security Scan Results';
+          const placeholder = '<!-- nullvoid-scan -->';  // minimal body for old reviews we can't delete
+          let report;
+          try {
+            const content = fs.readFileSync(reportPath, 'utf8');
+            report = JSON.parse(content);
+          } catch (error) {
+            console.log('Error parsing security report:', error.message);
+            report = {
+              threats: [],
+              packagesScanned: 0,
+              duration: 0,
+              timestamp: new Date().toISOString()
+            };
+          }
+          
+          let comment = marker + '\n\n';
+          
+          if (report.threats.length === 0) {
+            comment += '✅ **No security threats detected!**\n\n';
+          } else {
+            comment += `⚠️ **${report.threats.length} threat(s) detected:**\n\n`;
+            
+            report.threats.forEach((threat, index) => {
+              const severity = threat.severity === 'CRITICAL' ? '🚨' :
+                              threat.severity === 'HIGH' ? '🔴' : 
+                              threat.severity === 'MEDIUM' ? '🟡' : '🟢';
+              comment += `${index + 1}. ${severity} **${threat.type}**: ${threat.message}\n`;
+              if (threat.package) {
+                comment += `   - Package: \`${threat.package}\`\n`;
+              }
+              if (threat.details) {
+                comment += `   - Details: ${threat.details}\n`;
+              }
+              comment += '\n';
+            });
+          }
+          
+          comment += `📊 **Scan Summary:**\n`;
+          comment += `- Packages scanned: ${report.packagesScanned || report.summary?.totalPackages || 0}\n`;
+          comment += `- Files scanned: ${report.filesScanned || report.summary?.totalFiles || 0}\n`;
+          comment += `- Scan duration: ${report.performance?.duration || report.metrics?.duration || 0}ms\n`;
+          comment += `- Scan timestamp: ${new Date(report.metadata?.scanTime || new Date()).toLocaleString()}\n\n`;
+          comment += '---\n';
+          comment += '*This scan was performed by [NullVoid](https://github.com/kurt-grung/NullVoid) - a tool to detect malicious npm packages.*';
+          
+          // Remove ALL previous NullVoid scan comments before posting fresh results
+          // 1. Issue comments: delete
+          const comments = await github.paginate(github.rest.issues.listComments, {
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+          for (const c of comments) {
+            if (c.body && (c.body.includes(marker) || c.body.includes('NullVoid Security Scan') || c.body.includes(placeholder))) {
+              await github.rest.issues.deleteComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: c.id,
+              });
+            }
+          }
+          
+          // 2. PR reviews: cannot delete or dismiss own reviews (GitHub limitation)
+          // Update to minimal body so they collapse; keep only latest with full content
+          const { data: reviews } = await github.rest.pulls.listReviews({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: context.issue.number,
+          });
+          const ourReviews = reviews.filter((r) => r.body && (
+            r.body.includes(marker) || r.body.includes('NullVoid Security Scan') ||
+            r.body.includes('(superseded)') || r.body.includes(placeholder)
+          ));
+          const sorted = ourReviews.sort((a, b) =>
+            new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0)
+          );
+          for (let i = 0; i < sorted.length; i++) {
+            await github.rest.pulls.updateReview({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              review_id: sorted[i].id,
+              body: i === 0 ? comment : placeholder,
+            });
+          }
+          
+          // 3. Post fresh comment only if no reviews to update (use issue comment for new PRs)
+          if (ourReviews.length === 0) {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment,
+            });
+          }
+          
+    - name: Fail on critical and high severity malware threats
+      if: github.event_name == 'pull_request'
+      run: |
+        REPORT="${{ github.workspace }}/security-report.json"
+        if [ -f "$REPORT" ]; then
+          # Only fail on malware (code analysis), not VULNERABLE_PACKAGE (IoC can have false positives)
+          CRITICAL_MALWARE=$(jq '[.threats[] | select(.severity == "CRITICAL" and .type != "VULNERABLE_PACKAGE")] | length' "$REPORT")
+          HIGH_MALWARE=$(jq '[.threats[] | select(.severity == "HIGH" and .type != "VULNERABLE_PACKAGE")] | length' "$REPORT")
+          if [ "$CRITICAL_MALWARE" -gt 0 ]; then
+            echo "🚨 CRITICAL malware threats detected! Immediate action required."
+            exit 1
+          elif [ "$HIGH_MALWARE" -gt 0 ]; then
+            echo "❌ High severity malware threats detected! Please review and fix before merging."
+            exit 1
+          fi
+          echo "✅ No critical/high malware threats. VULNERABLE_PACKAGE findings are informational (see dependency-scan job for npm audit)."
+        fi
+
+  dependency-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # allow push when auto-fixing audit
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v5
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v5
+      with:
+        node-version: '24'
+        cache: 'npm'
+
+    - name: Enable Corepack
+      run: corepack enable
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Sync dependency tree
+      run: npm install --ignore-scripts
+
+    - name: Audit root dependencies
+      id: audit
+      run: npm audit --audit-level=high
+      continue-on-error: true
+
+    - name: Auto-fix audit and install (root)
+      if: steps.audit.outcome == 'failure'
+      run: |
+        npm audit fix || true
+        npm install --ignore-scripts
+
+    - name: Commit and push audit fixes
+      if: steps.audit.outcome == 'failure'
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add package.json package-lock.json
+        git diff --staged --quiet && echo "No lockfile changes to commit" && exit 0
+        git commit -m "chore: apply npm audit fix [automated]" \
+          -m "Co-authored-by: Kurt Grüng <krgrung@gmail.com>"
+        git push
+
+    - name: Audit root dependencies (verify)
+      run: npm audit --audit-level=high
+
+    - name: Build NullVoid
+      run: npm run build
+      
+    - name: Run NullVoid on dependencies
+      run: |
+        set -e
+        REPORT="${{ github.workspace }}/dependency-scan.json"
+        echo "Scanning project dependencies..."
+        node ts/dist/bin/nullvoid.js . --format json --output "$REPORT" --no-ioc --no-dependency-source
+        test -f "$REPORT" || { echo "ERROR: dependency-scan.json was not created"; exit 1; }
+
+    - name: Upload dependency scan results
+      uses: actions/upload-artifact@v6
+      with:
+        name: dependency-scan-results
+        path: ${{ github.workspace }}/dependency-scan.json

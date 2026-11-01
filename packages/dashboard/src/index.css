@@ -1,0 +1,65 @@
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Vercel-style: clean, bold */
+@layer base {
+  * {
+    @apply box-border;
+  }
+  body {
+    @apply m-0 min-h-screen font-sans text-[15px] leading-relaxed antialiased;
+    @apply bg-surface text-black dark:bg-dark-surface dark:text-white;
+  }
+  h1 {
+    @apply font-sans font-bold text-3xl tracking-tight text-black dark:text-white mb-8;
+  }
+  h2, h3 {
+    @apply font-sans font-semibold text-sm tracking-tight text-neutral-500 dark:text-neutral-400 uppercase;
+  }
+  a {
+    @apply text-black dark:text-white no-underline hover:underline transition-colors;
+  }
+  code {
+    @apply font-mono text-[0.8125em] bg-surface-muted dark:bg-dark-muted px-1.5 py-0.5 rounded text-black dark:text-white;
+  }
+}
+
+@layer components {
+  .card-minimal {
+    @apply bg-surface-card dark:bg-dark-card border border-surface-border dark:border-dark-border rounded-lg p-6 mb-6;
+  }
+  .card-minimal h3 {
+    @apply mt-0 mb-4 text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-widest;
+  }
+  .metric-minimal {
+    @apply bg-surface-muted dark:bg-dark-muted rounded-lg p-6 text-center;
+  }
+  .metric-minimal .value {
+    @apply font-sans text-3xl font-bold text-black dark:text-white tracking-tight;
+  }
+  .metric-minimal .label {
+    @apply text-xs text-neutral-500 dark:text-neutral-400 mt-2 font-medium uppercase tracking-wider;
+  }
+  .list-item-minimal {
+    @apply px-5 py-4 border-b border-surface-border dark:border-dark-border text-sm last:border-b-0 hover:bg-surface-muted dark:hover:bg-dark-muted transition-colors;
+  }
+  .badge-minimal {
+    @apply inline-block px-2.5 py-1 text-[11px] font-semibold rounded uppercase tracking-wider;
+  }
+  .alert {
+    @apply rounded-lg px-4 py-3 text-sm font-medium;
+  }
+  .alert-info {
+    @apply alert bg-neutral-100 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-200;
+  }
+  .alert-error {
+    @apply alert bg-red-50 text-red-800 dark:bg-red-950/50 dark:text-red-200;
+  }
+  .alert-warning {
+    @apply alert bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200;
+  }
+}

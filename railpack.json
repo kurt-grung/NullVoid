@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "packages": {
+    "python": "3.11"
+  },
+  "steps": {
+    "install": {
+      "commands": ["...", "pip install -r ml-model/requirements.txt"]
+    },
+    "build": {
+      "commands": ["npm run api:build"]
+    }
+  },
+  "deploy": {
+    "startCommand": "node packages/api/dist/index.js"
+  }
+}

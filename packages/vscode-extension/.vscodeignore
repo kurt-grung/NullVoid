@@ -1,0 +1,21 @@
+# Source and config (shipped as compiled out/)
+src/
+tsconfig.json
+*.ts
+*.map
+
+# Dev-only docs (README.md is included for marketplace listing)
+TRY_IT.md
+.vscode/
+.vscode-test/
+
+# Dependencies (users install via npm; --no-dependencies when packaging)
+node_modules/
+
+# Stray files (do not ship)
+cd
+nullvoid@*
+
+# Misc
+.gitignore
+*.vsix

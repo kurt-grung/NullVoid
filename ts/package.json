@@ -1,0 +1,115 @@
+{
+  "name": "@nullvoid/ts",
+  "version": "2.1.0",
+  "description": "Detect malicious code",
+  "main": "dist/scan.js",
+  "types": "dist/types/index.d.ts",
+  "bin": {
+    "nullvoid": "./dist/bin/nullvoid.js"
+  },
+  "scripts": {
+    "build": "tsc && chmod +x dist/bin/nullvoid.js",
+    "build:watch": "tsc --watch",
+    "dev": "ts-node src/bin/nullvoid.ts",
+    "test": "jest --maxWorkers=1 --watchman=false",
+    "test:unit": "jest test/unit --watchman=false",
+    "test:integration": "jest test/integration --watchman=false",
+    "test:performance": "jest test/performance --watchman=false",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "scan": "node dist/scan.js",
+    "scan:dev": "ts-node src/scan.ts",
+    "badge": "node ../scripts/generate-badge.js",
+    "badge:running": "node -e \"require('../scripts/generate-badge.js').setRunningBadge()\"",
+    "badge:update": "npm run badge && git add README.md && git commit -m 'chore: Update dynamic test badge' || true",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "type-check": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "security",
+    "malware",
+    "detection",
+    "scanner",
+    "javascript",
+    "nodejs",
+    "npm",
+    "package",
+    "supply-chain",
+    "wallet-hijacking",
+    "obfuscation",
+    "sandbox",
+    "static-analysis",
+    "cli",
+    "production-ready",
+    "typescript"
+  ],
+  "author": "NullVoid Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "async-mutex": "^0.5.0",
+    "axios": "^1.13.5",
+    "commander": "^11.1.0",
+    "fs-extra": "^11.1.0",
+    "glob": "^14.0.3",
+    "js-yaml": "^4.1.1",
+    "node-fetch": "^2.7.0",
+    "ora": "^5.4.1",
+    "tar": "^7.5.7"
+  },
+  "devDependencies": {
+    "@babel/parser": "^7.28.5",
+    "@babel/traverse": "^7.28.5",
+    "@eslint/js": "^9.17.0",
+    "@jest/globals": "^30.2.0",
+    "@types/fs-extra": "^11.0.4",
+    "@types/jest": "^30.0.0",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^24.10.1",
+    "@types/node-fetch": "^2.6.13",
+    "@types/tar": "^6.1.13",
+    "@typescript-eslint/eslint-plugin": "^8.48.0",
+    "@typescript-eslint/parser": "^8.48.0",
+    "acorn": "^8.15.0",
+    "acorn-walk": "^8.3.4",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^9.1.0",
+    "globals": "^15.14.0",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "optionalDependencies": {
+    "redis": "^4.7.0"
+  },
+  "overrides": {
+    "js-yaml": "^4.1.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kurt-grung/NullVoid.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kurt-grung/NullVoid/issues"
+  },
+  "homepage": "https://github.com/kurt-grung/NullVoid#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist/",
+    "src/",
+    "bin/",
+    "lib/",
+    "scan.js",
+    "colors.js",
+    "README.md",
+    "LICENSE",
+    "tsconfig.json"
+  ]
+}
