@@ -2,6 +2,8 @@
  * Core type definitions for NullVoid
  */
 
+import type { ScanTruncationReport } from '../lib/scanTruncation';
+
 // ============================================================================
 // SCAN TYPES
 // ============================================================================
@@ -108,6 +110,8 @@ export interface ScanResult {
     byCategory: Record<string, number>;
     bySeverity: Record<string, number>;
   };
+  /** Analysis caps hit during scan (partial coverage) */
+  scanTruncations?: ScanTruncationReport;
 }
 
 export interface PerformanceMetrics {

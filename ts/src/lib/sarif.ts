@@ -1,6 +1,7 @@
 import * as crypto from 'crypto';
 import * as path from 'path';
 import type { SeverityLevel, Threat, ThreatType } from '../types/core';
+import type { ScanTruncationReport } from './scanTruncation';
 import { RISK_CONFIG } from './config';
 import { computeCompositeRisk, getRiskCategory, type RiskAssessment } from './riskScoring';
 
@@ -79,6 +80,7 @@ export interface SarifRun {
   results: SarifResult[];
   properties: {
     riskAssessment: RiskAssessment;
+    scanTruncations?: ScanTruncationReport;
   };
 }
 
@@ -92,6 +94,7 @@ export interface SarifOptions {
   riskAssessment?: RiskAssessment | undefined;
   toolVersion?: string | undefined;
   workspaceRoot?: string | undefined;
+  scanTruncations?: ScanTruncationReport | undefined;
 }
 
 function normalizeConfidence(confidence: number | undefined): number | undefined {
@@ -223,7 +226,10 @@ export function generateSarifOutput(threats: Threat[], options: SarifOptions = {
           },
         ],
         results: buildResults(threats, options.workspaceRoot),
-        properties: { riskAssessment },
+        properties: {
+          riskAssessment,
+          ...(options.scanTruncations ? { scanTruncations: options.scanTruncations } : {}),
+        },
       },
     ],
   };

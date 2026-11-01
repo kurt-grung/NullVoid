@@ -17,7 +17,11 @@ const SKIP_INSIDE_PACKAGE = new Set([
 
 export interface DependencySourceScanStats {
   packagesVisited: number;
+  packagesEligible: number;
+  packageLimit: number;
   filesCollected: number;
+  filesSkipped: number;
+  fileLimit: number;
   truncatedByFileBudget: boolean;
   truncatedByPackageBudget: boolean;
 }
@@ -105,14 +109,16 @@ function collectFilesInPackage(
   fileDepth: number,
   paths: string[],
   maxFiles: number
-): boolean {
-  if (paths.length >= maxFiles) return true;
+): { hitFileCap: boolean; filesSkipped: number } {
+  let filesSkipped = 0;
+  if (paths.length >= maxFiles) {
+    return { hitFileCap: true, filesSkipped: 0 };
+  }
 
   const stack: Array<{ dir: string; depth: number }> = [{ dir: packageRoot, depth: fileDepth }];
 
   while (stack.length > 0) {
     const frame = stack.pop() as { dir: string; depth: number };
-    if (paths.length >= maxFiles) return true;
 
     let entries: fs.Dirent[];
     try {
@@ -122,7 +128,6 @@ function collectFilesInPackage(
     }
 
     for (const entry of entries) {
-      if (paths.length >= maxFiles) return true;
       const fullPath = path.join(frame.dir, entry.name);
 
       if (entry.isDirectory()) {
@@ -132,12 +137,16 @@ function collectFilesInPackage(
       }
 
       if (entry.isFile() && isScanableFile(entry.name)) {
+        if (paths.length >= maxFiles) {
+          filesSkipped += 1;
+          continue;
+        }
         paths.push(path.resolve(fullPath));
       }
     }
   }
 
-  return false;
+  return { hitFileCap: filesSkipped > 0, filesSkipped };
 }
 
 export function collectInstalledDependencySourcePaths(
@@ -150,7 +159,11 @@ export function collectInstalledDependencySourcePaths(
       paths: [],
       stats: {
         packagesVisited: 0,
+        packagesEligible: 0,
+        packageLimit: 0,
         filesCollected: 0,
+        filesSkipped: 0,
+        fileLimit: 0,
         truncatedByFileBudget: false,
         truncatedByPackageBudget: false,
       },
@@ -180,13 +193,15 @@ export function collectInstalledDependencySourcePaths(
   const paths: string[] = [];
   let packagesVisited = 0;
   let truncatedByFileBudget = false;
-  let truncatedByPackageBudget = packageRoots.length > maxPackages;
+  let filesSkipped = 0;
+  const truncatedByPackageBudget = packageRoots.length > maxPackages;
 
   for (const pkgRoot of packageRoots) {
     if (packagesVisited >= maxPackages) break;
     packagesVisited += 1;
-    const hitFileCap = collectFilesInPackage(pkgRoot, fileDepth, paths, maxFiles);
-    if (hitFileCap) {
+    const fileCollect = collectFilesInPackage(pkgRoot, fileDepth, paths, maxFiles);
+    filesSkipped += fileCollect.filesSkipped;
+    if (fileCollect.hitFileCap) {
       truncatedByFileBudget = true;
       break;
     }
@@ -198,7 +213,11 @@ export function collectInstalledDependencySourcePaths(
     paths: unique,
     stats: {
       packagesVisited,
+      packagesEligible: packageRoots.length,
+      packageLimit: maxPackages,
       filesCollected: unique.length,
+      filesSkipped,
+      fileLimit: maxFiles,
       truncatedByFileBudget,
       truncatedByPackageBudget,
     },

@@ -168,6 +168,12 @@ export const LIFECYCLE_SCRIPT_ANALYSIS_CONFIG = {
   MAX_PACKAGES: 200,
 } as const;
 
+export const SCAN_COVERAGE_LIMITS = {
+  PROJECT_PACKAGE_ROOTS: 50,
+  IOC_QUERIES_PER_SCAN: 30,
+  DEPENDENCY_CONFUSION_PACKAGES: 30,
+} as const;
+
 /**
  * Entropy thresholds for different content types
  */

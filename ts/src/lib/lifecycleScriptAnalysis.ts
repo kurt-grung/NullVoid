@@ -181,6 +181,8 @@ export function analyzeLifecycleScriptsForPackageJson(
 
 export interface LifecycleScriptScanStats {
   packageJsonFilesAnalyzed: number;
+  packageJsonFilesEligible: number;
+  packageLimit: number;
   lifecycleScriptsChecked: number;
   threatsFound: number;
   truncatedByPackageBudget: boolean;
@@ -215,6 +217,8 @@ export function collectLifecycleScriptThreatsForProject(
       threats: [],
       stats: {
         packageJsonFilesAnalyzed: 0,
+        packageJsonFilesEligible: 0,
+        packageLimit: 0,
         lifecycleScriptsChecked: 0,
         threatsFound: 0,
         truncatedByPackageBudget: false,
@@ -244,7 +248,8 @@ export function collectLifecycleScriptThreatsForProject(
   let packageJsonFilesAnalyzed = 0;
   let lifecycleScriptsChecked = 0;
   const uniqueQueued = new Set(queue);
-  let truncatedByPackageBudget = uniqueQueued.size > maxPackages;
+  const packageJsonFilesEligible = uniqueQueued.size;
+  let truncatedByPackageBudget = packageJsonFilesEligible > maxPackages;
 
   for (const dir of queue) {
     if (packageJsonFilesAnalyzed >= maxPackages) break;
@@ -264,6 +269,8 @@ export function collectLifecycleScriptThreatsForProject(
     threats,
     stats: {
       packageJsonFilesAnalyzed,
+      packageJsonFilesEligible,
+      packageLimit: maxPackages,
       lifecycleScriptsChecked,
       threatsFound: threats.length,
       truncatedByPackageBudget,
