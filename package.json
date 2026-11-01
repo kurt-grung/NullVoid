@@ -6,6 +6,11 @@
     "ts"
   ],
   "packageManager": "npm@11.6.2",
+  "allowScripts": {
+    "better-sqlite3": true,
+    "esbuild": true,
+    "unrs-resolver": true
+  },
   "description": "Detect malicious code",
   "main": "ts/dist/scan.js",
   "types": "ts/dist/types/index.d.ts",

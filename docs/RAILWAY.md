@@ -84,7 +84,7 @@ To deploy a different branch:
 | Dashboard | `/railway.dashboard.json`   | `/` (default)  |
 | ML        | `/ml-model/railway.json`    | `ml-model`     |
 
-Set **Config file path** on each Railway service to the row above. The dashboard service must not reuse `/railway.json` (that starts the API). Root `nixpacks.toml` pins Node 24 for `better-sqlite3` and `engines.node`.
+Set **Config file path** on each Railway service to the row above. The dashboard service must not reuse `/railway.json` (that starts the API). Keep the service **root directory** at the repo root (`/`), not `packages/dashboard`, so workspace installs work. Railway uses Railpack (`.nvmrc` / `engines.node` 24). Do not leave a root `Dockerfile`; Railway auto-selects it and breaks dashboard deploys. Use `docker/Dockerfile` for manual Docker builds.
 
 ## ML model files
 
