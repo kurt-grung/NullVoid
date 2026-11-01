@@ -22,6 +22,12 @@ bash .github/scripts/verify-unit-test-isolation.sh
 echo "==> verify security-scan self-scan parity"
 bash .github/scripts/verify-security-scan-parity.sh
 
+echo "==> verify railway deploy config"
+bash .github/scripts/verify-railway-config.sh
+
+echo "==> verify railway build smoke"
+bash .github/scripts/verify-railway-build.sh
+
 echo "==> test"
 npm test
 

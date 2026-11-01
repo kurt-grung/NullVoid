@@ -101,6 +101,14 @@ To train and include models:
 - API: `GET /health` → `{"ok": true}`
 - ML: `GET /health` → `{"ok": true, "behavioral_loaded": true/false}`
 
+Production API (Railway): `https://nullvoidapi-production.up.railway.app/health` should return `{"ok":true,"platform":"railway"}` when queried with `?platform=1`.
+
+After changing deploy config, confirm GitHub commit statuses **nullvoid - @nullvoid/api** and **nullvoid - dashboard** are green on `main`, or run:
+
+```bash
+bash .github/scripts/verify-production-smoke.sh
+```
+
 ## Troubleshooting
 
 - **API build fails**: Run `npm ci && npm run api:build` locally. Railway must use Node 24 (`.nvmrc`, `engines.node`, `nixpacks.toml`). If Nixpacks ignores Node 24, confirm `nodejs_24` in `nixpacks.toml` or switch the service builder to Railpack.
