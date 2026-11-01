@@ -89,7 +89,7 @@
     "axios": "^1.13.5",
     "commander": "^11.1.0",
     "fs-extra": "^11.1.0",
-    "glob": "^10.3.0",
+    "glob": "^14.0.3",
     "js-yaml": "^4.1.1",
     "node-fetch": "^2.7.0",
     "ora": "^5.4.1",
@@ -135,7 +135,10 @@
   "overrides": {
     "js-yaml": "^4.1.1",
     "tar": "^7.5.7",
-    "eslint": "^9.39.2"
+    "eslint": "^9.39.2",
+    "qs": "6.17.1",
+    "glob": "^14.0.3",
+    "minimatch": "^11.0.1"
   },
   "repository": {
     "type": "git",

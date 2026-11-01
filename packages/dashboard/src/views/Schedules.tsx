@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { getSchedules, createSchedule, deleteSchedule, isApiUnavailableError, type ScheduleEntry } from '../api'
 import Breadcrumbs from '../components/Breadcrumbs'
 
@@ -19,7 +19,7 @@ export default function Schedules() {
     }
   }
 
-  const load = () => {
+  const load = useCallback(() => {
     getSchedules()
       .then((r) => {
         setSchedules(r.schedules)
@@ -27,11 +27,11 @@ export default function Schedules() {
         setApiUnavailable(false)
       })
       .catch(handleSchedulesError)
-  }
+  }, [])
 
   useEffect(() => {
     load()
-  }, [])
+  }, [load])
 
   const onCreate = async () => {
     setError(null)
