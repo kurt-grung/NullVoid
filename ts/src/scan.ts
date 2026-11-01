@@ -18,7 +18,15 @@ import { detectFileThreats } from './lib/customRuleEngine';
 import { queryIoCProviders, mergeIoCThreats } from './lib/iocScanIntegration';
 import { analyzeDependencyConfusion } from './lib/dependencyConfusion';
 import { getOptimalWorkerCount, getOptimalChunkSize, chunkPackages } from './lib/parallel';
-import { SCAN_CONFIG, PARALLEL_CONFIG, NLP_CONFIG } from './lib/config';
+import { SCAN_CONFIG, PARALLEL_CONFIG, NLP_CONFIG, SCAN_COVERAGE_LIMITS } from './lib/config';
+import { collectProjectPackageRoots } from './lib/projectPackageRoots';
+import {
+  buildScanTruncationReport,
+  truncationCap,
+  type ScanTruncationReport,
+} from './lib/scanTruncation';
+import type { DependencySourceScanStats } from './lib/dependencySourceScan';
+import type { LifecycleScriptScanStats } from './lib/lifecycleScriptAnalysis';
 import { computeCompositeRisk } from './lib/riskScoring';
 import { runNlpAnalysis } from './lib/nlpAnalysis';
 import { runMLDetection, buildFeatureVector } from './lib/mlDetection';
@@ -356,37 +364,77 @@ function collectScanablePaths(
   };
 }
 
-/**
- * Recursively find all directories containing package.json (for dependency confusion + ML)
- */
-function collectPackageJsonDirs(
-  dirPath: string,
-  options: ScanOptions,
-  maxPackages: number = 50
-): string[] {
-  const found: string[] = [];
-  const depth = options.depth ?? 5;
+function assembleScanTruncations(input: {
+  options: ScanOptions;
+  projectPackageRoots?: ReturnType<typeof collectProjectPackageRoots> | undefined;
+  iocQueriesUsed: number;
+  iocQueriesEligible: number;
+  depConfusionProcessed: number;
+  depConfusionEligible: number;
+  dependencySourceStats?: DependencySourceScanStats | undefined;
+  lifecycleScriptStats?: LifecycleScriptScanStats | undefined;
+}): ScanTruncationReport | undefined {
+  const {
+    options,
+    projectPackageRoots,
+    iocQueriesUsed,
+    iocQueriesEligible,
+    depConfusionProcessed,
+    depConfusionEligible,
+    dependencySourceStats,
+    lifecycleScriptStats,
+  } = input;
 
-  function walk(currentPath: string, remainingDepth: number): void {
-    if (found.length >= maxPackages || remainingDepth <= 0) return;
-    try {
-      const pkgPath = path.join(currentPath, 'package.json');
-      if (fs.existsSync(pkgPath)) {
-        found.push(currentPath);
-      }
-      const entries = fs.readdirSync(currentPath, { withFileTypes: true });
-      const skipDirs = [...SKIP_DIRS, ...(options.ignoreDirs ?? [])];
-      for (const entry of entries) {
-        if (!entry.isDirectory() || skipDirs.includes(entry.name)) continue;
-        walk(path.join(currentPath, entry.name), remainingDepth - 1);
-      }
-    } catch {
-      /* ignore */
-    }
-  }
-
-  walk(dirPath, depth);
-  return found;
+  return buildScanTruncationReport([
+    projectPackageRoots
+      ? truncationCap(
+          'projectPackageRoots',
+          projectPackageRoots.limit,
+          projectPackageRoots.dirs.length,
+          projectPackageRoots.discovered
+        )
+      : undefined,
+    options.iocEnabled !== false
+      ? truncationCap(
+          'iocQueriesPerScan',
+          SCAN_COVERAGE_LIMITS.IOC_QUERIES_PER_SCAN,
+          iocQueriesUsed,
+          iocQueriesEligible
+        )
+      : undefined,
+    options.dependencyConfusionEnabled !== false
+      ? truncationCap(
+          'dependencyConfusionPackages',
+          SCAN_COVERAGE_LIMITS.DEPENDENCY_CONFUSION_PACKAGES,
+          depConfusionProcessed,
+          depConfusionEligible
+        )
+      : undefined,
+    dependencySourceStats?.truncatedByPackageBudget
+      ? truncationCap(
+          'dependencySourcePackages',
+          dependencySourceStats.packageLimit,
+          dependencySourceStats.packagesVisited,
+          dependencySourceStats.packagesEligible
+        )
+      : undefined,
+    dependencySourceStats?.truncatedByFileBudget && dependencySourceStats.filesSkipped > 0
+      ? truncationCap(
+          'dependencySourceFiles',
+          dependencySourceStats.fileLimit,
+          dependencySourceStats.filesCollected,
+          dependencySourceStats.filesCollected + dependencySourceStats.filesSkipped
+        )
+      : undefined,
+    lifecycleScriptStats?.truncatedByPackageBudget
+      ? truncationCap(
+          'lifecycleScriptPackages',
+          lifecycleScriptStats.packageLimit,
+          lifecycleScriptStats.packageJsonFilesAnalyzed,
+          lifecycleScriptStats.packageJsonFilesEligible
+        )
+      : undefined,
+  ]);
 }
 
 /**
@@ -536,6 +584,11 @@ export async function scan(
   let lifecycleScriptStats:
     | ReturnType<typeof collectLifecycleScriptThreatsForProject>['stats']
     | undefined;
+  let projectPackageRoots: ReturnType<typeof collectProjectPackageRoots> | undefined;
+  let iocQueriesUsed = 0;
+  let iocQueriesEligible = 0;
+  let depConfusionProcessed = 0;
+  let depConfusionEligible = 0;
 
   // Reset performance metrics
   performanceMetrics.duration = 0;
@@ -572,13 +625,11 @@ export async function scan(
       }
 
       // Find all package.json dirs (root + subdirs) and run dependency analysis + ML on each
-      const packageDirs = collectPackageJsonDirs(target, options);
+      projectPackageRoots = collectProjectPackageRoots(target, options);
+      const packageDirs = projectPackageRoots.dirs;
       const lifecycleScan = collectLifecycleScriptThreatsForProject(rootPath, options, packageDirs);
       threats.push(...lifecycleScan.threats);
       lifecycleScriptStats = lifecycleScan.stats;
-
-      const MAX_IOC_QUERIES_PER_SCAN = 30; // Cap to avoid rate limits and hangs
-      let iocQueriesUsed = 0;
 
       for (const packageDir of packageDirs) {
         const packageJsonPath = path.join(packageDir, 'package.json');
@@ -634,26 +685,26 @@ export async function scan(
                   });
                 }
 
-                // Query IoC providers for vulnerabilities (if enabled, capped to avoid rate limits)
-                if (options.iocEnabled !== false && iocQueriesUsed < MAX_IOC_QUERIES_PER_SCAN) {
-                  // Extract version from semver range (e.g., "^1.0.0" -> "1.0.0")
-                  const cleanVersion = depVersion.replace(/^[\^~>=<]+\s*/, '');
+                if (options.iocEnabled !== false) {
+                  iocQueriesEligible += 1;
+                  if (iocQueriesUsed < SCAN_COVERAGE_LIMITS.IOC_QUERIES_PER_SCAN) {
+                    const cleanVersion = depVersion.replace(/^[\^~>=<]+\s*/, '');
 
-                  // Parse provider names from options
-                  let providerNames: IoCProviderName[] | undefined;
-                  if (options.iocProviders) {
-                    const providerList = options.iocProviders
-                      .split(',')
-                      .map((p) => p.trim().toLowerCase());
-                    providerNames = providerList.filter(
-                      (p) => p === 'snyk' || p === 'npm' || p === 'ghsa' || p === 'cve'
-                    ) as IoCProviderName[];
+                    let providerNames: IoCProviderName[] | undefined;
+                    if (options.iocProviders) {
+                      const providerList = options.iocProviders
+                        .split(',')
+                        .map((p) => p.trim().toLowerCase());
+                      providerNames = providerList.filter(
+                        (p) => p === 'snyk' || p === 'npm' || p === 'ghsa' || p === 'cve'
+                      ) as IoCProviderName[];
+                    }
+
+                    iocQueries.push(
+                      queryIoCProviders(depName, cleanVersion, providerNames, packageJsonPath)
+                    );
+                    iocQueriesUsed += 1;
                   }
-
-                  iocQueries.push(
-                    queryIoCProviders(depName, cleanVersion, providerNames, packageJsonPath)
-                  );
-                  iocQueriesUsed++;
                 }
 
                 // NLP analysis on dependencies (if enabled, limit to avoid rate limits)
@@ -724,12 +775,14 @@ export async function scan(
                   logger.info('Analyzing dependency confusion patterns...');
                 }
                 const packagesToAnalyze: Array<{ name: string; path: string }> = [];
+                let depConfusionEligibleThisDir = 0;
                 const rootName = packageJson.name as string | undefined;
+                const depConfusionLimit = SCAN_COVERAGE_LIMITS.DEPENDENCY_CONFUSION_PACKAGES;
                 if (rootName) {
+                  depConfusionEligibleThisDir += 1;
                   packagesToAnalyze.push({ name: rootName, path: packageDir });
                 }
                 const nodeModulesPath = path.join(packageDir, 'node_modules');
-                const MAX_DEP_CONFUSION_PACKAGES = 30;
                 if (fs.existsSync(nodeModulesPath)) {
                   const deps = {
                     ...((packageJson.dependencies as Record<string, string>) || {}),
@@ -738,13 +791,17 @@ export async function scan(
                       : {}),
                   };
                   for (const depName of Object.keys(deps)) {
-                    if (packagesToAnalyze.length >= MAX_DEP_CONFUSION_PACKAGES) break;
                     const depPath = path.join(nodeModulesPath, depName);
                     if (fs.existsSync(depPath)) {
-                      packagesToAnalyze.push({ name: depName, path: depPath });
+                      depConfusionEligibleThisDir += 1;
+                      if (packagesToAnalyze.length < depConfusionLimit) {
+                        packagesToAnalyze.push({ name: depName, path: depPath });
+                      }
                     }
                   }
                 }
+                depConfusionEligible += depConfusionEligibleThisDir;
+                depConfusionProcessed += packagesToAnalyze.length;
                 if (packagesToAnalyze.length > 0) {
                   packagesAnalyzedForDepConfusion.push(...packagesToAnalyze);
                   const depConfusionThreats = await analyzeDependencyConfusion(packagesToAnalyze);
@@ -915,6 +972,17 @@ export async function scan(
       )
     : 0;
 
+  const scanTruncations = assembleScanTruncations({
+    options,
+    projectPackageRoots,
+    iocQueriesUsed,
+    iocQueriesEligible,
+    depConfusionProcessed,
+    depConfusionEligible,
+    dependencySourceStats,
+    lifecycleScriptStats,
+  });
+
   const scanRoot = graphRoot;
   let supplyChainGraphPayload: ReturnType<typeof buildSupplyChainGraph> | undefined;
   let dependencyStats: DependencyTreeStats | undefined;
@@ -950,7 +1018,9 @@ export async function scan(
       ...(dependencySourceStats ? { dependencySourceScan: dependencySourceStats } : {}),
       ...(lifecycleScriptStats ? { lifecycleScriptAnalysis: lifecycleScriptStats } : {}),
       ...(supplyChainGraphPayload ? { supplyChainGraph: supplyChainGraphPayload } : {}),
+      ...(scanTruncations ? { scanTruncations } : {}),
     },
+    ...(scanTruncations ? { scanTruncations } : {}),
     directoryStructure: directoryStructure
       ? {
           ...directoryStructure,

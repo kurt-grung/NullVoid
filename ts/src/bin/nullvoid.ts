@@ -8,6 +8,7 @@ import ora from 'ora';
 import { scan } from '../scan';
 import { ScanOptions, ScanResult } from '../types/core';
 import { generateSarifOutput } from '../lib/sarif';
+import { formatScanTruncationLines } from '../lib/scanTruncation';
 import { generateHtmlReport, generateMarkdownReport } from '../lib/reporting';
 import { saveScanToHistory, loadScanHistory, formatTrendsReport } from '../lib/scanHistory';
 import { detectMalware, filterThreatsBySeverity } from '../lib/detection';
@@ -43,6 +44,7 @@ function buildSarifForResult(result: ScanResult): ReturnType<typeof generateSari
     riskAssessment: result.riskAssessment,
     toolVersion: packageJson.version,
     workspaceRoot: process.cwd(),
+    scanTruncations: result.scanTruncations,
   });
 }
 
@@ -1752,7 +1754,13 @@ function displayResults(results: ScanResult, options: CliOptions) {
     }
   }
 
-  // Display scan analysis (merged summary and dependency tree)
+  if (results.scanTruncations?.partialCoverage) {
+    console.log(`\n⚠️  Partial scan coverage (analysis caps reached):`);
+    for (const line of formatScanTruncationLines(results.scanTruncations)) {
+      console.log(line);
+    }
+  }
+
   console.log(`\n📊 Scan Analysis:`);
   const totalFiles = results.filesScanned || 0;
   const totalPackages = results.packagesScanned || 0;

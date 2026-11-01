@@ -162,4 +162,14 @@ describe('generateSarifOutput', () => {
     expect(sarif.runs[0]?.invocations[0]?.exitCode).toBe(1);
     expect(sarif.runs[0]?.invocations[0]?.exitCodeDescription).toBe('Threats detected');
   });
+
+  it('includes scan truncation metadata on the SARIF run', () => {
+    const scanTruncations = {
+      partialCoverage: true,
+      caps: [{ id: 'iocQueriesPerScan' as const, limit: 30, processed: 30, skipped: 5 }],
+    };
+    const sarif = generateSarifOutput([], { scanTruncations });
+
+    expect(sarif.runs[0]?.properties.scanTruncations).toEqual(scanTruncations);
+  });
 });
