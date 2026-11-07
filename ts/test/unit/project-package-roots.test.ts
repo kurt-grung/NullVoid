@@ -29,4 +29,19 @@ describe('collectProjectPackageRoots', () => {
     expect(result.dirs).toHaveLength(SCAN_COVERAGE_LIMITS.PROJECT_PACKAGE_ROOTS);
     expect(result.discovered - result.dirs.length).toBe(6);
   });
+
+  it('bounds directory discovery with maxDirDepth, not dependency depth', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'nv-roots-'));
+    tempRoots.push(root);
+    fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ name: 'root' }));
+    const nested = path.join(root, 'a', 'b', 'pkg');
+    fs.mkdirSync(nested, { recursive: true });
+    fs.writeFileSync(path.join(nested, 'package.json'), JSON.stringify({ name: 'nested' }));
+
+    // A shallow dependency depth must not truncate directory discovery.
+    expect(collectProjectPackageRoots(root, { depth: 1 }).dirs).toHaveLength(2);
+    // maxDirDepth is the bound that actually stops the walk (a -> b -> pkg is 4 levels).
+    expect(collectProjectPackageRoots(root, { depth: 1, maxDirDepth: 3 }).dirs).toHaveLength(1);
+    expect(collectProjectPackageRoots(root, { depth: 1, maxDirDepth: 5 }).dirs).toHaveLength(2);
+  });
 });

@@ -30,7 +30,8 @@ export function collectProjectPackageRoots(
 ): ProjectPackageRootsResult {
   const found: string[] = [];
   let discovered = 0;
-  const depth = options.depth ?? 5;
+  // `depth` is the dependency-tree depth; directory discovery has its own knob.
+  const depth = options.maxDirDepth ?? 5;
 
   function walk(currentPath: string, remainingDepth: number): void {
     if (remainingDepth <= 0) return;

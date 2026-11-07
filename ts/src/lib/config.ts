@@ -7,9 +7,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { ScanConfig, SecurityConfig, PerformanceConfig } from '../types';
 
-/** Scan options from .nullvoidrc (depth, defaultTarget) */
+/** Scan options from .nullvoidrc (depth, maxDirDepth, defaultTarget) */
 export interface RcScanOptions {
   depth?: number;
+  maxDirDepth?: number;
   defaultTarget?: string;
 }
 
@@ -77,6 +78,7 @@ export function getRcScanOptions(): RcScanOptions {
         const rc = JSON.parse(content) as Record<string, unknown>;
         const opts: RcScanOptions = {};
         if (typeof rc['depth'] === 'number') opts.depth = rc['depth'];
+        if (typeof rc['maxDirDepth'] === 'number') opts.maxDirDepth = rc['maxDirDepth'];
         if (typeof rc['defaultTarget'] === 'string') opts.defaultTarget = rc['defaultTarget'];
         return opts;
       }

@@ -37,6 +37,7 @@ export interface ValidationResult {
 
 export interface ScanOptions {
   maxDepth?: number;
+  maxDirDepth?: number;
   workers?: number | undefined;
   output?: string;
   verbose?: boolean;
@@ -304,6 +305,22 @@ export function validateScanOptions(options: ScanOptions): boolean {
         'maxDepth must be an integer between 0 and 10',
         'maxDepth',
         options.maxDepth
+      );
+    }
+  }
+
+  // Validate maxDirDepth
+  if (options.maxDirDepth !== undefined) {
+    if (
+      typeof options.maxDirDepth !== 'number' ||
+      !Number.isInteger(options.maxDirDepth) ||
+      options.maxDirDepth < 1 ||
+      options.maxDirDepth > 50
+    ) {
+      throw new ValidationError(
+        'maxDirDepth must be an integer between 1 and 50',
+        'maxDirDepth',
+        options.maxDirDepth
       );
     }
   }

@@ -330,9 +330,9 @@ function collectScanablePaths(
           continue;
         }
         directories.push(entry.name);
-        const depth = (options.depth ?? 5) - 1;
-        if (depth > 0) {
-          const sub = collectScanablePaths(fullPath, { ...options, depth });
+        const dirDepth = (options.maxDirDepth ?? 5) - 1;
+        if (dirDepth > 0) {
+          const sub = collectScanablePaths(fullPath, { ...options, maxDirDepth: dirDepth });
           paths.push(...sub.paths);
           files.push(...sub.directoryStructure.files.map((f) => path.join(entry.name, f)));
           directories.push(
@@ -651,7 +651,10 @@ export async function scan(
 
             for (const [depName, depVersion] of Object.entries(dependencies)) {
               if (typeof depVersion === 'string') {
-                // Check for suspicious patterns in dependency names
+                // Check for suspicious patterns in dependency names.
+                // Keyword matches alone are weak heuristics (e.g. "virus-scan",
+                // "clamav"), so keep them as LOW severity noise that only
+                // surfaces with --all instead of flagging MEDIUM.
                 if (
                   SUSPICIOUS_PATTERNS.keywords.some((keyword) =>
                     depName.toLowerCase().includes(keyword.toLowerCase())
@@ -662,9 +665,9 @@ export async function scan(
                     message: `Suspicious dependency name: ${depName}`,
                     filePath: packageJsonPath,
                     filename: 'package.json',
-                    severity: 'MEDIUM',
+                    severity: 'LOW',
                     details: `Dependency "${depName}" contains suspicious keywords`,
-                    confidence: 0.7,
+                    confidence: 0.3,
                   });
                 }
 

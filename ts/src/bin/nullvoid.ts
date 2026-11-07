@@ -50,6 +50,7 @@ function buildSarifForResult(result: ScanResult): ReturnType<typeof generateSari
 
 interface CliOptions {
   depth?: number;
+  'max-dir-depth'?: number;
   parallel?: boolean;
   workers?: string;
   'include-dev'?: boolean;
@@ -1188,6 +1189,7 @@ rulesCmd
 program
   .argument('[target]', 'Package name, directory, or file to scan (defaults to current directory)')
   .option('-d, --depth <number>', 'Maximum depth for dependency scanning', '5')
+  .option('--max-dir-depth <number>', 'Maximum directory recursion depth for file discovery')
   .option('-p, --parallel', 'Enable parallel processing')
   .option('-w, --workers <number>', 'Number of workers for parallel processing', 'auto')
   .option('--include-dev', 'Include development dependencies')
@@ -1233,6 +1235,7 @@ program
   .description('Scan for security threats (backward compatibility)')
   .argument('[target]', 'Package name, directory, or file to scan (defaults to current directory)')
   .option('-d, --depth <number>', 'Maximum depth for dependency scanning', '5')
+  .option('--max-dir-depth <number>', 'Maximum directory recursion depth for file discovery')
   .option('-p, --parallel', 'Enable parallel processing')
   .option('-w, --workers <number>', 'Number of workers for parallel processing', 'auto')
   .option('--include-dev', 'Include development dependencies')
@@ -1292,6 +1295,9 @@ async function performScan(target: string | undefined, options: CliOptions) {
 
     const scanOptions: ScanOptions = {
       depth: options.depth ? parseInt(options.depth.toString()) : defaultDepth,
+      maxDirDepth: options['max-dir-depth']
+        ? parseInt(options['max-dir-depth'].toString())
+        : (rc.maxDirDepth ?? 5),
       parallel: options.parallel || false,
       workers:
         options.workers === 'auto'

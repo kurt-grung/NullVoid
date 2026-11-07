@@ -11,6 +11,8 @@ import type { ScanTruncationReport } from '../lib/scanTruncation';
 export interface ScanOptions {
   /** Maximum depth for dependency scanning */
   depth?: number;
+  /** Maximum directory recursion depth when discovering project files (default: 5) */
+  maxDirDepth?: number;
   /** Enable parallel processing */
   parallel?: boolean;
   /** Number of workers for parallel processing */
