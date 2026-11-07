@@ -30,6 +30,15 @@ export interface CustomRuleEngineOptions extends RulesLoadingOptions {
   rules?: EnhancedRules;
 }
 
+/**
+ * Resolve the rule set for a scan.
+ *
+ * - Inline `rules` or a `rulesFile` are merged with the built-in ENHANCED_RULES
+ *   unless `mergeRulesWithDefaults === false`.
+ * - With no custom rules, the built-in ENHANCED_RULES (wallet hijacking, network
+ *   manipulation, ...) are applied. Set `builtinRules: false` to run only the
+ *   generic structural detection in `detectMalware`.
+ */
 export function resolveScanRules(options: ScanOptions): EnhancedRules | undefined {
   if (options.rules) {
     const parsed = parseRulesObject(options.rules);
@@ -44,7 +53,25 @@ export function resolveScanRules(options: ScanOptions): EnhancedRules | undefine
     }
     return loadRules(options.rulesFile, loadOpts);
   }
-  return undefined;
+  if (options.builtinRules === false) {
+    return undefined;
+  }
+  return ENHANCED_RULES;
+}
+
+/**
+ * Rules are resolved once per ScanOptions object. Without this cache a rules
+ * file was re-read and re-parsed for every scanned file.
+ */
+const resolvedRulesCache = new WeakMap<ScanOptions, EnhancedRules | undefined>();
+
+function resolveScanRulesCached(options: ScanOptions): EnhancedRules | undefined {
+  if (resolvedRulesCache.has(options)) {
+    return resolvedRulesCache.get(options);
+  }
+  const rules = resolveScanRules(options);
+  resolvedRulesCache.set(options, rules);
+  return rules;
 }
 
 export function runCustomRuleEngine(
@@ -73,7 +100,7 @@ export function detectFileThreats(
   detectMalware: (content: string, filePath?: string) => Threat[]
 ): Threat[] {
   const baseThreats = detectMalware(content, filePath);
-  const rules = resolveScanRules(options);
+  const rules = resolveScanRulesCached(options);
   if (!rules) {
     return baseThreats;
   }

@@ -1,5 +1,5 @@
 {
-  "$schema": "https://turbo.build/schema.json",
+  "$schema": "https://v2-11-10.turborepo.dev/schema.json",
   "globalPassThroughEnv": ["TURSO_DATABASE_URL", "TURSO_AUTH_TOKEN", "NULLVOID_API_URL", "VITE_API_URL"],
   "tasks": {
     "build": {"dependsOn": ["^build"], "outputs": ["dist/**", "**/dist/**", "out/**"]},

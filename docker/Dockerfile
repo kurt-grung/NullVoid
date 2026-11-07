@@ -13,7 +13,6 @@ WORKDIR /app
 COPY package.json package-lock.json turbo.json .nullvoidignore ./
 COPY packages packages/
 COPY ts ts/
-COPY js js/
 COPY ml-model ml-model/
 
 RUN npm ci

@@ -2,6 +2,30 @@ import { Threat, createThreat } from '../types/core';
 import { isNullVoidCode, isTestFile } from './nullvoidDetection';
 import { DETECTION_PATTERNS } from './config';
 
+/** Distinct `_0x…` identifiers needed before a file counts as obfuscator output */
+const HEX_IDENTIFIER_MIN_DISTINCT = 3;
+
+const requireRegexCache = new Map<string, RegExp>();
+
+/**
+ * True when the content requires or imports the given module with any quote
+ * style (`require('fs')`, `require("fs")`, `import x from "fs"`, `import('fs')`).
+ * Dynamic construction such as `require(['child_', 'process'].join(''))` is
+ * not covered here; that needs AST analysis.
+ */
+function requiresModule(content: string, module: string): boolean {
+  let re = requireRegexCache.get(module);
+  if (!re) {
+    const escaped = module.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    re = new RegExp(
+      `(?:require|import)\\s*\\(\\s*['"\`](?:node:)?${escaped}['"\`]\\s*\\)` +
+        `|\\bfrom\\s*['"\`](?:node:)?${escaped}['"\`]`
+    );
+    requireRegexCache.set(module, re);
+  }
+  return re.test(content);
+}
+
 /**
  * Check if a file is a configuration file
  * @param filePath - File path to check
@@ -393,7 +417,7 @@ export function detectMalware(content: string, filePath?: string): Threat[] {
   // Check for suspicious module requires
   const suspiciousModules = DETECTION_PATTERNS.SUSPICIOUS_MODULES;
   for (const module of suspiciousModules) {
-    if (content.includes(`require('${module}')`)) {
+    if (requiresModule(content, module)) {
       let severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
       let message: string;
       let details: string;
@@ -509,47 +533,23 @@ function analyzeCodeStructure(
     }
   }
 
-  // Pattern 2: Massive obfuscated code blob
-  if (code.length > 5000) {
+  // Pattern 2: Obfuscator-style hex identifiers (_0x1a2b3c), as emitted by
+  // javascript-obfuscator and seen in most npm malware droppers.
+  const hexIdentifierPattern = DETECTION_PATTERNS.MALWARE_PATTERNS.HEX_IDENTIFIERS;
+  const hexIdentifiers = new Set(code.match(hexIdentifierPattern) ?? []);
+  if (hexIdentifiers.size >= HEX_IDENTIFIER_MIN_DISTINCT) {
     analysis.isMalicious = true;
-    analysis.reason += `Massive obfuscated code blob detected (${code.length} characters). `;
+    analysis.reason += `Obfuscated hex identifiers detected (${hexIdentifiers.size} distinct). `;
     threatCount++;
-    totalConfidence += 25;
+    totalConfidence += 30;
 
-    // Find line number and sample for massive code blob
     if (!analysis.lineNumber) {
-      // Look for the largest line in the code as likely obfuscated content
-      let maxLineLength = 0;
-      let maxLineIndex = 0;
       for (let i = 0; i < lines.length; i++) {
-        const lineLength = lines[i]?.length || 0;
-        if (lineLength > maxLineLength) {
-          maxLineLength = lineLength;
-          maxLineIndex = i;
-        }
-      }
-      if (maxLineLength > 200) {
-        // Only if line is suspiciously long
-        analysis.lineNumber = maxLineIndex + 1;
-        const cleanLine = lines[maxLineIndex]?.trim() || '';
-
-        // Try to extract malicious part using detectMalwareStart
-        const { malwareStart, legitimateEnd } = detectMalwareStart(cleanLine, [
-          variableManglingPattern,
-        ]);
-
-        if (malwareStart !== -1) {
-          // Show only the malicious part, intelligently removing legitimate code
-          if (legitimateEnd > 0 && legitimateEnd <= malwareStart) {
-            // Show malicious part only, with ... prefix to indicate removed legitimate code
-            const attackPart = cleanLine.substring(malwareStart, malwareStart + 60);
-            analysis.sampleCode = '... ' + attackPart + '...';
-          } else {
-            // Fallback: show the line without excessive whitespace
-            analysis.sampleCode = cleanLine.substring(0, 80) + (cleanLine.length > 80 ? '...' : '');
-          }
-        } else {
-          analysis.sampleCode = '... ' + cleanLine.substring(0, 60) + '...';
+        if (lines[i]?.match(hexIdentifierPattern)) {
+          analysis.lineNumber = i + 1;
+          const cleanLine = lines[i]?.trim() || '';
+          analysis.sampleCode = cleanLine.substring(0, 80) + (cleanLine.length > 80 ? '...' : '');
+          break;
         }
       }
     }
@@ -618,12 +618,14 @@ function analyzeCodeStructure(
     }
   }
 
-  // Pattern 5: High entropy detection
+  // Pattern 5: High entropy. Supporting evidence only: whole-file entropy is
+  // high for minified bundles, base64 assets and non-ASCII strings, so it
+  // never marks a file malicious on its own. It raises confidence when another
+  // structural pattern has already fired.
   const entropy = calculateShannonEntropy(code);
   const entropyThreshold = isReactFrameworkCode(code) ? 5.0 : 4.5; // Higher threshold for React files
 
-  if (entropy > entropyThreshold) {
-    analysis.isMalicious = true;
+  if (analysis.isMalicious && entropy > entropyThreshold) {
     analysis.reason += `High entropy detected (${entropy.toFixed(2)}). `;
     threatCount++;
     totalConfidence += 15;
@@ -650,7 +652,7 @@ function analyzeCodeStructure(
 
   // Calculate final confidence
   if (analysis.isMalicious) {
-    analysis.confidence = Math.min(totalConfidence, 150); // Cap at 150%
+    analysis.confidence = Math.min(totalConfidence, 100);
     analysis.reason = `MALICIOUS CODE DETECTED: ${analysis.reason}Confidence: ${analysis.confidence}% (${threatCount} threats)`;
   }
 

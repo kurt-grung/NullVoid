@@ -38,6 +38,12 @@ jobs:
       - name: Format (Prettier)
         run: npm run format:check
 
+      - name: Verify publish contents
+        run: |
+          npm pack --dry-run 2>&1 | tee /tmp/pack.txt
+          grep -q 'ts/dist/bin/nullvoid.js' /tmp/pack.txt
+          ! grep -qE 'ts/(src|test)/' /tmp/pack.txt
+
       - name: Verify unit test isolation
         run: bash .github/scripts/verify-unit-test-isolation.sh
 
@@ -46,7 +52,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [20.x]
+        node-version: [20.x, 22.x, 24.x]
 
     steps:
       - uses: actions/checkout@v5
