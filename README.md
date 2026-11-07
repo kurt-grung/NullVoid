@@ -8,7 +8,7 @@
 
 **Ø NullVoid** - Detect malicious code.
 
-Advanced static analysis security scanner that detects supply chain attacks, wallet hijacking, obfuscated malware, and other malicious behavior in JavaScript/Node.js projects, npm packages, and codebases. Features VM-based code analysis, multi-layer security scanning, thread-safe parallel processing, and intelligent false positive reduction for production-ready security scanning.
+Advanced static analysis security scanner that detects supply chain attacks, wallet hijacking, obfuscated malware, and other malicious behavior in JavaScript/Node.js projects, npm packages, and codebases. Combines structural code analysis, built-in and custom detection rules, dependency-confusion analysis, lifecycle-script analysis and public IoC lookups (npm advisories, GHSA, NVD, Snyk).
 
 ## 📋 Scan Commands
 
@@ -501,8 +501,7 @@ For more details, see [IoC Usage Guide](docs/IOC_USAGE.md).
 ## 🛡️ Security Features
 
 ### **Core Security Engine**
-- **Secure Sandboxing**: VM-based code execution with resource limits and timeout protection
-- **Advanced Threat Detection**: AST analysis, entropy calculation, and pattern matching
+- **Static Threat Detection**: Structural pattern analysis (obfuscator identifiers, hex arrays, decode-and-execute chains) plus built-in rules; nothing is executed
 - **Multi-Layer Security**: Comprehensive static analysis with multiple detection methods
 - **Path Security**: Protection against path traversal and command injection attacks
 - **Input Validation**: Comprehensive input sanitization and validation
@@ -517,7 +516,7 @@ For more details, see [IoC Usage Guide](docs/IOC_USAGE.md).
 - **Code Structure Analysis**: Entropy analysis and malicious code pattern recognition
 
 ### **Production Features**
-- **Thread-Safe Processing**: Mutex-synchronized parallel scanning with proper resource management
+- **Chunked File Processing**: `--parallel` processes files in chunks (single-threaded; worker threads are on the roadmap)
 - **Clean Resource Management**: No open handles, proper cleanup, and memory leak prevention
 - **Real-Time Progress**: Live scanning display with consistent threat reporting
 - **CI/CD Ready**: Reliable integration into automated workflows
@@ -548,17 +547,14 @@ For more details, see [IoC Usage Guide](docs/IOC_USAGE.md).
 - **Network Statistics**: Track connection pool utilization and performance
 
 ### **⚡ Performance Enhancements**
-- **Work Stealing Scheduler**: Efficient parallel processing with load balancing
-- **Memory Pool Management**: Object reuse to reduce garbage collection pressure
 - **Resource Monitoring**: Real-time system metrics and performance recommendations
-- **2-3x Faster Scans**: Significant performance improvements with caching and optimizations
+- **Caching**: IoC results and registry lookups are cached between scans
 
 ### **🎨 Enhanced User Experience**
 - **New CLI Options**: `--ioc-providers`, `--cache-stats`, `--network-stats`, `--enable-redis`
 - **Vulnerability Display**: Enhanced output with CVE details and CVSS scores
 - **Cache Statistics**: View detailed cache performance metrics
 - **Network Statistics**: Monitor connection pool and request performance
-- **Comprehensive Test Coverage**: 376 tests across 43 test suites
 
 ## 🎯 v2.0.3 - Enhanced Type Safety & Code Quality
 
@@ -757,7 +753,7 @@ NullVoid's TypeScript migration and v2.1.0 optimizations deliver significant per
 - **✅ Zero Warnings**: Enterprise-grade code quality with comprehensive error handling
 - **🎨 Enhanced UX**: Beautiful colored output with professional formatting
 - **🔒 Security Hardened**: Fixed memory leaks and enhanced security measures
-- **🏆 Production Ready**: Comprehensive testing with 376 tests across 43 test suites
+- **Tested**: Unit and integration suites run in CI on Node 20, 22 and 24
 
 ## 🎯 **What Can NullVoid Scan?**
 
@@ -797,7 +793,7 @@ graph TD
     B --> C[Safe File Read]
     C --> D[Static Analysis]
     D --> E{Suspicious?}
-    E -->|Yes| F[Sandbox Analysis]
+    E -->|Yes| F[Rule Engine]
     E -->|No| G[Basic Analysis]
     F --> H[Threat Detection]
     G --> H
@@ -818,9 +814,9 @@ graph TD
 **Process Flow:**
 1. **Path Validation**: Secure path checking and traversal protection
 2. **Safe File Read**: Direct filesystem access with security measures
-3. **Static Analysis**: AST-based pattern detection without execution
+3. **Static Analysis**: Structural pattern detection without execution
 4. **Suspicious Detection**: Heuristic analysis for malicious indicators
-5. **Sandbox Analysis**: Isolated VM execution for flagged code only
+5. **Rule Engine**: Built-in and custom regex rules applied to every file (`--no-builtin-rules` to skip)
 6. **Threat Detection**: Comprehensive threat identification and classification
 7. **Results**: Detailed security report with actionable insights 
 
