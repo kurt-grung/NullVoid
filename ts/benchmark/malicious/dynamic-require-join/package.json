@@ -1,0 +1,7 @@
+{
+  "name": "dynamic-require-join",
+  "version": "1.0.0",
+  "description": "Builds module name at runtime",
+  "main": "index.js",
+  "license": "MIT"
+}

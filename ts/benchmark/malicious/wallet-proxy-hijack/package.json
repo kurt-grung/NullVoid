@@ -1,0 +1,7 @@
+{
+  "name": "wallet-proxy-hijack",
+  "version": "1.0.0",
+  "description": "Proxies window.ethereum to swap recipient",
+  "main": "index.js",
+  "license": "MIT"
+}

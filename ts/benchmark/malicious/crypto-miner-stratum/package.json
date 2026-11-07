@@ -1,0 +1,7 @@
+{
+  "name": "crypto-miner-stratum",
+  "version": "1.0.0",
+  "description": "Connects to a mining pool",
+  "main": "index.js",
+  "license": "MIT"
+}

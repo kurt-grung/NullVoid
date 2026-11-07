@@ -1,0 +1,10 @@
+{
+  "name": "env-to-websocket",
+  "version": "1.0.0",
+  "description": "Streams env over a WebSocket",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.0.0"
+  }
+}

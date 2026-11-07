@@ -1,0 +1,7 @@
+{
+  "name": "process-binding-evasion",
+  "version": "1.0.0",
+  "description": "Uses process.binding to reach fs/net",
+  "main": "index.js",
+  "license": "MIT"
+}

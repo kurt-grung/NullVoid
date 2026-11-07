@@ -116,7 +116,6 @@ export const ENHANCED_RULES: EnhancedRules = {
       'eval\\s*\\(\\s*atob\\s*\\(',
       'eval\\s*\\(\\s*Buffer\\.from\\s*\\([^)]*[\'"`]base64',
       'new\\s+Function\\s*\\(\\s*atob\\s*\\(',
-      'Function\\s*\\(\\s*[\'"`]return\\s+this[\'"`]\\s*\\)\\s*\\(\\s*\\)',
 
       // javascript-obfuscator output
       '_0x[a-f0-9]{4,6}\\s*\\(',
@@ -170,14 +169,11 @@ export const ENHANCED_RULES: EnhancedRules = {
 
   data_exfiltration: {
     patterns: [
-      // Environment or credentials serialised and sent over the network
+      // Environment serialised wholesale. Proximity-based env/credential +
+      // network patterns moved to the AST capability analysis (capabilityAnalysis.ts),
+      // which knows the difference between process.env.HTTP_PROXY and {...process.env}.
       'JSON\\.stringify\\s*\\(\\s*process\\.env\\s*\\)',
-      'process\\.env[\\s\\S]{0,300}(?:https?\\.(?:get|request)|fetch\\s*\\(|XMLHttpRequest|net\\.connect|dns\\.(?:resolve|lookup))',
       'Buffer\\.from\\s*\\(\\s*JSON\\.stringify\\s*\\(\\s*process\\.env',
-      'os\\.userInfo\\s*\\(\\s*\\)[\\s\\S]{0,300}(?:https?\\.(?:get|request)|fetch\\s*\\(|XMLHttpRequest)',
-
-      // Credential files read then sent
-      '\\.(?:npmrc|ssh/id_rsa|aws/credentials|docker/config\\.json|kube/config)[\\s\\S]{0,400}(?:https?\\.(?:get|request)|fetch\\s*\\(|XMLHttpRequest)',
 
       // DNS tunnelling of collected data
       '\\.toString\\s*\\(\\s*[\'"`](?:base64|hex)[\'"`]\\s*\\)[\\s\\S]{0,120}dns\\.(?:resolve|lookup)',

@@ -1,0 +1,7 @@
+{
+  "name": "remote-code-fetch-exec",
+  "version": "1.0.0",
+  "description": "Downloads a script and executes it",
+  "main": "index.js",
+  "license": "MIT"
+}

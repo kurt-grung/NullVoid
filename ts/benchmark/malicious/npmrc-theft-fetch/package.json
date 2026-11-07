@@ -1,0 +1,7 @@
+{
+  "name": "npmrc-theft-fetch",
+  "version": "1.0.0",
+  "description": "Reads ~/.npmrc and uploads it",
+  "main": "index.js",
+  "license": "MIT"
+}

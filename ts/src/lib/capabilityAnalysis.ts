@@ -10,8 +10,14 @@
  *   - fs            : fs / fs/promises / node:fs
  *   - exec          : child_process, or vm.runIn*Context, or eval / new Function
  *   - network       : http, https, net, tls, dns, fetch, XMLHttpRequest, WebSocket
- *   - env           : process.env
- *   - hostInfo      : os.userInfo / os.hostname / os.networkInterfaces
+ *   - env           : process.env.<KEY> (config read)
+ *   - envDump       : process.env used wholesale: JSON.stringify(process.env), {...process.env},
+ *                     Object.keys/entries(process.env), process.env passed as a bare argument
+ *   - execNamed     : exec capability that came from a module required BY NAME (child_process, vm)
+ *   - evalDynamic   : eval / new Function / vm.runIn* whose input is not a string literal
+ *   - chmodExec     : fs.chmod* in a file that also executes a file (download-and-run droppers)
+ *   - hostInfo      : one of os.userInfo / os.hostname / os.networkInterfaces / os.cpus
+ *   - hostFingerprint: three or more distinct host-info APIs in one file (a beacon, not config)
  *   - credentials   : a string literal naming a credential file (~/.npmrc, id_rsa, ...)
  *   - decode        : atob / Buffer.from(x, 'base64') / String.fromCharCode
  *   - dynamicModule : require(<non-literal>) — hides which module is loaded
@@ -28,9 +34,14 @@ import type { Threat, SeverityLevel } from '../types/core';
 export type Capability =
   | 'fs'
   | 'exec'
+  | 'execNamed'
+  | 'evalDynamic'
+  | 'chmodExec'
   | 'network'
   | 'env'
+  | 'envDump'
   | 'hostInfo'
+  | 'hostFingerprint'
   | 'credentials'
   | 'decode'
   | 'dynamicModule';
@@ -97,6 +108,25 @@ const CREDENTIAL_PATTERNS: RegExp[] = [
 ];
 
 const HOST_INFO_APIS = new Set(['userInfo', 'hostname', 'networkInterfaces', 'cpus', 'homedir']);
+
+/** Method names that execute processes or code regardless of the receiver */
+/**
+ * Method names that execute processes or code regardless of the receiver.
+ * `.exec()` is deliberately absent: RegExp.prototype.exec is everywhere.
+ * Bare `.exec()` counts only when the receiver is a known child_process
+ * binding (see CallExpression below).
+ */
+const EXEC_METHODS = new Set([
+  'execSync',
+  'execFile',
+  'execFileSync',
+  'spawn',
+  'spawnSync',
+  'fork',
+  'runInThisContext',
+  'runInNewContext',
+  'runInContext',
+]);
 
 function stripNodePrefix(spec: string): string {
   return spec.startsWith('node:') ? spec.slice(5) : spec;
@@ -172,17 +202,46 @@ export function analyzeCapabilities(content: string): CapabilityReport {
     report.hits.push({ capability, via, line: node.loc?.start.line ?? 0 });
   };
 
+  /** Identifiers bound to a child_process import: const cp = require('child_process') */
+  const execReceivers = new Set<string>(['child_process', 'cp', 'childProcess']);
+
   const addModule = (spec: string, node: acorn.Node): void => {
     const name = stripNodePrefix(spec);
     report.modules.add(name);
     const cap = moduleCapability(spec);
     if (cap) add(cap, name, node);
+    if (cap === 'exec') add('execNamed', name, node);
   };
 
   walk.simple(ast, {
     ImportDeclaration(node) {
-      const src = (node as acorn.ImportDeclaration).source.value;
-      if (typeof src === 'string') addModule(src, node);
+      const decl = node as acorn.ImportDeclaration;
+      const src = decl.source.value;
+      if (typeof src === 'string') {
+        addModule(src, node);
+        if (stripNodePrefix(src) === 'child_process') {
+          for (const sp of decl.specifiers) execReceivers.add(sp.local.name);
+        }
+      }
+    },
+    VariableDeclarator(node) {
+      const d = node as acorn.VariableDeclarator;
+      const init = d.init;
+      if (
+        init &&
+        init.type === 'CallExpression' &&
+        isIdentifier((init as acorn.CallExpression).callee, 'require') &&
+        d.id.type === 'Identifier'
+      ) {
+        const a = (init as acorn.CallExpression).arguments[0];
+        if (
+          a &&
+          a.type === 'Literal' &&
+          stripNodePrefix(String((a as acorn.Literal).value)) === 'child_process'
+        ) {
+          execReceivers.add((d.id as acorn.Identifier).name);
+        }
+      }
     },
     ImportExpression(node) {
       const src = (node as acorn.ImportExpression).source;
@@ -214,7 +273,25 @@ export function analyzeCapabilities(content: string): CapabilityReport {
       // eval(...) / new Function handled below / Function(...)
       if (isIdentifier(callee, 'eval') || isIdentifier(callee, 'Function')) {
         add('exec', (callee as acorn.Identifier).name, node);
+        if (first && first.type !== 'Literal')
+          add('evalDynamic', `${(callee as acorn.Identifier).name}(<expr>)`, node);
         return;
+      }
+
+      // process.env passed whole to a serialiser / enumerator / any call
+      const isBareEnv = (a: acorn.Node | undefined): boolean =>
+        !!a &&
+        a.type === 'MemberExpression' &&
+        objectName(a) === 'process' &&
+        memberName(a) === 'env';
+      if (call.arguments.some((a) => isBareEnv(a))) {
+        const who =
+          callee.type === 'MemberExpression'
+            ? `${objectName(callee) ?? '?'}.${memberName(callee) ?? '?'}`
+            : callee.type === 'Identifier'
+              ? (callee as acorn.Identifier).name
+              : 'call';
+        add('envDump', `${who}(process.env)`, node);
       }
 
       // fetch(...)
@@ -231,7 +308,34 @@ export function analyzeCapabilities(content: string): CapabilityReport {
       if (callee.type === 'MemberExpression') {
         const obj = objectName(callee);
         const prop = memberName(callee);
-        if (obj === 'String' && prop === 'fromCharCode') add('decode', 'String.fromCharCode', node);
+        // String.fromCharCode(c) on one computed value is ordinary string handling
+        // (escape parsing); feeding it a list of codes is decoding a payload.
+        if (obj === 'String' && prop === 'fromCharCode') {
+          const args = call.arguments;
+          const spread = args.some((a) => a.type === 'SpreadElement');
+          if (spread || args.length >= 4) add('decode', 'String.fromCharCode', node);
+        }
+        // String.fromCharCode.apply(null, codes) / .call(...)
+        if (
+          (prop === 'apply' || prop === 'call') &&
+          (callee as acorn.MemberExpression).object.type === 'MemberExpression' &&
+          objectName((callee as acorn.MemberExpression).object) === 'String' &&
+          memberName((callee as acorn.MemberExpression).object) === 'fromCharCode'
+        ) {
+          add('decode', `String.fromCharCode.${prop}`, node);
+        }
+        // x.exec(...) / x.spawn(...) etc. on any object: covers modules loaded
+        // through a computed require, where the module name is unknown.
+        if (
+          prop &&
+          (EXEC_METHODS.has(prop) ||
+            (prop === 'exec' && obj !== undefined && execReceivers.has(obj)))
+        ) {
+          add('exec', `${obj ?? ''}.${prop}()`, node);
+          if (/^runIn/.test(prop) && first && first.type !== 'Literal')
+            add('evalDynamic', `.${prop}(<expr>)`, node);
+        }
+        if (prop === 'chmod' || prop === 'chmodSync') add('chmodExec', `.${prop}()`, node);
         if (obj === 'Buffer' && prop === 'from') {
           const enc = call.arguments[1];
           if (
@@ -244,18 +348,38 @@ export function analyzeCapabilities(content: string): CapabilityReport {
         }
         if (obj === 'process' && prop === 'binding') add('dynamicModule', 'process.binding', node);
         if (obj === 'os' && prop && HOST_INFO_APIS.has(prop)) add('hostInfo', `os.${prop}`, node);
-        if (obj === 'vm' && prop && /^runIn/.test(prop)) add('exec', `vm.${prop}`, node);
       }
     },
     NewExpression(node) {
       const n = node as acorn.NewExpression;
-      if (isIdentifier(n.callee, 'Function')) add('exec', 'new Function', node);
+      if (isIdentifier(n.callee, 'Function')) {
+        add('exec', 'new Function', node);
+        if (n.arguments.some((a) => a.type !== 'Literal'))
+          add('evalDynamic', 'new Function(<expr>)', node);
+      }
       if (isIdentifier(n.callee, 'XMLHttpRequest')) add('network', 'XMLHttpRequest', node);
       if (isIdentifier(n.callee, 'WebSocket')) add('network', 'WebSocket', node);
     },
     MemberExpression(node) {
       if (objectName(node) === 'process' && memberName(node) === 'env') {
         add('env', 'process.env', node);
+      }
+    },
+    Property(node) {
+      // { env: process.env } — the whole environment packed into an object
+      const v = (node as acorn.Property).value;
+      if (v.type === 'MemberExpression' && objectName(v) === 'process' && memberName(v) === 'env') {
+        add('envDump', '{ …: process.env }', node);
+      }
+    },
+    SpreadElement(node) {
+      const arg = (node as acorn.SpreadElement).argument;
+      if (
+        arg.type === 'MemberExpression' &&
+        objectName(arg) === 'process' &&
+        memberName(arg) === 'env'
+      ) {
+        add('envDump', '{...process.env}', node);
       }
     },
     Literal(node) {
@@ -279,6 +403,20 @@ export function analyzeCapabilities(content: string): CapabilityReport {
       }
     },
   });
+
+  const distinctHostApis = new Set(
+    report.hits
+      .filter((h) => h.capability === 'hostInfo' && h.via.startsWith('os.'))
+      .map((h) => h.via)
+  );
+  if (distinctHostApis.size >= 3) {
+    report.capabilities.add('hostFingerprint');
+    report.hits.push({
+      capability: 'hostFingerprint',
+      via: [...distinctHostApis].join('+'),
+      line: 0,
+    });
+  }
 
   return report;
 }
@@ -313,24 +451,31 @@ const COMBINATIONS: Combination[] = [
   },
   {
     type: 'DATA_EXFILTRATION',
-    requires: ['env', 'network'],
+    requires: ['envDump', 'network'],
     severity: 'HIGH',
-    confidence: 0.75,
-    message: 'Reads environment variables and has network access',
+    confidence: 0.8,
+    message: 'Serialises the whole environment and has network access',
   },
   {
     type: 'DATA_EXFILTRATION',
-    requires: ['hostInfo', 'network'],
-    severity: 'MEDIUM',
-    confidence: 0.6,
-    message: 'Collects host information and has network access',
-  },
-  {
-    type: 'REMOTE_CODE_EXECUTION',
-    requires: ['network', 'exec'],
+    requires: ['hostFingerprint', 'network'],
     severity: 'HIGH',
     confidence: 0.75,
-    message: 'Has network access and executes code or processes',
+    message: 'Builds a host fingerprint from several OS APIs and has network access',
+  },
+  {
+    type: 'DATA_EXFILTRATION',
+    requires: ['hostInfo', 'envDump'],
+    severity: 'MEDIUM',
+    confidence: 0.6,
+    message: 'Collects host information and serialises the environment',
+  },
+  {
+    type: 'DATA_EXFILTRATION',
+    requires: ['hostInfo', 'network', 'decode'],
+    severity: 'MEDIUM',
+    confidence: 0.6,
+    message: 'Collects host information, encodes it and has network access',
   },
   {
     type: 'OBFUSCATED_EXECUTION',
@@ -340,6 +485,41 @@ const COMBINATIONS: Combination[] = [
     message: 'Decodes data and executes code or processes',
   },
   {
+    type: 'REMOTE_CODE_EXECUTION',
+    requires: ['network', 'evalDynamic'],
+    severity: 'HIGH',
+    confidence: 0.85,
+    message: 'Has network access and evaluates code from a non-literal source',
+  },
+  {
+    type: 'REMOTE_CODE_EXECUTION',
+    requires: ['network', 'chmodExec', 'exec'],
+    severity: 'HIGH',
+    confidence: 0.8,
+    message: 'Has network access, marks a file executable and runs a process',
+  },
+  {
+    type: 'REMOTE_CODE_EXECUTION',
+    requires: ['network', 'exec', 'decode'],
+    severity: 'HIGH',
+    confidence: 0.8,
+    message: 'Has network access, decodes data and executes code or processes',
+  },
+  {
+    type: 'REMOTE_CODE_EXECUTION',
+    requires: ['network', 'exec'],
+    severity: 'MEDIUM',
+    confidence: 0.6,
+    message: 'Has network access and executes code or processes',
+  },
+  {
+    type: 'DYNAMIC_MODULE_LOAD',
+    requires: ['dynamicModule', 'network'],
+    severity: 'HIGH',
+    confidence: 0.7,
+    message: 'Loads a module from a computed name and has network access',
+  },
+  {
     type: 'DYNAMIC_MODULE_LOAD',
     requires: ['dynamicModule'],
     severity: 'MEDIUM',
@@ -347,6 +527,27 @@ const COMBINATIONS: Combination[] = [
     message: 'Loads modules from a computed name, hiding which module is used',
   },
 ];
+
+/**
+ * Combinations whose strength depends on what is absent. Evaluated after the
+ * table above and may upgrade a result.
+ */
+function conditionalCombinations(caps: Set<Capability>): Combination[] {
+  const out: Combination[] = [];
+  // exec reached only through a computed module name: the author hid which
+  // module executes things. A CLI that requires child_process by name and
+  // also require()s plugins dynamically does not match.
+  if (caps.has('dynamicModule') && caps.has('exec') && !caps.has('execNamed')) {
+    out.push({
+      type: 'DYNAMIC_MODULE_LOAD',
+      requires: ['dynamicModule', 'exec'],
+      severity: 'HIGH',
+      confidence: 0.8,
+      message: 'Executes processes through a module loaded from a computed name',
+    });
+  }
+  return out;
+}
 
 /** Capabilities worth a visible INFO note on their own (only with --all) */
 const INFO_CAPABILITIES: Capability[] = ['exec'];
@@ -373,8 +574,12 @@ export function capabilityThreats(
   const lineOf = (hit: CapabilityHit | undefined): number | undefined =>
     hit && hit.line > 0 ? hit.line : undefined;
 
-  for (const combo of COMBINATIONS) {
+  const emitted = new Set<string>();
+  for (const combo of [...conditionalCombinations(report.capabilities), ...COMBINATIONS]) {
     if (!combo.requires.every((c) => report.capabilities.has(c))) continue;
+    // COMBINATIONS lists the stronger variant of each type first; keep one per type.
+    if (emitted.has(combo.type)) continue;
+    emitted.add(combo.type);
     const evidence = combo.requires
       .map((c) => {
         const h = firstHit(c);

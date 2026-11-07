@@ -1,0 +1,7 @@
+{
+  "name": "base64-eval-loader",
+  "version": "1.0.0",
+  "description": "Decodes a base64 blob and evals it",
+  "main": "index.js",
+  "license": "MIT"
+}
