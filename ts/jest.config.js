@@ -12,6 +12,8 @@ const shared = {
 };
 
 module.exports = {
+  // Jest 30 rejects testTimeout inside `projects`; one global value instead.
+  testTimeout: 60000,
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts',
@@ -23,7 +25,6 @@ module.exports = {
       testMatch: [
         '<rootDir>/test/unit/**/*.test.ts',
       ],
-      testTimeout: 15000,
     },
     {
       ...shared,
@@ -31,13 +32,11 @@ module.exports = {
       testMatch: [
         '<rootDir>/test/integration/**/*.test.ts',
       ],
-      testTimeout: 60000,
     },
     {
       ...shared,
       displayName: 'performance',
       testMatch: ['<rootDir>/test/performance/**/*.test.ts'],
-      testTimeout: 60000,
     },
   ],
 };
