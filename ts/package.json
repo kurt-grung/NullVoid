@@ -47,7 +47,7 @@
   "author": "NullVoid Team",
   "license": "MIT",
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=20"
   },
   "dependencies": {
     "async-mutex": "^0.5.0",
@@ -101,14 +101,6 @@
     "access": "public"
   },
   "files": [
-    "dist/",
-    "src/",
-    "bin/",
-    "lib/",
-    "scan.js",
-    "colors.js",
-    "README.md",
-    "LICENSE",
-    "tsconfig.json"
+    "dist/"
   ]
 }
