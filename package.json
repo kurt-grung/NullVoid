@@ -79,7 +79,6 @@
     "obfuscation",
     "static-analysis",
     "cli",
-    "production-ready",
     "typescript"
   ],
   "author": "NullVoid Team",
@@ -156,15 +155,8 @@
     "access": "public"
   },
   "files": [
-    "dist/",
-    "src/",
-    "bin/",
-    "lib/",
-    "ts/",
-    "scan.js",
-    "colors.js",
+    "ts/dist/",
     "README.md",
-    "LICENSE",
-    "tsconfig.json"
+    "LICENSE"
   ]
 }
