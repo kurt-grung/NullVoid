@@ -46,6 +46,47 @@ describe('Scan Integration Tests', () => {
       expect(result.threats[0]?.severity).toBe('CRITICAL');
     });
 
+    it('walks directories by maxDirDepth, not by dependency depth', async () => {
+      const deep = path.join(tempDir, 'a', 'b', 'c');
+      fs.mkdirSync(deep, { recursive: true });
+      fs.writeFileSync(
+        path.join(deep, 'payload.js'),
+        'var _0x4a1b=["a"];function _0x2c3d(_0x5e6f){return _0x4a1b[_0x5e6f];}'
+      );
+
+      // depth is the dependency-tree depth; it must not stop the file walk.
+      const found = await scan(tempDir, { depth: 1, all: true });
+      expect(found.threats.some((t) => t.filePath?.endsWith('payload.js'))).toBe(true);
+
+      // tempDir -> a -> b -> c is four levels; maxDirDepth 3 never reaches c.
+      const truncated = await scan(tempDir, { depth: 1, maxDirDepth: 3, all: true });
+      expect(truncated.threats.some((t) => t.filePath?.endsWith('payload.js'))).toBe(false);
+    });
+
+    it('reports keyword-only dependency names at LOW severity', async () => {
+      fs.writeFileSync(
+        path.join(tempDir, 'package.json'),
+        JSON.stringify({ name: 'app', version: '1.0.0', dependencies: { 'virus-scan': '^1.0.0' } })
+      );
+
+      const hidden = await scan(tempDir, {
+        all: false,
+        iocEnabled: false,
+        dependencyConfusionEnabled: false,
+        scanDependencySource: false,
+      });
+      expect(hidden.threats.some((t) => t.type === 'SUSPICIOUS_DEPENDENCY')).toBe(false);
+
+      const shown = await scan(tempDir, {
+        all: true,
+        iocEnabled: false,
+        dependencyConfusionEnabled: false,
+        scanDependencySource: false,
+      });
+      const dep = shown.threats.find((t) => t.type === 'SUSPICIOUS_DEPENDENCY');
+      expect(dep?.severity).toBe('LOW');
+    });
+
     it('should scan a directory with clean files', async () => {
       // Create a clean test file
       const cleanFile = path.join(tempDir, 'clean.js');
