@@ -50,9 +50,10 @@ function buildSarifForResult(result: ScanResult): ReturnType<typeof generateSari
 
 interface CliOptions {
   depth?: number;
+  maxDirDepth?: string;
   parallel?: boolean;
   workers?: string;
-  'include-dev'?: boolean;
+  includeDev?: boolean;
   'skip-cache'?: boolean;
   output?: string;
   format?: 'json' | 'sarif' | 'text' | 'html' | 'markdown';
@@ -1190,6 +1191,10 @@ rulesCmd
 program
   .argument('[target]', 'Package name, directory, or file to scan (defaults to current directory)')
   .option('-d, --depth <number>', 'Maximum depth for dependency scanning', '5')
+  .option(
+    '--max-dir-depth <number>',
+    'Maximum directory recursion depth for file discovery (1-50, default 5)'
+  )
   .option('-p, --parallel', 'Enable parallel processing')
   .option('-w, --workers <number>', 'Number of workers for parallel processing', 'auto')
   .option('--include-dev', 'Include development dependencies')
@@ -1240,6 +1245,10 @@ program
   .description('Scan for security threats (backward compatibility)')
   .argument('[target]', 'Package name, directory, or file to scan (defaults to current directory)')
   .option('-d, --depth <number>', 'Maximum depth for dependency scanning', '5')
+  .option(
+    '--max-dir-depth <number>',
+    'Maximum directory recursion depth for file discovery (1-50, default 5)'
+  )
   .option('-p, --parallel', 'Enable parallel processing')
   .option('-w, --workers <number>', 'Number of workers for parallel processing', 'auto')
   .option('--include-dev', 'Include development dependencies')
@@ -1292,6 +1301,20 @@ program
     await performScan(target, merged);
   });
 
+/**
+ * Parse --max-dir-depth. A non-numeric value is rejected here rather than
+ * becoming NaN (which the directory walker would treat as "do not recurse").
+ */
+function parseMaxDirDepth(raw: string | undefined): number | undefined {
+  if (raw === undefined) return undefined;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1 || value > 50) {
+    console.error(`❌ --max-dir-depth must be an integer between 1 and 50 (got "${raw}")`);
+    process.exit(2);
+  }
+  return value;
+}
+
 async function performScan(target: string | undefined, options: CliOptions) {
   applyCacheCliOptions({ enableRedis: Boolean(options['enable-redis']) });
 
@@ -1304,6 +1327,7 @@ async function performScan(target: string | undefined, options: CliOptions) {
 
     const scanOptions: ScanOptions = {
       depth: options.depth ? parseInt(options.depth.toString()) : defaultDepth,
+      maxDirDepth: parseMaxDirDepth(options.maxDirDepth) ?? rc.maxDirDepth ?? 5,
       parallel: options.parallel || false,
       workers:
         options.workers === 'auto'
@@ -1311,7 +1335,7 @@ async function performScan(target: string | undefined, options: CliOptions) {
           : options.workers
             ? parseInt(options.workers)
             : undefined,
-      includeDevDependencies: options['include-dev'] || false,
+      includeDevDependencies: options.includeDev || false,
       skipCache: options['skip-cache'] || false,
       verbose: options.verbose || false,
       debug: options.debug || false,
