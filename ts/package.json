@@ -41,7 +41,6 @@
     "obfuscation",
     "static-analysis",
     "cli",
-    "production-ready",
     "typescript"
   ],
   "author": "NullVoid Team",
