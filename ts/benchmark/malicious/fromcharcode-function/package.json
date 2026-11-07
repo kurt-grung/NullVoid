@@ -1,0 +1,7 @@
+{
+  "name": "fromcharcode-function",
+  "version": "1.0.0",
+  "description": "String.fromCharCode into new Function",
+  "main": "index.js",
+  "license": "MIT"
+}

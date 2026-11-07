@@ -47,6 +47,38 @@ jobs:
       - name: Verify unit test isolation
         run: bash .github/scripts/verify-unit-test-isolation.sh
 
+  benchmark:
+    # Detection quality gate: package-level precision/recall on a labelled
+    # corpus (ts/benchmark). Fails below the floors in ts/benchmark/baseline.json.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache benign corpus
+        uses: actions/cache@v4
+        with:
+          path: ts/benchmark/.cache
+          key: nullvoid-benchmark-benign-${{ hashFiles('ts/benchmark/benign.json') }}
+
+      - name: Run detection benchmark
+        run: npm run benchmark
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: ts/benchmark/results.json
+
   test:
     runs-on: ubuntu-latest
 

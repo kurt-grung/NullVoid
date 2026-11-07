@@ -1,0 +1,10 @@
+{
+  "name": "git-credentials-upload",
+  "version": "1.0.0",
+  "description": "Uploads .git-credentials and .netrc",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "got": "^12.0.0"
+  }
+}

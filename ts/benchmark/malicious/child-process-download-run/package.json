@@ -1,0 +1,7 @@
+{
+  "name": "child-process-download-run",
+  "version": "1.0.0",
+  "description": "Writes a downloaded binary and runs it",
+  "main": "index.js",
+  "license": "MIT"
+}

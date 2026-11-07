@@ -1,0 +1,7 @@
+{
+  "name": "obfuscator-output",
+  "version": "1.0.0",
+  "description": "javascript-obfuscator style hex identifiers",
+  "main": "index.js",
+  "license": "MIT"
+}

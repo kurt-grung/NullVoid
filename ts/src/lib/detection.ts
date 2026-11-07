@@ -441,15 +441,18 @@ function analyzeCodeStructure(
   const lines = code.split('\n');
   let threatCount = 0;
   let totalConfidence = 0;
+  let strongSignals = 0;
+  let weakSignals = 0;
 
   // Pattern 1: Variable name mangling
   const variableManglingPattern = DETECTION_PATTERNS.MALWARE_PATTERNS.VARIABLE_MANGLING;
   const manglingMatches = code.match(new RegExp(variableManglingPattern.source, 'g'));
   if (manglingMatches && manglingMatches.length > 0) {
-    analysis.isMalicious = true;
+    // Weak signal: minifiers produce this shape too.
+    weakSignals++;
     analysis.reason += `Variable name mangling detected (${manglingMatches.length} instances). `;
     threatCount++;
-    totalConfidence += 30;
+    totalConfidence += 15;
 
     // Find line number and sample
     if (!analysis.lineNumber) {
@@ -486,7 +489,7 @@ function analyzeCodeStructure(
   const hexIdentifierPattern = DETECTION_PATTERNS.MALWARE_PATTERNS.HEX_IDENTIFIERS;
   const hexIdentifiers = new Set(code.match(hexIdentifierPattern) ?? []);
   if (hexIdentifiers.size >= HEX_IDENTIFIER_MIN_DISTINCT) {
-    analysis.isMalicious = true;
+    strongSignals++;
     analysis.reason += `Obfuscated hex identifiers detected (${hexIdentifiers.size} distinct). `;
     threatCount++;
     totalConfidence += 30;
@@ -507,7 +510,14 @@ function analyzeCodeStructure(
   const hexArrayPattern = DETECTION_PATTERNS.MALWARE_PATTERNS.HEX_ARRAYS;
   const hexMatches = code.match(hexArrayPattern);
   if (hexMatches && hexMatches.length > 0) {
-    analysis.isMalicious = true;
+    // One short hex array is a byte constant (magic numbers, protocol trailers);
+    // several, or a long one, is an encoded payload.
+    const longest = Math.max(...hexMatches.map((m) => (m.match(/0x/g) ?? []).length));
+    if (hexMatches.length >= 3 || longest >= 16) {
+      strongSignals++;
+    } else {
+      weakSignals++;
+    }
     analysis.reason += `Hex encoding arrays detected (${hexMatches.length} instances). `;
     threatCount++;
     totalConfidence += 20;
@@ -529,7 +539,7 @@ function analyzeCodeStructure(
   const moduleExportPattern = DETECTION_PATTERNS.MALWARE_PATTERNS.MODULE_EXPORT_MALICIOUS;
   const moduleExportMatches = code.match(moduleExportPattern);
   if (moduleExportMatches && moduleExportMatches.length > 0) {
-    analysis.isMalicious = true;
+    strongSignals++;
     analysis.reason += `Code appended to legitimate module.exports detected. `;
     threatCount++;
     totalConfidence += 35;
@@ -573,7 +583,9 @@ function analyzeCodeStructure(
   const entropy = calculateShannonEntropy(code);
   const entropyThreshold = isReactFrameworkCode(code) ? 5.0 : 4.5; // Higher threshold for React files
 
-  if (analysis.isMalicious && entropy > entropyThreshold) {
+  // Entropy adds confidence but is never itself a corroborating signal:
+  // every minified bundle has high entropy.
+  if ((strongSignals > 0 || weakSignals > 0) && entropy > entropyThreshold) {
     analysis.reason += `High entropy detected (${entropy.toFixed(2)}). `;
     threatCount++;
     totalConfidence += 15;
@@ -599,6 +611,11 @@ function analyzeCodeStructure(
   }
 
   // Calculate final confidence
+  // Decision: a strong signal alone is enough; weak signals need corroboration.
+  if (strongSignals > 0 || weakSignals >= 2) {
+    analysis.isMalicious = true;
+  }
+
   if (analysis.isMalicious) {
     analysis.confidence = Math.min(totalConfidence, 100);
     analysis.reason = `MALICIOUS CODE DETECTED: ${analysis.reason}Confidence: ${analysis.confidence}% (${threatCount} threats)`;

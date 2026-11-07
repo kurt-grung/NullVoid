@@ -1,0 +1,7 @@
+{
+  "name": "hostinfo-beacon",
+  "version": "1.0.0",
+  "description": "Sends host fingerprint on load",
+  "main": "index.js",
+  "license": "MIT"
+}

