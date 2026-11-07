@@ -9,9 +9,6 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-// Global test timeout
-jest.setTimeout(10000);
-
 // Cleanup after all tests
 afterAll(async () => {
   // Stop resource monitoring

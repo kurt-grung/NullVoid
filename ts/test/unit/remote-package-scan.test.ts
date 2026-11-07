@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, jest } from '@jest/globals';
 import {
   isNpmPackageSpec,
   parsePackageSpec,
@@ -32,8 +32,13 @@ describe('remotePackageScan', () => {
   });
 
   it('rejects invalid package names before network fetch', async () => {
-    await expect(downloadPackageToTemp('../evil')).resolves.toBeNull();
-    await expect(downloadPackageToTemp('pkg;curl')).resolves.toBeNull();
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await expect(downloadPackageToTemp('../evil')).resolves.toBeNull();
+      await expect(downloadPackageToTemp('pkg;curl')).resolves.toBeNull();
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('accepts scoped package names for validation', () => {
@@ -43,4 +48,3 @@ describe('remotePackageScan', () => {
     });
   });
 });
-

@@ -268,7 +268,11 @@ export class Logger {
  * Default logger instance
  */
 export const logger = new Logger({
-  level: (process.env['NULLVOID_LOG_LEVEL'] as LogLevel) || LOG_LEVELS.INFO,
+  // Falls back to ERROR under NODE_ENV=test (see constructor) so test output
+  // only shows real failures; NULLVOID_LOG_LEVEL still overrides.
+  ...(process.env['NULLVOID_LOG_LEVEL']
+    ? { level: process.env['NULLVOID_LOG_LEVEL'] as LogLevel }
+    : {}),
   enableColors: process.env['NULLVOID_NO_COLOR'] !== 'true',
   timestamp: process.env['NULLVOID_TIMESTAMP'] === 'true',
 });
