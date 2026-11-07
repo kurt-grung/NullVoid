@@ -54,213 +54,143 @@ export interface RulesLoadingOptions {
 /**
  * Advanced detection rules with comprehensive patterns
  */
+/**
+ * Built-in rules. These run on every scan unless `builtinRules: false`, so each
+ * pattern must be specific enough that it rarely matches ordinary code. Bare
+ * keywords (`eval\(`, `process.env`, `window.ethereum`, prose such as
+ * `package hijacking`) were removed because they flagged most real projects.
+ */
 export const ENHANCED_RULES: EnhancedRules = {
   wallet_hijacking: {
     patterns: [
-      // Direct wallet hijacking
+      // Provider hijacking
       'window\\.ethereum\\s*=\\s*new\\s+Proxy',
       'Object\\.defineProperty\\s*\\(\\s*window\\s*,\\s*[\'"`]ethereum',
       'window\\.__defineGetter__\\s*\\(\\s*[\'"`]ethereum',
       'window\\.ethereum\\s*=\\s*.*?proxy',
 
       // Transaction manipulation
-      'eth_sendTransaction.*?params.*?to\\s*[:=]',
+      'eth_sendTransaction[\\s\\S]{0,200}params[\\s\\S]{0,100}\\.to\\s*=\\s*[\'"`]0x[a-fA-F0-9]{40}',
       'params\\[0\\]\\.to\\s*=\\s*[\'"`]0x[a-fA-F0-9]{40}',
-      'transaction\\.to\\s*=.*?attacker',
-      'sendTransaction.*?replace.*?address',
+      '\\.to\\s*=\\s*[\'"`]0x[a-fA-F0-9]{40}[\'"`]',
 
-      // Address replacement
-      'replace\\s*\\(\\s*/0x[a-fA-F0-9]{40}/.*?,\\s*[\'"`]0x',
-      '0x[a-fA-F0-9]{40}.*?//.*?(attacker|wallet|address)',
-      '\\.replace\\s*\\(\\s*[\'"`]0x[a-fA-F0-9]{40}',
+      // Address replacement in intercepted responses
+      '\\.replace\\s*\\(\\s*/0x[a-fA-F0-9]{40}',
+      '\\.replace\\s*\\(\\s*[\'"`]0x[a-fA-F0-9]{40}[\'"`]\\s*,\\s*[\'"`]0x',
+      '/\\b(?:bc1|[13])[a-zA-HJ-NP-Z0-9]{25,39}\\b/[gimsuy]*[\\s\\S]{0,60}\\.replace',
+      '/T[A-Za-z1-9]{33}/[gimsuy]*[\\s\\S]{0,60}\\.replace',
 
-      // Multi-chain targeting
-      'bitcoin.*?address.*?replace',
-      'litecoin.*?L[a-km-zA-HJ-NP-Z1-9]{26,33}',
-      'tron.*?T[a-km-zA-HJ-NP-Z1-9]{33}',
-      'solana.*?[1-9A-HJ-NP-Za-km-z]{32,44}',
-      'polygon.*?0x[a-fA-F0-9]{40}',
-      'bsc.*?0x[a-fA-F0-9]{40}',
-
-      // Legacy patterns (kept for backward compatibility)
-      '_0x112fa8',
+      // Known malware markers (chalk/debug 2025 drainer, legacy samples)
       'stealthProxyControl',
       'runmask',
       'newdlocal',
-      'window.ethereum',
-      'ethereum.request',
+      'checkethereumw',
+      '_0x112fa8',
     ],
     severity: 'CRITICAL',
-    description: 'Detects sophisticated wallet hijacking and transaction manipulation',
+    description: 'Detects wallet provider hijacking and transaction/address manipulation',
     confidence_threshold: 0.7,
   },
 
   network_manipulation: {
     patterns: [
-      // Network interception
-      'XMLHttpRequest\\.prototype\\.open\\s*=',
-      'fetch\\s*=\\s*.*?function',
-      'Response\\.prototype\\.json\\s*=',
-      'axios\\.interceptors',
+      // Prototype-level interception of network APIs
+      'XMLHttpRequest\\.prototype\\.(?:open|send)\\s*=',
+      'Response\\.prototype\\.(?:json|text)\\s*=',
+      '(?:window|globalThis|global)\\.fetch\\s*=\\s*(?:async\\s*)?(?:function|\\()',
+      'fetch\\s*=\\s*new\\s+Proxy',
+      'WebSocket\\.prototype\\.send\\s*=',
 
-      // Response manipulation
-      'fetch.*override',
-      'XMLHttpRequest.*intercept',
-      'response\\.json.*replace',
-      'blockchain.*address.*replace',
-
-      // API hijacking
-      'api\\.binance\\.com.*replace',
-      'api\\.coinbase\\.com.*replace',
-      'api\\.kraken\\.com.*replace',
-      'api\\.bitfinex\\.com.*replace',
+      // Response rewriting targeting exchanges
+      'api\\.(?:binance|coinbase|kraken|bitfinex)\\.com[\\s\\S]{0,200}\\.replace',
     ],
     severity: 'HIGH',
-    description: 'Detects network response manipulation and API hijacking',
+    description: 'Detects interception and rewriting of network responses',
     confidence_threshold: 0.6,
   },
 
   obfuscated_code: {
     patterns: [
-      // Advanced obfuscation patterns
+      // Decode-then-execute chains
       'eval\\s*\\(\\s*String\\.fromCharCode',
-      'Function\\s*\\(\\s*[\'"`]return',
+      'eval\\s*\\(\\s*atob\\s*\\(',
+      'eval\\s*\\(\\s*Buffer\\.from\\s*\\([^)]*[\'"`]base64',
+      'new\\s+Function\\s*\\(\\s*atob\\s*\\(',
+      'Function\\s*\\(\\s*[\'"`]return\\s+this[\'"`]\\s*\\)\\s*\\(\\s*\\)',
+
+      // javascript-obfuscator output
       '_0x[a-f0-9]{4,6}\\s*\\(',
-      '\\[\\s*[\'"`]\\\\x[0-9a-f]{2}',
-      'atob\\s*\\(\\s*[\'"`][A-Za-z0-9+/=]+[\'"`]',
+      '\\[\\s*[\'"`](?:\\\\x[0-9a-f]{2}){3,}',
 
-      // Legacy patterns
-      'eval\\s*\\(',
-      'new\\s+Function\\s*\\(',
-      'fromCharCode',
-
-      // Additional obfuscation techniques
-      '\\[\\s*[\'"`][a-zA-Z0-9+/=]{50,}[\'"`]\\s*\\]',
-      'String\\.fromCharCode\\(.*?\\d+.*?\\)',
-      '\\w+\\s*=\\s*\\w+\\s*\\+\\s*\\w+\\s*\\+\\s*\\w+',
-      '\\[\\s*[\'"`]\\\\u[0-9a-f]{4}[\'"`]\\s*\\]',
+      // Large embedded base64 payloads passed to a decoder
+      'atob\\s*\\(\\s*[\'"`][A-Za-z0-9+/=]{200,}[\'"`]',
+      'Buffer\\.from\\s*\\(\\s*[\'"`][A-Za-z0-9+/=]{200,}[\'"`]\\s*,\\s*[\'"`]base64',
     ],
-    entropy_threshold: 5.0,
     severity: 'HIGH',
-    description: 'Detects obfuscated or suspicious code patterns',
-    confidence_threshold: 0.8,
+    description: 'Detects decode-and-execute chains and obfuscator output',
+    confidence_threshold: 0.7,
   },
 
   suspicious_scripts: {
     patterns: [
-      // Package lifecycle script attacks
-      'postinstall.*curl',
-      'postinstall.*wget',
-      'postinstall.*npm.*install',
-      'prepare.*download',
-      'preinstall.*eval',
-      'postinstall.*eval',
-      'install.*bash.*-c',
-      'postinstall.*node.*-e',
+      // Lifecycle scripts that fetch and run remote code
+      '"(?:pre|post)?install"\\s*:\\s*"[^"]*(?:curl|wget)[^"]*\\|\\s*(?:ba)?sh',
+      '"(?:pre|post)?install"\\s*:\\s*"[^"]*node\\s+-e\\s',
+      '"(?:pre|post)?install"\\s*:\\s*"[^"]*(?:bash|sh)\\s+-c\\s',
+      '"(?:pre|post)?install"\\s*:\\s*"[^"]*powershell[^"]*-(?:e|enc|encodedcommand)\\b',
+      '"(?:pre|post)?install"\\s*:\\s*"[^"]*base64\\s+(?:-d|--decode)',
+      '"(?:pre|post)?install"\\s*:\\s*"[^"]*\\$\\(',
 
-      // Command injection patterns
-      'postinstall.*\\$\\(',
-      'postinstall.*`',
-      'postinstall.*exec',
-      'postinstall.*spawn',
-      'postinstall.*fork',
-
-      // Network requests in scripts
-      'postinstall.*http',
-      'postinstall.*https',
-      'postinstall.*fetch',
-      'postinstall.*axios',
+      // Code that writes and executes a dropped file
+      'child_process[\\s\\S]{0,300}(?:writeFileSync|writeFile)[\\s\\S]{0,300}(?:exec|spawn|execFile)\\s*\\(',
+      '(?:exec|spawn|execSync)\\s*\\(\\s*[\'"`](?:curl|wget)\\s[^\'"`]*\\|\\s*(?:ba)?sh',
     ],
     severity: 'CRITICAL',
-    description: 'Detects suspicious package lifecycle scripts and command injection',
+    description: 'Detects lifecycle scripts and code paths that download and execute payloads',
     confidence_threshold: 0.9,
   },
 
   crypto_mining: {
     patterns: [
-      // Cryptocurrency mining patterns
-      'crypto.*mining',
-      'coin.*mining',
-      'hashrate',
-      'mining.*pool',
-      'stratum.*pool',
-      'mining.*rig',
-      'gpu.*mining',
-      'cpu.*mining',
-
-      // Mining pool connections
       'stratum\\+tcp://',
-      'mining.*pool.*connect',
-      'hash.*rate.*calculation',
-      'proof.*of.*work',
-      'mining.*algorithm',
-
-      // Browser mining
+      'stratum\\+ssl://',
       'coinhive',
+      'coin-hive',
       'cryptonight',
-      'web.*mining',
-      'browser.*mining',
+      'crypto-?loot',
+      'xmrig',
+      'minergate',
+      'nicehash\\.com',
+      '(?:monero|xmr)[\\s\\S]{0,80}pool',
     ],
     severity: 'HIGH',
-    description: 'Detects cryptocurrency mining code and browser mining',
+    description: 'Detects cryptocurrency mining libraries and pool connections',
     confidence_threshold: 0.7,
-  },
-
-  supply_chain_attack: {
-    patterns: [
-      // Dependency confusion
-      'package.*name.*confusion',
-      'private.*registry.*bypass',
-      'npm.*registry.*spoof',
-
-      // Typosquatting patterns
-      'package.*name.*typo',
-      'similar.*package.*name',
-      'confusing.*package.*name',
-
-      // Malicious updates
-      'package.*update.*malicious',
-      'version.*bump.*attack',
-      'semantic.*versioning.*abuse',
-
-      // Package hijacking
-      'package.*hijacking',
-      'npm.*account.*compromise',
-      'package.*maintainer.*attack',
-    ],
-    severity: 'CRITICAL',
-    description: 'Detects supply chain attack patterns and dependency confusion',
-    confidence_threshold: 0.8,
   },
 
   data_exfiltration: {
     patterns: [
-      // Data collection patterns
-      'process\\.env\\..*collect',
-      'localStorage.*collect',
-      'sessionStorage.*collect',
-      'cookie.*collect',
+      // Environment or credentials serialised and sent over the network
+      'JSON\\.stringify\\s*\\(\\s*process\\.env\\s*\\)',
+      'process\\.env[\\s\\S]{0,300}(?:https?\\.(?:get|request)|fetch\\s*\\(|XMLHttpRequest|net\\.connect|dns\\.(?:resolve|lookup))',
+      'Buffer\\.from\\s*\\(\\s*JSON\\.stringify\\s*\\(\\s*process\\.env',
+      'os\\.userInfo\\s*\\(\\s*\\)[\\s\\S]{0,300}(?:https?\\.(?:get|request)|fetch\\s*\\(|XMLHttpRequest)',
 
-      // Network exfiltration
-      'fetch.*data.*send',
-      'XMLHttpRequest.*data.*send',
-      'axios.*data.*send',
-      'websocket.*data.*send',
+      // Credential files read then sent
+      '\\.(?:npmrc|ssh/id_rsa|aws/credentials|docker/config\\.json|kube/config)[\\s\\S]{0,400}(?:https?\\.(?:get|request)|fetch\\s*\\(|XMLHttpRequest)',
 
-      // File system access
-      'fs\\.readFile.*sensitive',
-      'fs\\.readdir.*sensitive',
-      'fs\\.stat.*sensitive',
+      // DNS tunnelling of collected data
+      '\\.toString\\s*\\(\\s*[\'"`](?:base64|hex)[\'"`]\\s*\\)[\\s\\S]{0,120}dns\\.(?:resolve|lookup)',
 
-      // Process information
-      'process\\.env',
-      'process\\.argv',
-      'process\\.cwd',
-      'process\\.platform',
-      'process\\.version',
+      // Known exfiltration endpoints from published incidents
+      'webhook\\.site/',
+      'pipedream\\.net/',
+      'interactsh\\.com',
+      'oast\\.(?:fun|live|me|online|pro|site)',
+      'burpcollaborator\\.net',
     ],
     severity: 'HIGH',
-    description: 'Detects data exfiltration and sensitive information collection',
+    description: 'Detects environment, credential and host data being sent off-machine',
     confidence_threshold: 0.6,
   },
 };
@@ -502,7 +432,8 @@ export function createExampleRules(outputPath: string, format: 'json' | 'yaml' =
       wallet_hijacking: 'CRITICAL' as const,
       network_manipulation: 'HIGH' as const,
       obfuscated_code: 'HIGH' as const,
-      supply_chain_attack: 'CRITICAL' as const,
+      suspicious_scripts: 'CRITICAL' as const,
+      crypto_mining: 'HIGH' as const,
       data_exfiltration: 'HIGH' as const,
     },
   };
