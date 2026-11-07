@@ -60,6 +60,7 @@ interface CliOptions {
   verbose?: boolean;
   debug?: boolean;
   rules?: string;
+  builtinRules?: boolean;
   sarif?: string;
   all?: boolean;
   'ioc-providers'?: string;
@@ -1201,6 +1202,10 @@ program
   .option('-v, --verbose', 'Enable verbose logging')
   .option('--debug', 'Enable debug mode')
   .option('-r, --rules <file>', 'Custom rules file')
+  .option(
+    '--no-builtin-rules',
+    'Skip the built-in detection rules (wallet hijacking, network manipulation, ...)'
+  )
   .option('--sarif <file>', 'SARIF output file')
   .option('--all', 'Show all threats including low severity')
   .option(
@@ -1246,6 +1251,10 @@ program
   .option('-v, --verbose', 'Enable verbose logging')
   .option('--debug', 'Enable debug mode')
   .option('-r, --rules <file>', 'Custom rules file')
+  .option(
+    '--no-builtin-rules',
+    'Skip the built-in detection rules (wallet hijacking, network manipulation, ...)'
+  )
   .option('--sarif <file>', 'SARIF output file')
   .option('--all', 'Show all threats including low severity')
   .option(
@@ -1325,6 +1334,9 @@ async function performScan(target: string | undefined, options: CliOptions) {
     }
     if (options.rules) {
       scanOptions.rulesFile = options.rules;
+    }
+    if (options.builtinRules === false) {
+      scanOptions.builtinRules = false;
     }
     if (options.sarif) {
       scanOptions.sarifFile = options.sarif;

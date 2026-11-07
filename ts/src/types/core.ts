@@ -37,6 +37,8 @@ export interface ScanOptions {
   mergeRulesWithDefaults?: boolean;
   /** Validate custom rules before scanning */
   validateRules?: boolean;
+  /** Apply the built-in ENHANCED_RULES when no custom rules are given (default: true) */
+  builtinRules?: boolean;
   /** SARIF output file */
   sarifFile?: string;
   /** Output directory */
