@@ -804,7 +804,9 @@ export async function scan(
                 depConfusionProcessed += packagesToAnalyze.length;
                 if (packagesToAnalyze.length > 0) {
                   packagesAnalyzedForDepConfusion.push(...packagesToAnalyze);
-                  const depConfusionThreats = await analyzeDependencyConfusion(packagesToAnalyze);
+                  const depConfusionThreats = await analyzeDependencyConfusion(packagesToAnalyze, {
+                    emitMlThreats: options.mlThreats === true,
+                  });
                   threats.push(...depConfusionThreats);
                   for (const t of depConfusionThreats) {
                     if (t.filePath && isCodeThreatType(t.type)) {

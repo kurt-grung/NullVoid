@@ -483,7 +483,11 @@ app.post(
     });
     const scan = getScanFn();
     try {
-      const result = await scan(resolvedTarget, { depth: 5, ...scanRulesOptions });
+      const result = await scan(resolvedTarget, {
+        depth: 5,
+        ...scanRulesOptions,
+        ...(req.body?.mlThreats === true ? { mlThreats: true } : {}),
+      });
       const completedAt = new Date().toISOString();
       await updateScan(id, {
         status: 'completed',
