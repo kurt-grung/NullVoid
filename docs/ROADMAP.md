@@ -305,7 +305,6 @@ No fixed calendar dates — advance by **exit criteria** per phase.
 
 ### **Open Source Strategy**
 - **Core Open Source**: Core scanning engine remains open source
-- **Community Contributions**: Active community contribution program
 - **Plugin Ecosystem**: Plugin ecosystem for extensibility
 - **API Access**: Free API access for open source projects
 
@@ -319,11 +318,10 @@ No fixed calendar dates — advance by **exit criteria** per phase.
 
 ## 📞 **Getting Involved**
 
-### **Contributing**
+### **Feedback**
 - **GitHub**: https://github.com/kurt-grung/NullVoid
 - **Issues**: Bug reports and feature requests
-- **Pull Requests**: Code contributions and improvements
-- **Documentation**: Documentation improvements and translations
+- NullVoid does not accept external pull requests; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### **Community**
 - **Discord**: Community Discord server for discussions
