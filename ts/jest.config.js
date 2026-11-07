@@ -1,7 +1,7 @@
 const shared = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  roots: ['<rootDir>/src', '<rootDir>/test'],
+  roots: ['<rootDir>/test'],
   transform: {
     '^.+\\.ts$': 'ts-jest',
   },
@@ -15,7 +15,6 @@ module.exports = {
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts',
-    '!src/test/**/*',
   ],
   projects: [
     {
@@ -23,7 +22,6 @@ module.exports = {
       displayName: 'unit',
       testMatch: [
         '<rootDir>/test/unit/**/*.test.ts',
-        '<rootDir>/src/test/unit/**/*.test.ts',
       ],
       testTimeout: 15000,
     },
@@ -32,7 +30,6 @@ module.exports = {
       displayName: 'integration',
       testMatch: [
         '<rootDir>/test/integration/**/*.test.ts',
-        '<rootDir>/src/test/integration/**/*.test.ts',
       ],
       testTimeout: 60000,
     },
