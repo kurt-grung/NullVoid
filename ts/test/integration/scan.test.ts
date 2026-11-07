@@ -38,7 +38,7 @@ describe('Scan Integration Tests', () => {
         verbose: false,
         output: 'table',
         parallel: true,
-        all: false
+        all: false,
       });
 
       expect(result.threats.length).toBeGreaterThan(0);
@@ -56,7 +56,7 @@ describe('Scan Integration Tests', () => {
         verbose: false,
         output: 'table',
         parallel: true,
-        all: false
+        all: false,
       });
 
       expect(result.threats.length).toBe(0);
@@ -68,7 +68,7 @@ describe('Scan Integration Tests', () => {
         verbose: false,
         output: 'table',
         parallel: true,
-        all: false
+        all: false,
       });
 
       expect(result.threats.length).toBe(0);
@@ -78,18 +78,19 @@ describe('Scan Integration Tests', () => {
     it('should respect the all flag for showing low severity threats', async () => {
       // Create a file with low severity threats
       const suspiciousFile = path.join(tempDir, 'suspicious.js');
-      const suspiciousContent = 'const fs = require("fs"); const _0x1234 = "malicious"; eval("bad code");';
+      const suspiciousContent =
+        'const fs = require("fs"); const _0x1234 = "malicious"; eval("bad code");';
       fs.writeFileSync(suspiciousFile, suspiciousContent);
 
       const result = await scan(tempDir, {
         verbose: false,
         output: 'table',
         parallel: true,
-        all: true
+        all: true,
       });
 
       expect(result.threats.length).toBeGreaterThan(0);
-      expect(result.threats[0]?.type).toBe('MALICIOUS_CODE_STRUCTURE');
+      expect(result.threats[0]?.type).toBe('SUSPICIOUS_MODULE');
       expect(result.threats[0]?.severity).toBe('CRITICAL');
     });
 
@@ -137,7 +138,7 @@ describe('Scan Integration Tests', () => {
         verbose: false,
         output: 'table',
         parallel: true,
-        all: false
+        all: false,
       });
 
       // Test passes if scan completes without error

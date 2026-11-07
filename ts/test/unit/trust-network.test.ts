@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import {
   setTrustStorePath,
   getTrustScore,
@@ -51,6 +51,12 @@ describe('trustNetwork', () => {
     const storePath = path.join(tempDir, 'trust.json');
     fs.writeFileSync(storePath, '{{{invalid json', 'utf8');
     setTrustStorePath(storePath);
-    await expect(getTrustScore('any', '1.0.0')).resolves.toBeNull();
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await expect(getTrustScore('any', '1.0.0')).resolves.toBeNull();
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('Failed to load trust store'));
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

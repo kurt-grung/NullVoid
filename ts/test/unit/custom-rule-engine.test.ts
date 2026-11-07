@@ -13,8 +13,26 @@ describe('customRuleEngine', () => {
     expect(threats[0]?.type).toContain('WALLET_HIJACKING');
   });
 
-  it('resolveScanRules returns undefined when no rules configured', () => {
-    expect(resolveScanRules({})).toBeUndefined();
+  it('resolveScanRules applies built-in rules when no custom rules are configured', () => {
+    const rules = resolveScanRules({});
+    expect(rules).toBeDefined();
+    expect(rules?.['wallet_hijacking']).toBeDefined();
+  });
+
+  it('resolveScanRules returns undefined when builtinRules is false', () => {
+    expect(resolveScanRules({ builtinRules: false })).toBeUndefined();
+  });
+
+  it('detectFileThreats flags a wallet proxy with default options', () => {
+    const content = 'window.ethereum = new Proxy(window.ethereum, { get: () => {} });';
+    const threats = detectFileThreats(content, 'pkg/index.js', {}, detectMalware);
+    expect(threats.some((t) => t.type.includes('WALLET_HIJACKING'))).toBe(true);
+  });
+
+  it('detectFileThreats skips built-in rules when builtinRules is false', () => {
+    const content = 'window.ethereum = new Proxy(window.ethereum, { get: () => {} });';
+    const threats = detectFileThreats(content, 'pkg/index.js', { builtinRules: false }, detectMalware);
+    expect(threats.some((t) => t.type.includes('WALLET_HIJACKING'))).toBe(false);
   });
 
   it('resolveScanRules parses inline rules', () => {

@@ -135,6 +135,16 @@ export interface PackageToAnalyze {
   path: string;
 }
 
+export interface AnalyzeDependencyConfusionOptions {
+  /**
+   * Emit DEPENDENCY_CONFUSION_ML_ANOMALY and DEPENDENCY_CONFUSION_PREDICTIVE_RISK
+   * threats from the ML scorer. Off by default until the model is trained on a
+   * balanced dataset (the shipped train.jsonl has 3 benign samples). Features
+   * are still computed, so training export is unaffected.
+   */
+  emitMlThreats?: boolean;
+}
+
 function buildPackageFeaturesFromPackageJson(packageJsonPath: string) {
   if (!fs.existsSync(packageJsonPath)) return null;
   const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as Record<string, unknown>;
@@ -351,9 +361,11 @@ export function analyzePackageName(packageName: string): PackageNameAnalysis {
 export async function detectDependencyConfusionWithPath(
   packageName: string,
   packagePath: string,
-  similarPackages: SimilarPackageStats[] = []
+  similarPackages: SimilarPackageStats[] = [],
+  options: AnalyzeDependencyConfusionOptions = {}
 ): Promise<Threat[]> {
   const threats: Threat[] = [];
+  const emitMlThreats = options.emitMlThreats === true;
   const mlCfg = (DEPENDENCY_CONFUSION_CONFIG as { ML_DETECTION?: { MULTI_REGISTRY?: boolean } })
     .ML_DETECTION;
   const useMultiRegistry = mlCfg?.MULTI_REGISTRY !== false;
@@ -543,7 +555,7 @@ export async function detectDependencyConfusionWithPath(
       );
     }
 
-    if (timelineRisk === 'LOW' && mlResult.enabled && mlResult.aboveThreshold) {
+    if (emitMlThreats && timelineRisk === 'LOW' && mlResult.enabled && mlResult.aboveThreshold) {
       threats.push(
         createThreat(
           'DEPENDENCY_CONFUSION_ML_ANOMALY',
@@ -569,6 +581,7 @@ export async function detectDependencyConfusionWithPath(
     }
 
     if (
+      emitMlThreats &&
       timelineRisk === 'LOW' &&
       mlResult.enabled &&
       mlResult.predictiveRisk &&
@@ -686,7 +699,10 @@ export async function detectDependencyConfusion(packageName: string): Promise<Th
 /**
  * Analyze dependency confusion for multiple packages
  */
-export async function analyzeDependencyConfusion(packages: PackageToAnalyze[]): Promise<Threat[]> {
+export async function analyzeDependencyConfusion(
+  packages: PackageToAnalyze[],
+  options: AnalyzeDependencyConfusionOptions = {}
+): Promise<Threat[]> {
   const allThreats: Threat[] = [];
   const similarStatsByPath = new Map<string, SimilarPackageStats>();
 
@@ -712,7 +728,8 @@ export async function analyzeDependencyConfusion(packages: PackageToAnalyze[]): 
         const threats = await detectDependencyConfusionWithPath(
           pkg.name,
           pkg.path,
-          similarPackages
+          similarPackages,
+          options
         );
         allThreats.push(...threats);
       } catch (error) {

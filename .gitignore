@@ -142,3 +142,13 @@ packages/vscode-extension/tsc
 # Playwright E2E artifacts
 packages/dashboard/test-results/
 packages/dashboard/playwright-report/
+
+# Scan output and local artefacts
+/json
+/test.json
+/report.html
+/dependency-scan.json
+/security-report.json
+/nullvoid-results.sarif
+/nullvoid-errors.log
+/nullvoid.db

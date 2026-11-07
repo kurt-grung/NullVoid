@@ -275,6 +275,8 @@ export const DETECTION_PATTERNS = {
 
     // Obfuscation patterns
     HEX_ARRAYS: /\[(0x[0-9a-fA-F]+,\s*){3,}/g,
+    // javascript-obfuscator style identifiers: _0x1a2b3c
+    HEX_IDENTIFIERS: /\b_0x[0-9a-fA-F]{3,}\b/g,
     BASE64_ARRAYS: /\[('[A-Za-z0-9+/=]{8,}',\s*){5,}/,
     STRING_FROM_CHARCODE: /String\.fromCharCode\s*\(/,
     BASE64_DECODE: /atob\s*\(/,
@@ -663,14 +665,10 @@ export const DETECTION_PATTERNS = {
     'config.ts',
     'nullvoid.js',
     'nullvoid.ts',
-    'errorHandler.js',
-    'errorHandler.ts',
     'parallel.js',
     'parallel.ts',
     'rateLimiter.js',
     'rateLimiter.ts',
-    'sandbox.js',
-    'sandbox.ts',
     'pathSecurity.js',
     'pathSecurity.ts',
     'dependencyConfusion.js',
@@ -679,8 +677,6 @@ export const DETECTION_PATTERNS = {
     'nullvoidDetection.ts',
     'sarif.js',
     'sarif.ts',
-    'secureErrorHandler.js',
-    'secureErrorHandler.ts',
     'streaming.js',
     'streaming.ts',
     'colors.js',
