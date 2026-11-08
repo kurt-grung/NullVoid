@@ -16,6 +16,8 @@ import { execSync } from 'child_process';
 import { Threat, createThreat } from '../types/core';
 import { DEPENDENCY_CONFUSION_CONFIG, DETECTION_PATTERNS } from './config';
 import { getPackageCreationDateMulti } from './registries';
+import { publishHistoryFeatures } from './publishHistory';
+import { behavioralFeaturesFromManifest, type ManifestLike } from './behavioralFeatures';
 import { analyzeTimeline } from './timelineAnalysis';
 import { runMLDetection } from './mlDetection';
 import { runNlpAnalysis } from './nlpAnalysis';
@@ -24,7 +26,6 @@ import { getTrustScore } from './trustNetwork';
 import {
   computeBehavioralAnomaly,
   computeCrossPackageAnomaly,
-  extractBehavioralCountsFromScripts,
   type SimilarPackageStats,
 } from './anomalyDetection';
 import { NLP_CONFIG, COMMUNITY_CONFIG, TRUST_CONFIG } from './config';
@@ -138,8 +139,9 @@ export interface PackageToAnalyze {
 export interface AnalyzeDependencyConfusionOptions {
   /**
    * Emit DEPENDENCY_CONFUSION_ML_ANOMALY and DEPENDENCY_CONFUSION_PREDICTIVE_RISK
-   * threats from the ML scorer. Off by default until the model is trained on a
-   * balanced dataset (the shipped train.jsonl has 3 benign samples). Features
+   * threats from the ML scorer. Off by default: the dependency model sees only
+   * registry publish history (held-out PR-AUC ≈ 0.69) and the behavioral model
+   * has ~130 positive manifests, so their scores are weak evidence. Features
    * are still computed, so training export is unaffected.
    */
   emitMlThreats?: boolean;
@@ -147,34 +149,9 @@ export interface AnalyzeDependencyConfusionOptions {
 
 function buildPackageFeaturesFromPackageJson(packageJsonPath: string) {
   if (!fs.existsSync(packageJsonPath)) return null;
-  const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as Record<string, unknown>;
-  const scripts = (pkg['scripts'] as Record<string, string>) || {};
-  const scriptKeys = Object.keys(scripts);
-  const postinstall = scripts['postinstall'] ?? scripts['install'];
-  const preinstall = scripts['preinstall'];
-  const postuninstall = scripts['postuninstall'];
-  const allScriptContent = Object.values(scripts).join('\n');
-  const behavioralCounts = extractBehavioralCountsFromScripts(allScriptContent);
-  const dependencyCount = Object.keys((pkg['dependencies'] as object) || {}).length;
-  const devDependencyCount = Object.keys((pkg['devDependencies'] as object) || {}).length;
-  return {
-    scriptCount: scriptKeys.length,
-    scriptTotalLength: scriptKeys.reduce((sum, k) => sum + (scripts[k] ?? '').length, 0),
-    hasPostinstall: !!postinstall,
-    postinstallLength: postinstall ? postinstall.length : 0,
-    preinstallLength: preinstall ? preinstall.length : 0,
-    postuninstallLength: postuninstall ? postuninstall.length : 0,
-    networkScriptCount: behavioralCounts.networkScriptCount,
-    evalUsageCount: behavioralCounts.evalUsageCount,
-    childProcessCount: behavioralCounts.childProcessCount,
-    fileSystemAccessCount: behavioralCounts.fileSystemAccessCount,
-    base64DecodeCount: behavioralCounts.base64DecodeCount,
-    obfuscationMarkerCount: behavioralCounts.obfuscationMarkerCount,
-    socketDnsCount: behavioralCounts.socketDnsCount,
-    dependencyCount,
-    devDependencyCount,
-    rareDependencyCount: 0,
-  };
+  const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as ManifestLike;
+  const features = behavioralFeaturesFromManifest(pkg, packageJsonPath);
+  return { ...features, hasPostinstall: features.hasPostinstall === 1, rareDependencyCount: 0 };
 }
 
 function buildSimilarPackageStatsFromFeatures(
@@ -241,21 +218,52 @@ export function levenshteinDistance(str1: string, str2: string): number {
   return matrix[len2]![len1]!;
 }
 
+/** Registry document fields the ML pipeline uses; one fetch per package per process. */
+export interface RegistryPublishInfo {
+  created: Date | null;
+  time: Record<string, unknown>;
+}
+
+const registryPublishCache = new Map<string, Promise<RegistryPublishInfo | null>>();
+
+/**
+ * Fetch the npm registry document for a package and return its `time` map.
+ * Cached per process so the dependency-confusion pass and the training export
+ * share one request.
+ */
+export function getPackagePublishInfo(packageName: string): Promise<RegistryPublishInfo | null> {
+  let pending = registryPublishCache.get(packageName);
+  if (!pending) {
+    pending = (async () => {
+      try {
+        const response = await fetch(
+          `${DEPENDENCY_CONFUSION_CONFIG.REGISTRY_ENDPOINTS.npm}/${encodeURIComponent(packageName)}`
+        );
+        if (!response.ok) return null;
+        const data = (await response.json()) as Record<string, unknown>;
+        const time = (data['time'] as Record<string, unknown> | undefined) ?? {};
+        const created = typeof time['created'] === 'string' ? new Date(time['created']) : null;
+        return { created, time };
+      } catch {
+        return null;
+      }
+    })();
+    registryPublishCache.set(packageName, pending);
+  }
+  return pending;
+}
+
+/** Test hook: forget cached registry documents. */
+export function clearRegistryPublishCache(): void {
+  registryPublishCache.clear();
+}
+
 /**
  * Get package creation date from npm registry
  */
 export async function getPackageCreationDate(packageName: string): Promise<Date | null> {
-  try {
-    const response = await fetch(
-      `${DEPENDENCY_CONFUSION_CONFIG.REGISTRY_ENDPOINTS.npm}/${encodeURIComponent(packageName)}`
-    );
-    if (!response.ok) return null;
-    const data = (await response.json()) as Record<string, unknown>;
-    const created = (data['time'] as Record<string, unknown>)?.['created'] as string | undefined;
-    return created ? new Date(created) : null;
-  } catch {
-    return null;
-  }
+  const info = await getPackagePublishInfo(packageName);
+  return info?.created ?? null;
 }
 
 /**
@@ -422,6 +430,8 @@ export async function detectDependencyConfusionWithPath(
       socketDnsCount: number;
       dependencyCount: number;
       devDependencyCount: number;
+      lifecycleThreatScore: number;
+      lifecycleThreatCount: number;
       rareDependencyCount: number;
     } | null = null;
 
@@ -454,6 +464,8 @@ export async function detectDependencyConfusionWithPath(
                 socketDnsCount: pkgFeatures.socketDnsCount,
                 dependencyCount: pkgFeatures.dependencyCount,
                 devDependencyCount: pkgFeatures.devDependencyCount,
+                lifecycleThreatScore: pkgFeatures.lifecycleThreatScore,
+                lifecycleThreatCount: pkgFeatures.lifecycleThreatCount,
               },
               5000
             );
@@ -505,8 +517,10 @@ export async function detectDependencyConfusionWithPath(
       }
     }
 
+    const publishInfo = await getPackagePublishInfo(packageName);
     const mlResult = await runMLDetection({
       creationDate,
+      publishHistory: publishInfo ? publishHistoryFeatures(packageName, publishInfo.time) : null,
       firstCommitDate: gitHistory.firstCommitDate,
       recentCommitCount: gitHistory.recentCommitCount ?? 0,
       scopeType: nameAnalysis.scopeType ?? null,

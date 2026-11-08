@@ -1,8 +1,8 @@
 {
   "method": "sigmoid",
   "params": {
-    "a": -1.053755974613859,
-    "b": -0.39257106038475204
+    "a": -1.3593012104444269,
+    "b": 0.1324719895155352
   },
   "feature_keys": [
     "daysDifference",
@@ -25,6 +25,15 @@
     "behavioralAnomaly",
     "reviewSecurityScore",
     "popularityScore",
-    "trustScore"
+    "trustScore",
+    "versionCount",
+    "publishSpanDays",
+    "firstToSecondVersionHours",
+    "versionsPerWeek",
+    "ageAtReferenceDays",
+    "nameLength",
+    "nameEntropy",
+    "nameDigitRatio",
+    "nameSeparatorCount"
   ]
 }

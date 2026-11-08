@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "dependency": [
     "daysDifference",
     "recentCommitCount",
@@ -21,7 +21,16 @@
     "behavioralAnomaly",
     "reviewSecurityScore",
     "popularityScore",
-    "trustScore"
+    "trustScore",
+    "versionCount",
+    "publishSpanDays",
+    "firstToSecondVersionHours",
+    "versionsPerWeek",
+    "ageAtReferenceDays",
+    "nameLength",
+    "nameEntropy",
+    "nameDigitRatio",
+    "nameSeparatorCount"
   ],
   "behavioral": [
     "scriptCount",
@@ -38,6 +47,8 @@
     "obfuscationMarkerCount",
     "socketDnsCount",
     "dependencyCount",
-    "devDependencyCount"
+    "devDependencyCount",
+    "lifecycleThreatScore",
+    "lifecycleThreatCount"
   ]
 }

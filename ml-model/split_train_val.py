@@ -111,8 +111,8 @@ def main() -> None:
     )
     ap.add_argument(
         "--time-field",
-        default="exportedAt",
-        help="Row field for time-based split (default: exportedAt)",
+        default="time",
+        help="Row field for time-based split (default: time = first publish)",
     )
     args = ap.parse_args()
 
