@@ -152,3 +152,10 @@ packages/dashboard/playwright-report/
 /nullvoid-results.sarif
 /nullvoid-errors.log
 /nullvoid.db
+
+# Detection benchmark: fetched benign packages and per-run results
+ts/benchmark/.cache/
+ts/benchmark/results.json
+# Benchmark fixtures deliberately ship dist/ and build/ bundles
+!ts/benchmark/malicious/**/dist/
+!ts/benchmark/malicious/**/dist/**

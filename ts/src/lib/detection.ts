@@ -1,30 +1,10 @@
 import { Threat, createThreat } from '../types/core';
 import { isNullVoidCode, isTestFile } from './nullvoidDetection';
 import { DETECTION_PATTERNS } from './config';
+import { capabilityThreats } from './capabilityAnalysis';
 
 /** Distinct `_0x…` identifiers needed before a file counts as obfuscator output */
 const HEX_IDENTIFIER_MIN_DISTINCT = 3;
-
-const requireRegexCache = new Map<string, RegExp>();
-
-/**
- * True when the content requires or imports the given module with any quote
- * style (`require('fs')`, `require("fs")`, `import x from "fs"`, `import('fs')`).
- * Dynamic construction such as `require(['child_', 'process'].join(''))` is
- * not covered here; that needs AST analysis.
- */
-function requiresModule(content: string, module: string): boolean {
-  let re = requireRegexCache.get(module);
-  if (!re) {
-    const escaped = module.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    re = new RegExp(
-      `(?:require|import)\\s*\\(\\s*['"\`](?:node:)?${escaped}['"\`]\\s*\\)` +
-        `|\\bfrom\\s*['"\`](?:node:)?${escaped}['"\`]`
-    );
-    requireRegexCache.set(module, re);
-  }
-  return re.test(content);
-}
 
 /**
  * Check if a file is a configuration file
@@ -415,48 +395,16 @@ export function detectMalware(content: string, filePath?: string): Threat[] {
   }
 
   // Check for suspicious module requires
-  const suspiciousModules = DETECTION_PATTERNS.SUSPICIOUS_MODULES;
-  for (const module of suspiciousModules) {
-    if (requiresModule(content, module)) {
-      let severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-      let message: string;
-      let details: string;
-
-      if (isNullVoidCode(filePath || '')) {
-        // For NullVoid's own code, these are legitimate security tools
-        severity = 'LOW';
-        message = `Suspicious module require: ${module} (NullVoid security tool)`;
-        details = `Code requires module: ${module} - This is legitimate security detection code in NullVoid, not malicious`;
-      } else if (isTestFile(filePath || '')) {
-        // For test files, these are legitimate test patterns
-        severity = 'LOW';
-        message = `Suspicious module require: ${module} (test file)`;
-        details = `Code requires module: ${module} - This is legitimate test code, not malicious`;
-      } else if (isConfigFile(filePath || '')) {
-        // For config files, these might be legitimate
-        severity = 'LOW';
-        message = `Suspicious module require: ${module} (config file)`;
-        details = `Code requires module: ${module} - This appears to be a configuration file, not malicious`;
-      } else {
-        // For real malware, this should be CRITICAL severity
-        severity = 'CRITICAL';
-        message = `Suspicious module require: ${module}`;
-        details = `Code requires suspicious module: ${module}`;
-      }
-
-      threats.push(
-        createThreat(
-          'SUSPICIOUS_MODULE',
-          message,
-          filePath || 'unknown',
-          filePath ? filePath.split('/').pop() || 'unknown' : 'unknown',
-          severity,
-          details,
-          { confidence: 0.9 }
-        )
-      );
-    }
-  }
+  // Capability analysis: which Node capabilities the file uses, resolved from
+  // the AST, and which dangerous combinations are present. A lone
+  // require('fs') is not a finding; env + network, credentials + network,
+  // decode + exec, network + exec are.
+  threats.push(
+    ...capabilityThreats(content, filePath || 'unknown', {
+      isTestFile: isTestFile(filePath || ''),
+      isConfigFile: isConfigFile(filePath || ''),
+    })
+  );
 
   return threats;
 }
@@ -493,15 +441,18 @@ function analyzeCodeStructure(
   const lines = code.split('\n');
   let threatCount = 0;
   let totalConfidence = 0;
+  let strongSignals = 0;
+  let weakSignals = 0;
 
   // Pattern 1: Variable name mangling
   const variableManglingPattern = DETECTION_PATTERNS.MALWARE_PATTERNS.VARIABLE_MANGLING;
   const manglingMatches = code.match(new RegExp(variableManglingPattern.source, 'g'));
   if (manglingMatches && manglingMatches.length > 0) {
-    analysis.isMalicious = true;
+    // Weak signal: minifiers produce this shape too.
+    weakSignals++;
     analysis.reason += `Variable name mangling detected (${manglingMatches.length} instances). `;
     threatCount++;
-    totalConfidence += 30;
+    totalConfidence += 15;
 
     // Find line number and sample
     if (!analysis.lineNumber) {
@@ -538,7 +489,7 @@ function analyzeCodeStructure(
   const hexIdentifierPattern = DETECTION_PATTERNS.MALWARE_PATTERNS.HEX_IDENTIFIERS;
   const hexIdentifiers = new Set(code.match(hexIdentifierPattern) ?? []);
   if (hexIdentifiers.size >= HEX_IDENTIFIER_MIN_DISTINCT) {
-    analysis.isMalicious = true;
+    strongSignals++;
     analysis.reason += `Obfuscated hex identifiers detected (${hexIdentifiers.size} distinct). `;
     threatCount++;
     totalConfidence += 30;
@@ -559,7 +510,14 @@ function analyzeCodeStructure(
   const hexArrayPattern = DETECTION_PATTERNS.MALWARE_PATTERNS.HEX_ARRAYS;
   const hexMatches = code.match(hexArrayPattern);
   if (hexMatches && hexMatches.length > 0) {
-    analysis.isMalicious = true;
+    // One short hex array is a byte constant (magic numbers, protocol trailers);
+    // several, or a long one, is an encoded payload.
+    const longest = Math.max(...hexMatches.map((m) => (m.match(/0x/g) ?? []).length));
+    if (hexMatches.length >= 3 || longest >= 16) {
+      strongSignals++;
+    } else {
+      weakSignals++;
+    }
     analysis.reason += `Hex encoding arrays detected (${hexMatches.length} instances). `;
     threatCount++;
     totalConfidence += 20;
@@ -581,7 +539,7 @@ function analyzeCodeStructure(
   const moduleExportPattern = DETECTION_PATTERNS.MALWARE_PATTERNS.MODULE_EXPORT_MALICIOUS;
   const moduleExportMatches = code.match(moduleExportPattern);
   if (moduleExportMatches && moduleExportMatches.length > 0) {
-    analysis.isMalicious = true;
+    strongSignals++;
     analysis.reason += `Code appended to legitimate module.exports detected. `;
     threatCount++;
     totalConfidence += 35;
@@ -625,7 +583,9 @@ function analyzeCodeStructure(
   const entropy = calculateShannonEntropy(code);
   const entropyThreshold = isReactFrameworkCode(code) ? 5.0 : 4.5; // Higher threshold for React files
 
-  if (analysis.isMalicious && entropy > entropyThreshold) {
+  // Entropy adds confidence but is never itself a corroborating signal:
+  // every minified bundle has high entropy.
+  if ((strongSignals > 0 || weakSignals > 0) && entropy > entropyThreshold) {
     analysis.reason += `High entropy detected (${entropy.toFixed(2)}). `;
     threatCount++;
     totalConfidence += 15;
@@ -651,6 +611,11 @@ function analyzeCodeStructure(
   }
 
   // Calculate final confidence
+  // Decision: a strong signal alone is enough; weak signals need corroboration.
+  if (strongSignals > 0 || weakSignals >= 2) {
+    analysis.isMalicious = true;
+  }
+
   if (analysis.isMalicious) {
     analysis.confidence = Math.min(totalConfidence, 100);
     analysis.reason = `MALICIOUS CODE DETECTED: ${analysis.reason}Confidence: ${analysis.confidence}% (${threatCount} threats)`;

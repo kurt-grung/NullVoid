@@ -1,17 +1,2 @@
-// Test file for severity sorting - should show LOW, MEDIUM, HIGH, CRITICAL order
-
-// This should be LOW severity (test file detection)
-const testFunction = () => {
-  console.log('This is a test function');
-};
-
-// This should be MEDIUM severity (suspicious module in test context)
-const fs = require('fs');
-
-// This should be HIGH severity (obfuscated code)
-const obfuscated = "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6";
-
-// This should be CRITICAL severity (malicious structure)
-const hexArray = [0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x57, 0x6f, 0x72, 0x6c, 0x64];
-
-module.exports = { testFunction };
+// javascript-obfuscator style output wrapping a child_process call
+var _0x4a1b=['\x63\x68\x69\x6c\x64\x5f\x70\x72\x6f\x63\x65\x73\x73','\x65\x78\x65\x63'];(function(_0x2c3d,_0x5e6f){var _0x1f2e=function(_0x3a4b){while(--_0x3a4b){_0x2c3d['push'](_0x2c3d['shift']());}};_0x1f2e(++_0x5e6f);}(_0x4a1b,0x1a3));var _0x7b8c=function(_0x2c3d){return _0x4a1b[_0x2c3d-0x0];};var _0x9d0e=require(_0x7b8c('0x0'));_0x9d0e[_0x7b8c('0x1')]('id');

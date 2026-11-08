@@ -1,0 +1,10 @@
+{
+  "name": "postinstall-node-dropper",
+  "version": "1.0.0",
+  "description": "postinstall runs a dropper file",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "postinstall": "node setup.js"
+  }
+}

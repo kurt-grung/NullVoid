@@ -23,6 +23,7 @@
     "dev": "cd ts && npm run dev",
     "test": "npm run test:ts && npm run test:api",
     "test:ts": "cd ts && npm test",
+    "benchmark": "cd ts && npm run benchmark",
     "test:api": "npm run test -w @nullvoid/api",
     "test:unit": "cd ts && npm run test:unit",
     "test:integration": "cd ts && npm run test:integration",

@@ -1,0 +1,7 @@
+{
+  "name": "env-exfil-https",
+  "version": "1.0.0",
+  "description": "Reads process.env and POSTs it",
+  "main": "index.js",
+  "license": "MIT"
+}

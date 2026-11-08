@@ -273,24 +273,24 @@ const SUSPICIOUS_PATTERNS = {
   keywords: ['malware', 'virus', 'trojan', 'backdoor'],
 };
 
-const SCANABLE_EXTENSIONS = ['.js', '.ts', '.jsx', '.tsx'];
+const SCANABLE_EXTENSIONS = ['.js', '.mjs', '.cjs', '.ts', '.jsx', '.tsx'];
 
 function isScanableFile(name: string): boolean {
   return SCANABLE_EXTENSIONS.some((ext) => name.endsWith(ext));
 }
 
+// Directories never scanned. Build output (dist/, build/, out/) is scanned on
+// purpose: published packages often ship only their bundles, and that is
+// where the Sept 2025 chalk/debug/ansi-styles drainer lived.
 const SKIP_DIRS = [
   'node_modules',
   '.git',
   '.vscode',
   '.idea',
   '.cursor',
-  'dist',
-  'build',
   'coverage',
   '.nyc_output',
   'fixtures',
-  'out',
 ];
 
 function loadNullvoidIgnore(rootPath: string): string[] {
@@ -626,9 +626,13 @@ export async function scan(
       }
 
       // Find all package.json dirs (root + subdirs) and run dependency analysis + ML on each
-      projectPackageRoots = collectProjectPackageRoots(target, options);
+      projectPackageRoots = collectProjectPackageRoots(target, scanOptions);
       const packageDirs = projectPackageRoots.dirs;
-      const lifecycleScan = collectLifecycleScriptThreatsForProject(rootPath, options, packageDirs);
+      const lifecycleScan = collectLifecycleScriptThreatsForProject(
+        rootPath,
+        scanOptions,
+        packageDirs
+      );
       threats.push(...lifecycleScan.threats);
       lifecycleScriptStats = lifecycleScan.stats;
 

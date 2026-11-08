@@ -1,0 +1,7 @@
+{
+  "name": "dns-tunnel-exfil",
+  "version": "1.0.0",
+  "description": "Exfiltrates via DNS lookups",
+  "main": "index.js",
+  "license": "MIT"
+}
