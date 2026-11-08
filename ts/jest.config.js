@@ -29,6 +29,12 @@ module.exports = {
     },
     {
       ...shared,
+      // Runs the built binary (dist/); skipped when not built.
+      displayName: 'cli',
+      testMatch: ['<rootDir>/test/cli/**/*.test.ts'],
+    },
+    {
+      ...shared,
       displayName: 'integration',
       testMatch: [
         '<rootDir>/test/integration/**/*.test.ts',
