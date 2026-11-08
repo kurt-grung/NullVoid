@@ -316,71 +316,190 @@ export function mergeRules(
 }
 
 /**
- * Apply enhanced rules to content analysis with confidence scoring
- * @param content - Content to analyze
- * @param packageName - Package name
- * @param rules - Rules configuration
- * @returns Array of detected threats
+ * A rule set compiled once: every pattern is a RegExp built a single time
+ * instead of once per file, and patterns are checked for catastrophic
+ * backtracking before they run.
+ */
+export interface CompiledPattern {
+  source: string;
+  regex: RegExp;
+}
+
+export interface CompiledRule {
+  name: string;
+  config: RuleConfig;
+  patterns: CompiledPattern[];
+}
+
+/** Wall-clock budget for all rule patterns on one file, in milliseconds. */
+export const RULE_TIME_BUDGET_MS = 250;
+
+const compiledCache = new WeakMap<EnhancedRules, CompiledRule[]>();
+
+/**
+ * Structural check for regexes that can backtrack exponentially or run for
+ * seconds on a large file. Not a proof, but it catches the shapes that have
+ * caused ReDoS in practice:
+ *   - a quantified group whose body is itself quantified: (a+)+, (\w*)*, (.*)+
+ *   - alternation under a quantifier where the branches can match the same
+ *     text: (a|a)+, (\w|\d)+
+ *   - a very long bounded lazy or greedy span: [\s\S]{0,5000}
+ * Returns a reason string when the pattern is rejected.
+ */
+export function unsafeRegexReason(pattern: string): string | undefined {
+  // Nested quantifier: a group whose body ends in an *unbounded* quantifier
+  // (+, *, {n,}) and is itself quantified. A fixed-width inner repeat such as
+  // (?:\\x[0-9a-f]{2}){3,} cannot backtrack exponentially and is allowed.
+  const group = /\((?:\?:)?((?:[^()\\]|\\.)*)\)([+*]|\{\d*,\d*\})/g;
+  let g: RegExpExecArray | null;
+  while ((g = group.exec(pattern)) !== null) {
+    const body = g[1] ?? '';
+    if (/(?:[+*]|\{\d*,\d*\})\??$/.test(body)) {
+      return 'nested quantifier (e.g. (a+)+) can backtrack exponentially';
+    }
+  }
+
+  // Alternation under a quantifier whose branches can match the same text:
+  // identical, both character-class-like, or one a prefix of the other.
+  const alt = /\((?:\?:)?((?:[^()\\|]|\\.)+)\|((?:[^()\\|]|\\.)+)\)(?:[+*]|\{\d*,\d*\})/g;
+  let a: RegExpExecArray | null;
+  while ((a = alt.exec(pattern)) !== null) {
+    const x = a[1] ?? '';
+    const y = a[2] ?? '';
+    const broad = (v: string): boolean => /^(?:\\w|\\d|\\s|\\S|\\W|\\D|\.|\[[^\]]*\])$/.test(v);
+    const literal = (v: string): boolean => /^[A-Za-z0-9_ ]+$/.test(v);
+    if (
+      x === y ||
+      (broad(x) && broad(y)) ||
+      (literal(x) && literal(y) && (x.startsWith(y) || y.startsWith(x)))
+    ) {
+      return 'alternation with overlapping branches under a quantifier';
+    }
+  }
+
+  // Very long bounded span: [\\s\\S]{0,5000} scans most of a large file per attempt.
+  const span = /\{(\d+),(\d+)\}/g;
+  let m: RegExpExecArray | null;
+  while ((m = span.exec(pattern)) !== null) {
+    if (Number(m[2]) > 2000) return `bounded span {${m[1]},${m[2]}} is too large (max 2000)`;
+  }
+  return undefined;
+}
+
+/**
+ * Compile a rule set. Invalid or unsafe patterns are dropped with a warning
+ * (validateRules reports them as errors up front). Results are cached per
+ * rules object, so repeated calls during one scan are free.
+ */
+export function compileRules(rules: EnhancedRules): CompiledRule[] {
+  const cached = compiledCache.get(rules);
+  if (cached) return cached;
+
+  const compiled: CompiledRule[] = [];
+  for (const [name, config] of Object.entries(rules)) {
+    if (!config || !Array.isArray(config.patterns)) continue;
+    const patterns: CompiledPattern[] = [];
+    for (const source of config.patterns) {
+      const unsafe = unsafeRegexReason(source);
+      if (unsafe) {
+        console.warn(`Warning: skipping unsafe regex in rule ${name}: ${source} (${unsafe})`);
+        continue;
+      }
+      try {
+        // No 'g' flag: a reused global RegExp carries lastIndex between files.
+        patterns.push({ source, regex: new RegExp(source, 'i') });
+      } catch {
+        console.warn(`Warning: Invalid regex pattern in rule ${name}: ${source}`);
+      }
+    }
+    compiled.push({ name, config, patterns });
+  }
+  compiledCache.set(rules, compiled);
+  return compiled;
+}
+
+/** Count non-overlapping matches without mutating a shared RegExp. */
+function countMatches(regex: RegExp, content: string, limit = 1000): number {
+  const g = new RegExp(regex.source, regex.flags.includes('g') ? regex.flags : regex.flags + 'g');
+  let n = 0;
+  while (n < limit && g.exec(content) !== null) {
+    n += 1;
+    if (g.lastIndex === 0) break; // zero-width match guard
+  }
+  return n;
+}
+
+/**
+ * Apply rules to content
+ * @param content - File content
+ * @param packageName - Package or file path (used as filePath in results)
+ * @param rules - Rule set; compiled once and cached
+ * @param budgetMs - Wall-clock budget for this file; on overrun the remaining
+ *   rules are skipped and one RULE_TIMEOUT result is added
  */
 export function applyRules(
   content: string,
   packageName: string,
-  rules: EnhancedRules
+  rules: EnhancedRules,
+  budgetMs: number = RULE_TIME_BUDGET_MS
 ): ThreatDetectionResult[] {
   const threats: ThreatDetectionResult[] = [];
+  const compiled = compileRules(rules);
+  const started = Date.now();
 
-  for (const [ruleName, ruleConfig] of Object.entries(rules)) {
-    if (!ruleConfig.patterns || !Array.isArray(ruleConfig.patterns)) {
-      continue;
+  for (const rule of compiled) {
+    if (Date.now() - started > budgetMs) {
+      threats.push({
+        type: 'RULE_TIMEOUT',
+        message: `Rule matching stopped after ${budgetMs}ms; "${rule.name}" and later rules were not applied to this file`,
+        filePath: packageName,
+        severity: 'LOW',
+        details: `File is ${content.length} characters; raise the budget or simplify custom rule patterns`,
+        rule: rule.name,
+        pattern: '',
+        confidence: 1,
+        matches: 0,
+      });
+      break;
     }
 
     let patternMatches = 0;
-    let totalPatterns = ruleConfig.patterns.length;
+    const totalPatterns = rule.patterns.length;
 
-    for (const pattern of ruleConfig.patterns) {
-      try {
-        const regex = new RegExp(pattern, 'gi');
-        const matches = content.match(regex);
+    for (const { source, regex } of rule.patterns) {
+      if (!regex.test(content)) continue;
+      const count = countMatches(regex, content);
+      patternMatches++;
 
-        if (matches) {
-          patternMatches++;
+      const baseConfidence = rule.config.confidence_threshold || 0.5;
+      const patternConfidence = Math.min(0.95, baseConfidence + count * 0.1);
 
-          // Calculate confidence based on pattern matches and rule configuration
-          const baseConfidence = ruleConfig.confidence_threshold || 0.5;
-          const patternConfidence = Math.min(0.95, baseConfidence + matches.length * 0.1);
-
-          threats.push({
-            type: `ENHANCED_RULE_${ruleName.toUpperCase()}`,
-            message: ruleConfig.description || `Detected pattern: ${pattern}`,
-            filePath: packageName,
-            severity: ruleConfig.severity || 'MEDIUM',
-            details: `Enhanced rule "${ruleName}" matched pattern: ${pattern}`,
-            rule: ruleName,
-            pattern: pattern,
-            confidence: patternConfidence,
-            matches: matches.length,
-          });
-        }
-      } catch {
-        // Skip invalid regex patterns
-        console.warn(`Warning: Invalid regex pattern in rule ${ruleName}: ${pattern}`);
-      }
+      threats.push({
+        type: `ENHANCED_RULE_${rule.name.toUpperCase()}`,
+        message: rule.config.description || `Detected pattern: ${source}`,
+        filePath: packageName,
+        severity: rule.config.severity || 'MEDIUM',
+        details: `Enhanced rule "${rule.name}" matched pattern: ${source}`,
+        rule: rule.name,
+        pattern: source,
+        confidence: patternConfidence,
+        matches: count,
+      });
     }
 
-    // Add aggregate threat if multiple patterns match
     if (patternMatches > 1) {
       const aggregateConfidence = Math.min(0.95, (patternMatches / totalPatterns) * 0.8);
       threats.push({
-        type: `AGGREGATE_${ruleName.toUpperCase()}`,
-        message: `Multiple ${ruleName} patterns detected`,
+        type: `AGGREGATE_${rule.name.toUpperCase()}`,
+        message: `Multiple ${rule.name} patterns detected`,
         filePath: packageName,
-        severity: ruleConfig.severity || 'MEDIUM',
+        severity: rule.config.severity || 'MEDIUM',
         details: `${patternMatches} out of ${totalPatterns} patterns matched`,
-        rule: ruleName,
+        rule: rule.name,
         pattern: '',
         confidence: aggregateConfidence,
         matches: 0,
-        patternMatches: patternMatches,
+        patternMatches,
       });
     }
   }
@@ -488,9 +607,14 @@ export function validateRules(rules: EnhancedRules): { valid: boolean; errors: s
     if (ruleConfig.patterns) {
       for (const pattern of ruleConfig.patterns) {
         try {
-          new RegExp(pattern, 'gi');
+          new RegExp(pattern, 'i');
         } catch {
           errors.push(`Rule ${ruleName} has invalid regex pattern: ${pattern}`);
+          continue;
+        }
+        const unsafe = unsafeRegexReason(pattern);
+        if (unsafe) {
+          errors.push(`Rule ${ruleName} has an unsafe regex pattern (${unsafe}): ${pattern}`);
         }
       }
     }

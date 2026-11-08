@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, jest } from '@jest/globals';
 import {
   ENHANCED_RULES,
   applyRules,
@@ -7,6 +7,8 @@ import {
   loadRules,
   parseRulesObject,
   normalizeRules,
+  compileRules,
+  unsafeRegexReason,
   type EnhancedRules,
 } from '../../src/lib/rules';
 
@@ -19,7 +21,12 @@ describe('validateRules', () => {
 
   it('flags a rule with missing patterns', () => {
     const bad: EnhancedRules = {
-      bad_rule: { patterns: null as unknown as string[], severity: 'HIGH', description: 'x', confidence_threshold: 0.8 },
+      bad_rule: {
+        patterns: null as unknown as string[],
+        severity: 'HIGH',
+        description: 'x',
+        confidence_threshold: 0.8,
+      },
     };
     const { valid, errors } = validateRules(bad);
     expect(valid).toBe(false);
@@ -67,7 +74,12 @@ describe('applyRules', () => {
 describe('mergeRules', () => {
   it('custom rule overrides a built-in rule', () => {
     const overrides: EnhancedRules = {
-      wallet_hijacking: { patterns: ['customWalletPattern'], severity: 'CRITICAL', description: 'overridden', confidence_threshold: 0.99 },
+      wallet_hijacking: {
+        patterns: ['customWalletPattern'],
+        severity: 'CRITICAL',
+        description: 'overridden',
+        confidence_threshold: 0.99,
+      },
     };
     const merged = mergeRules(overrides, ENHANCED_RULES);
     expect(merged['wallet_hijacking']?.description).toBe('overridden');
@@ -112,5 +124,89 @@ describe('normalizeRules', () => {
       x: { patterns: ['a'], severity: 'LOW', description: 'd' },
     });
     expect(rules['x']?.confidence_threshold).toBe(0.5);
+  });
+});
+
+describe('unsafeRegexReason', () => {
+  it('accepts every built-in pattern', () => {
+    for (const rule of Object.values(ENHANCED_RULES)) {
+      for (const pattern of rule.patterns) {
+        expect(unsafeRegexReason(pattern)).toBeUndefined();
+      }
+    }
+  });
+
+  it.each(['(a+)+$', '(\\w*)*x', '(.*)+y', '(?:[a-z]+)*'])('rejects nested quantifier %s', (p) => {
+    expect(unsafeRegexReason(p)).toMatch(/nested quantifier/);
+  });
+
+  it.each(['(a|a)+', '(a|aa)+', '(\\w|\\d)+'])('rejects overlapping alternation %s', (p) => {
+    expect(unsafeRegexReason(p)).toMatch(/overlapping/);
+  });
+
+  it('rejects a bounded span over 2000', () => {
+    expect(unsafeRegexReason('x[\\s\\S]{0,5000}y')).toMatch(/too large/);
+  });
+
+  it('accepts fixed-width bodies under a quantifier', () => {
+    expect(unsafeRegexReason('(?:\\\\x[0-9a-f]{2}){3,}')).toBeUndefined();
+    expect(unsafeRegexReason('(foo|bar)+')).toBeUndefined();
+  });
+});
+
+describe('compileRules', () => {
+  const rules: EnhancedRules = {
+    ok: { patterns: ['foo', 'bar'], severity: 'LOW', description: 'ok', confidence_threshold: 0.5 },
+    bad: {
+      patterns: ['(a+)+$', 'baz'],
+      severity: 'LOW',
+      description: 'bad',
+      confidence_threshold: 0.5,
+    },
+  };
+
+  it('compiles once per rules object and caches', () => {
+    const a = compileRules(rules);
+    const b = compileRules(rules);
+    expect(a).toBe(b);
+  });
+
+  it('drops unsafe patterns and keeps the rest of the rule', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const compiled = compileRules({ ...rules });
+      const bad = compiled.find((r) => r.name === 'bad');
+      expect(bad?.patterns.map((p) => p.source)).toEqual(['baz']);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('unsafe regex'));
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('validateRules reports unsafe patterns as errors', () => {
+    const { valid, errors } = validateRules(rules);
+    expect(valid).toBe(false);
+    expect(errors.some((e) => e.includes('unsafe regex'))).toBe(true);
+  });
+});
+
+describe('applyRules budget and reuse', () => {
+  const rules: EnhancedRules = {
+    first: { patterns: ['alpha'], severity: 'LOW', description: 'a', confidence_threshold: 0.5 },
+    second: { patterns: ['beta'], severity: 'LOW', description: 'b', confidence_threshold: 0.5 },
+  };
+
+  it('counts matches correctly on repeated calls (no shared lastIndex)', () => {
+    const content = 'alpha alpha alpha';
+    const r1 = applyRules(content, 'a.js', rules);
+    const r2 = applyRules(content, 'a.js', rules);
+    expect(r1.find((t) => t.rule === 'first')?.matches).toBe(3);
+    expect(r2.find((t) => t.rule === 'first')?.matches).toBe(3);
+  });
+
+  it('emits RULE_TIMEOUT and stops when the budget is exhausted', () => {
+    const out = applyRules('alpha beta', 'a.js', rules, -1);
+    expect(out.map((t) => t.type)).toEqual(['RULE_TIMEOUT']);
+    expect(out[0]?.severity).toBe('LOW');
   });
 });
