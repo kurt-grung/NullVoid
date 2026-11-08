@@ -4,6 +4,7 @@ import type { ScanOptions, Threat } from '../types/core';
 import { createThreat } from '../types/core';
 import { LIFECYCLE_SCRIPT_ANALYSIS_CONFIG } from './config';
 import { discoverInstalledPackageRoots } from './dependencySourceScan';
+import { detectMalware } from './detection';
 
 export const NPM_LIFECYCLE_SCRIPT_KEYS = new Set([
   'preinstall',
@@ -180,6 +181,123 @@ export function detectShellPayloadInScript(scriptBody: string): ShellPayloadFind
   return [filtered[0] as ShellPayloadFinding];
 }
 
+/** Max bytes of a referenced install script we will read and analyze. */
+const MAX_REFERENCED_SCRIPT_BYTES = 2 * 1024 * 1024;
+
+export interface ReferencedScript {
+  kind: 'node' | 'shell';
+  /** Path relative to the package directory as written in the script */
+  relPath: string;
+  absPath: string;
+}
+
+/**
+ * Work out which local file a lifecycle script executes, if any.
+ *   node ./setup.js            node scripts/postinstall.js --flag
+ *   node --no-warnings x.js    sh ./install.sh        bash scripts/x.sh
+ * Chains (&&, ;, |) are split and each segment checked; the first match wins.
+ * Only paths inside the package directory are followed.
+ */
+export function resolveReferencedScript(
+  body: string,
+  packageDir: string
+): ReferencedScript | undefined {
+  const segments = body.split(/&&|\|\||;|\|/).map((s) => s.trim());
+  for (const seg of segments) {
+    const nodeMatch =
+      /^(?:node|nodejs)(?:\.exe)?\s+(?:-{1,2}[\w-]+(?:=\S+)?\s+)*(?!-)(\S+\.(?:c|m)?js)\b/i.exec(
+        seg
+      );
+    const shMatch = /^(?:sh|bash|zsh)\s+(?:-\w+\s+)*(\S+\.sh)\b/i.exec(seg);
+    const m = nodeMatch ?? shMatch;
+    if (!m) continue;
+    const kind: ReferencedScript['kind'] = nodeMatch ? 'node' : 'shell';
+    const relPath = (m[1] ?? '').replace(/^['"]|['"]$/g, '');
+    if (!relPath || path.isAbsolute(relPath)) continue;
+    const absPath = path.resolve(packageDir, relPath);
+    const rel = path.relative(path.resolve(packageDir), absPath);
+    if (rel.startsWith('..')) continue; // outside the package
+    return { kind, relPath, absPath };
+  }
+  return undefined;
+}
+
+/**
+ * Analyze the file a lifecycle script runs and attribute its findings to the
+ * script. A `node ./setup.js` postinstall whose setup.js exfiltrates the
+ * environment is reported as a LIFECYCLE_PAYLOAD on package.json, with the
+ * original file-level threats kept in metadata.
+ */
+export function analyzeReferencedScript(
+  scriptName: string,
+  body: string,
+  ref: ReferencedScript,
+  packageJsonPath: string
+): Threat[] {
+  let stat: fs.Stats;
+  try {
+    stat = fs.statSync(ref.absPath);
+  } catch {
+    return [];
+  }
+  if (!stat.isFile() || stat.size > MAX_REFERENCED_SCRIPT_BYTES) return [];
+
+  let content: string;
+  try {
+    content = fs.readFileSync(ref.absPath, 'utf8');
+  } catch {
+    return [];
+  }
+
+  const findings: Array<{
+    type: string;
+    severity: Threat['severity'];
+    message: string;
+    line?: number | undefined;
+  }> = [];
+  if (ref.kind === 'node') {
+    for (const t of detectMalware(content, ref.absPath)) {
+      if (t.severity === 'HIGH' || t.severity === 'CRITICAL') {
+        findings.push({
+          type: String(t.type),
+          severity: t.severity,
+          message: t.message,
+          line: t.lineNumber ?? undefined,
+        });
+      }
+    }
+  } else {
+    for (const f of detectShellPayloadInScript(content)) {
+      findings.push({
+        type: `SHELL_${f.ruleId.toUpperCase()}`,
+        severity: f.severity,
+        message: f.description,
+      });
+    }
+  }
+  if (findings.length === 0) return [];
+
+  const worst = findings.some((f) => f.severity === 'CRITICAL') ? 'CRITICAL' : 'HIGH';
+  const summary = [...new Set(findings.map((f) => f.type))].join(', ');
+  return [
+    createThreat(
+      'LIFECYCLE_PAYLOAD',
+      `${scriptName} script runs ${ref.relPath}, which contains ${summary}`,
+      path.resolve(packageJsonPath),
+      'package.json',
+      worst,
+      `npm script "${scriptName}" executes ${ref.relPath} at install time; that file was flagged: ${findings
+        .map((f) => `${f.type}${f.line ? ` (line ${f.line})` : ''}: ${f.message}`)
+        .join('; ')}`,
+      {
+        confidence: worst === 'CRITICAL' ? 0.95 : 0.85,
+        sampleCode: body.length > 120 ? `${body.slice(0, 120)}...` : body,
+        metadata: { scriptName, referencedScript: ref.relPath, findings },
+      }
+    ),
+  ];
+}
+
 export function analyzeLifecycleScriptsForPackageJson(
   scripts: unknown,
   packageJsonPath: string
@@ -193,6 +311,12 @@ export function analyzeLifecycleScriptsForPackageJson(
   for (const [scriptName, rawBody] of Object.entries(record)) {
     if (!NPM_LIFECYCLE_SCRIPT_KEYS.has(scriptName)) continue;
     if (typeof rawBody !== 'string' || rawBody.trim().length === 0) continue;
+
+    // Follow `node ./x.js` / `sh ./x.sh` into the file it runs.
+    const ref = resolveReferencedScript(rawBody, path.dirname(resolvedPath));
+    if (ref) {
+      threats.push(...analyzeReferencedScript(scriptName, rawBody, ref, resolvedPath));
+    }
 
     const finding = detectShellPayloadInScript(rawBody)[0];
     if (!finding) continue;
