@@ -874,6 +874,21 @@ Scanned 15 package(s) in 234ms
 - **MEDIUM**: Suspicious behavior requiring review
 - **LOW**: Minor concerns or best practice violations
 
+### Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| `0` | No threats at or above the `--fail-on` severity (default `high`) |
+| `1` | At least one threat at or above `--fail-on` |
+| `2` | The scan did not complete: bad flag value, target not found, internal error |
+
+`--fail-on <critical|high|medium|low|none>` sets the threshold; `--fail-on none` always exits `0` on a completed scan. Output files (`--output`, `--sarif`) are written before the process exits, so CI can read the report either way.
+
+```bash
+nullvoid . --fail-on critical || echo "critical threat found"
+```
+
+
 ## 🔧 Configuration
 
 | Option | Description | Default |

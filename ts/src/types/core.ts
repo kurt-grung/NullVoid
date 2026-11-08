@@ -237,7 +237,8 @@ export type ThreatType =
   | 'REMOTE_CODE_EXECUTION'
   | 'OBFUSCATED_EXECUTION'
   | 'DYNAMIC_MODULE_LOAD'
-  | 'CAPABILITY_NOTE';
+  | 'CAPABILITY_NOTE'
+  | 'RULE_TIMEOUT';
 
 export type SeverityLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 

@@ -32,7 +32,7 @@ NULLVOID_PRE_COMMIT=1 git commit -m "your message"
 - The hook lives in [.husky/pre-commit](../.husky/pre-commit).
 - When `NULLVOID_PRE_COMMIT=1`, it runs [scripts/nullvoid-pre-commit.js](../scripts/nullvoid-pre-commit.js), which:
   - Runs `nullvoid . --output <temp> --depth 1 --no-ioc` (shallow scan, **no IoC lookups**).
-  - Reads the JSON result and **exits with code 1** if `threats.length > 0`.
+  - Blocks the commit when NullVoid exits `1` (threats at or above HIGH) or `2` (scan error); see the exit-code table in the README.
 - **`--no-ioc`** disables NVD/GHSA/npm/Snyk vulnerability lookups. That avoids CVE keyword false positives (e.g. the "husky" package matching unrelated "HUSKY RTU" firmware CVEs). Pre-commit therefore only blocks on **static analysis** findings (obfuscation, wallet hijacking, suspicious scripts, etc.).
 - The commit **fails** when the scanner reports one or more threats; it **succeeds** when the scan passes or the scanner errors (e.g. build failure).
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Pre-commit helper: run NullVoid and exit 1 if any threats are found.
+ * Pre-commit helper: run NullVoid and block the commit when it exits 1 (threats)
+ * or 2 (scan error).
  * Uses --depth 1 for speed and --no-ioc to skip NVD/GHSA/etc. (avoids CVE keyword false positives).
  * Run from repo/project root. Used by .husky/pre-commit when NULLVOID_PRE_COMMIT=1.
  */
@@ -29,28 +30,28 @@ const result = spawnSync(cmd, cmdArgs, {
   shell: true,
 });
 
-// If scan failed to run (e.g. build error), exit with that code
-if (result.status !== 0 && result.status !== null) {
-  try { fs.unlinkSync(tempFile); } catch { /* ignore */ }
-  process.exit(result.status);
-}
+// NullVoid's exit-code contract: 0 clean, 1 threats at/above --fail-on
+// (default HIGH), 2 scan error. The JSON report is kept for the message only.
+const status = result.status ?? 2;
 
 let threatCount = 0;
 try {
   if (fs.existsSync(tempFile)) {
     const data = JSON.parse(fs.readFileSync(tempFile, 'utf8'));
-    const threats = data.threats;
+    const threats = data.threats || [];
     threatCount = Array.isArray(threats) ? threats.length : 0;
   }
-} catch (e) {
-  // No result or invalid JSON: allow commit (scan may have had no output)
-} finally {
-  try { fs.unlinkSync(tempFile); } catch { /* ignore */ }
+} catch {
+  /* report unreadable; rely on the exit code */
 }
+try { fs.unlinkSync(tempFile); } catch { /* ignore */ }
 
-if (threatCount > 0) {
-  console.error(`\nNullVoid: ${threatCount} threat(s) found. Commit blocked. Fix or run nullvoid . for details.\n`);
+if (status === 2) {
+  console.error('NullVoid: scan did not complete. Commit blocked.');
+  process.exit(2);
+}
+if (status === 1) {
+  console.error(`NullVoid: ${threatCount || 'one or more'} threat(s) found. Commit blocked.`);
   process.exit(1);
 }
-
 process.exit(0);
