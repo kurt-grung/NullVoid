@@ -11,7 +11,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-import joblib
+from model_io import load_model, save_stacker
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_auc_score
 from sklearn.model_selection import train_test_split
@@ -33,9 +33,8 @@ def load_jsonl(path: Path) -> list[dict]:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--input", default="train.jsonl", help="Input JSONL with labels and feature vectors")
-    ap.add_argument("--dep-model", default="model.pkl", help="Dependency model path")
-    ap.add_argument("--beh-model", default="behavioral-model.pkl", help="Behavioral model path")
-    ap.add_argument("--output", default="ensemble-model.pkl", help="Output ensemble model path")
+    ap.add_argument("--model-dir", default=".", help="Directory holding model.model.json and behavioral.model.json")
+    ap.add_argument("--output", default="ensemble.model.json", help="Output ensemble model path (JSON)")
     ap.add_argument("--metadata", default="ensemble-metadata.json", help="Output metadata path")
     ap.add_argument("--test-size", type=float, default=0.2, help="Fraction of data held out for evaluation")
     args = ap.parse_args()
@@ -44,10 +43,11 @@ def main() -> None:
     if not rows:
         raise SystemExit("No rows found in input JSONL")
 
-    dep_model = joblib.load(args.dep_model)
-    beh_model = joblib.load(args.beh_model)
-    dep_keys = joblib.load("feature_keys.pkl")
-    beh_keys = joblib.load("behavioral-feature_keys.pkl")
+    model_dir = Path(args.model_dir)
+    dep_model, _dep_meta = load_model(model_dir, "model")
+    beh_model, _beh_meta = load_model(model_dir, "behavioral")
+    dep_keys = dep_model.feature_keys
+    beh_keys = beh_model.feature_keys
 
     X = []
     y = []
@@ -82,7 +82,6 @@ def main() -> None:
     preds = ensemble.predict(X_test)
     probas = ensemble.predict_proba(X_test)[:, 1]
 
-    joblib.dump(ensemble, args.output)
     metadata = {
         "model_type": "logreg_stacker",
         "training_date": datetime.utcnow().isoformat() + "Z",
@@ -97,11 +96,10 @@ def main() -> None:
             "recall": round(float(recall_score(y_test, preds, zero_division=0)), 4),
             "roc_auc": round(float(roc_auc_score(y_test, probas)), 4),
         },
-        "dep_model": args.dep_model,
-        "beh_model": args.beh_model,
+        "dep_model": "model.model.json",
+        "beh_model": "behavioral.model.json",
     }
-    with open(args.metadata, "w", encoding="utf-8") as f:
-        json.dump(metadata, f, indent=2)
+    save_stacker(ensemble, Path(args.output), Path(args.metadata), metadata)
 
     print(f"Ensemble model saved to {args.output}")
     print(f"Metadata saved to {args.metadata}")

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Train an XGBoost model for behavioral anomaly scoring (package scripts).
-Reads JSONL from --input, outputs behavioral-model.pkl, behavioral-feature_keys.pkl, behavioral-metadata.json.
+Reads JSONL from --input, outputs behavioral.model.json, behavioral.calib.json, behavioral-metadata.json.
 
 Usage:
   python train-behavioral.py --input train-behavioral.jsonl
@@ -10,14 +10,18 @@ Usage:
 """
 
 import argparse
+
+import numpy as np
 import json
 import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from model_io import save_model
+
 try:
-    import joblib
+    pass
     import xgboost as xgb
     from sklearn.calibration import CalibratedClassifierCV
     from sklearn.model_selection import train_test_split
@@ -29,7 +33,7 @@ try:
         roc_auc_score,
     )
 except ImportError as e:
-    print("Install: pip install scikit-learn xgboost joblib", file=sys.stderr)
+    print("Install: pip install scikit-learn xgboost", file=sys.stderr)
     raise e
 
 _MANIFEST_PATH = Path(__file__).parent / "feature-keys.json"
@@ -161,10 +165,26 @@ def main():
     xgb_kw = {**XGBOOST_PARAMS, "scale_pos_weight": scale_pos_weight}
     base_model = xgb.XGBClassifier(**xgb_kw)
 
+    # One booster on all training data; Platt scaling from out-of-fold margins.
+    calib_margins = None
     if do_calibrate:
-        model = CalibratedClassifierCV(base_model, method="sigmoid", cv=3)
-    else:
-        model = base_model
+        from sklearn.model_selection import StratifiedKFold, cross_val_predict
+
+        n_min = min(int(sum(1 for v in y_train if v == 1)), int(sum(1 for v in y_train if v == 0)))
+        folds = max(2, min(3, n_min))
+        if n_min >= 2:
+            proba = cross_val_predict(
+                xgb.XGBClassifier(**xgb_kw),
+                np.asarray(X_train, dtype=float),
+                np.asarray(y_train),
+                cv=StratifiedKFold(n_splits=folds, shuffle=True, random_state=42),
+                method="predict_proba",
+            )[:, 1]
+            proba = np.clip(proba, 1e-6, 1 - 1e-6)
+            calib_margins = np.log(proba / (1 - proba))
+        else:
+            print("Calibration skipped: fewer than 2 samples in a class")
+    model = base_model
 
     model.fit(X_train, y_train)
     training_scores = []
@@ -202,10 +222,6 @@ def main():
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    model_path = out_dir / "behavioral-model.pkl"
-    joblib.dump(model, model_path)
-    joblib.dump(BEHAVIORAL_FEATURE_KEYS, out_dir / "behavioral-feature_keys.pkl")
-
     metadata = {
         "model_type": "xgboost_behavioral" + ("_calibrated" if do_calibrate else ""),
         "feature_keys": BEHAVIORAL_FEATURE_KEYS,
@@ -219,10 +235,9 @@ def main():
         "metrics": metrics,
         "training_scores": training_scores,
     }
-    with open(out_dir / "behavioral-metadata.json", "w") as f:
-        json.dump(metadata, f, indent=2)
+    hashes = save_model(model, out_dir, "behavioral", BEHAVIORAL_FEATURE_KEYS, metadata, y_calib=y_train, calib_margins=calib_margins)
 
-    print(f"Model saved to {model_path}")
+    print(f"Model saved to {out_dir / 'behavioral.model.json'} (sha256 {hashes['model'][:12]}…)")
     print(f"Metadata saved to {out_dir / 'behavioral-metadata.json'}")
 
 

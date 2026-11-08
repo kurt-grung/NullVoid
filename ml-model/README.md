@@ -4,6 +4,19 @@ Train and serve an XGBoost model for dependency confusion threat scoring. Suppor
 
 **Python:** 3.9+ is supported. GitHub Actions uses **3.11** for the ML train/eval step—use 3.11+ locally if you want the same `scikit-learn` resolution as CI.
 
+## Model artifacts
+
+Models are stored as JSON, never pickle (a pickled model executes arbitrary code when loaded):
+
+| File | Contents |
+| --- | --- |
+| `model.model.json` / `behavioral.model.json` | XGBoost booster, native JSON format |
+| `model.calib.json` / `behavioral.calib.json` | Platt-scaling parameters `a`, `b` and the feature key order |
+| `metadata.json` / `behavioral-metadata.json` | training details plus `artifacts.sha256` for both files above |
+| `ensemble.model.json` + `ensemble-metadata.json` | logistic-regression stacker coefficients (optional) |
+
+`model_io.load_model` verifies the sha256 of each file against its metadata and raises `ModelIntegrityError` on mismatch or when metadata carries no hashes; `serve.py` exits 2 rather than serving an unverified model. `*.pkl` is git-ignored.
+
 ## Quick Start
 
 From the **project root**:
@@ -25,9 +38,9 @@ nullvoid scan /path/to/malware-projects --train
 nullvoid scan . --export-training ml-model/train.jsonl --export-training-good ml-model/train.jsonl
 
 # 3. Train the model
-nullvoid train --input train.jsonl --output model.pkl
+nullvoid train --input train.jsonl --output-dir .
 
-# 4. (Optional) Evaluate metrics on train.jsonl with the saved model.pkl
+# 4. (Optional) Evaluate metrics on train.jsonl with the saved model
 npm run ml:eval
 
 # Behavioral model (same idea):
@@ -96,7 +109,7 @@ node ml-model/dedup-train.js ml-model/train-behavioral.jsonl ml-model/train-beha
 python3 ml-model/train-behavioral.py --input ml-model/train-behavioral.jsonl --balance --calibrate
 ```
 
-This mirrors the dependency pipeline: **export → dedup → train**. The weekly **ML Model Retrain** workflow refreshes both `train.jsonl` and `train-behavioral.jsonl` from GHSA plus the same known-good list, then commits updated `model.pkl` and `behavioral-model.pkl` artifacts when they change.
+This mirrors the dependency pipeline: **export → dedup → train**. The weekly **ML Model Retrain** workflow refreshes both `train.jsonl` and `train-behavioral.jsonl` from GHSA plus the same known-good list, then commits updated `model.model.json` / `behavioral.model.json` artifacts (with their `.calib.json` and metadata) when they change.
 
 ## Export Features
 
@@ -154,8 +167,8 @@ The same script works for behavioral JSONL (used after `--overwrite` exports in 
 **In-sample** (quick check on the same file you trained on):
 
 ```bash
-cd ml-model && python3 evaluate.py --input train.jsonl --model model.pkl --json
-cd ml-model && python3 evaluate.py --behavioral --input train-behavioral.jsonl --model behavioral-model.pkl --json
+cd ml-model && python3 evaluate.py --input train.jsonl --model . --json
+cd ml-model && python3 evaluate.py --behavioral --input train-behavioral.jsonl --model . --json
 ```
 
 **Held-out** validation (matches CI): split first, train only on the train split, then evaluate on the validation split:
@@ -166,8 +179,8 @@ python3 ml-model/split_train_val.py \
   --train-out /tmp/ml-train.jsonl \
   --val-out /tmp/ml-val.jsonl \
   --val-fraction 0.2 --seed 42
-cd ml-model && python3 train.py --input /tmp/ml-train.jsonl --output /tmp/m.pkl --balance --calibrate
-cd ml-model && python3 evaluate.py --input /tmp/ml-val.jsonl --model /tmp/m.pkl --keys /tmp/feature_keys.pkl --json --eval-set validation
+cd ml-model && python3 train.py --input /tmp/ml-train.jsonl --output-dir /tmp/m --balance --calibrate
+cd ml-model && python3 evaluate.py --input /tmp/ml-val.jsonl --model /tmp/m --json --eval-set validation
 ```
 
 **Time-based holdout** (when every JSONL row includes an ISO `exportedAt` from export scripts): oldest rows train, newest `val_fraction` validate—reduces temporal leakage. If any row is missing the field, the tool falls back to stratified splitting and prints a short JSON message on stderr.
@@ -184,7 +197,7 @@ python3 ml-model/split_train_val.py \
 Optional **quality gates** (process exits with code 1 if the metric is computed and below the floor):
 
 ```bash
-python3 evaluate.py --input /tmp/ml-val.jsonl --model /tmp/m.pkl --keys /tmp/feature_keys.pkl --min-roc-auc 0.55 --json
+python3 evaluate.py --input /tmp/ml-val.jsonl --model /tmp/m --min-roc-auc 0.55 --json
 ```
 
 On every push to `main`, **Tests** uploads **`ml-eval-report.json`** (dependency + behavioral metrics on the held-out slice) and fails the job if held-out precision/recall (and behavioral ROC-AUC when defined) fall below conservative floors.
@@ -202,7 +215,7 @@ This runs `split_train_val.py` with **`--time-val-newest --time-field exportedAt
 ## Training Options
 
 ```bash
-python train.py --input train.jsonl --output model.pkl
+python train.py --input train.jsonl --output-dir .
 python train.py --input train.jsonl --balance          # Oversample minority class
 python train.py --input train.jsonl --balance-class-weight  # Imbalance via XGBoost scale_pos_weight only (no oversampling)
 python train.py --input train.jsonl --no-calibrate    # Skip Platt scaling
@@ -266,7 +279,7 @@ Response:
 
 ```bash
 python serve.py --port 8000
-python serve.py --model model.pkl --port 8000
+python serve.py --model-dir . --port 8000
 python serve.py --model-dir models/v1 --port 8000
 ```
 
@@ -283,7 +296,7 @@ When you add or reorder columns (e.g. new NLP or code-quality signals in `buildF
 2. **`ts/src/lib/mlFeatureKeys.ts`** imports that manifest at compile time—no manual list to edit unless you change how it is loaded.
 3. Update **`export-features.js`** and **`ts/src/lib/mlDetection.ts`** (`buildFeatureVector`) so training rows and the scanner expose every key.
 4. Run **`npm run test:ts`** and ensure **`ts/test/unit/ml-feature-parity.test.ts`** passes.
-5. Retrain and bump committed **`model.pkl`** / metadata when you ship the new schema.
+5. Retrain and bump the committed **`model.model.json`** / metadata when you ship the new schema.
 ## Feature Schema
 
 Features match `buildFeatureVector` output from `ts/src/lib/mlDetection.ts`:

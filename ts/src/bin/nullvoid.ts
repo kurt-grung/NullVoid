@@ -176,13 +176,17 @@ program
   .command('train')
   .description('Train dependency confusion ML model')
   .option('--input <file>', 'Training data JSONL input file', 'train.jsonl')
-  .option('--output <file>', 'Output model path', 'model.pkl')
+  .option(
+    '--output-dir <dir>',
+    'Output directory for model.model.json, model.calib.json, metadata.json',
+    '.'
+  )
   .option('--no-balance', 'Disable class balancing')
   .option('--no-calibrate', 'Disable probability calibration')
   .action(
     async (options: {
       input?: string;
-      output?: string;
+      outputDir?: string;
       balance?: boolean;
       calibrate?: boolean;
     }) => {
@@ -191,8 +195,8 @@ program
         const args: string[] = [
           '--input',
           options.input ?? 'train.jsonl',
-          '--output',
-          options.output ?? 'model.pkl',
+          '--output-dir',
+          options.outputDir ?? '.',
         ];
         if (options.balance !== false) args.push('--balance');
         if (options.calibrate !== false) args.push('--calibrate');
@@ -243,36 +247,26 @@ program
   .command('eval')
   .description('Evaluate dependency model metrics')
   .option('--input <file>', 'Evaluation dataset JSONL input file', 'train.jsonl')
-  .option('--model <file>', 'Model file path', 'model.pkl')
-  .option('--keys <file>', 'Feature keys file path')
+  .option('--model <dir>', 'Directory holding model.model.json', '.')
   .option('--json', 'Output evaluation report as JSON')
   .option('--eval-set <name>', 'Evaluation set name')
-  .action(
-    async (options: {
-      input?: string;
-      model?: string;
-      keys?: string;
-      json?: boolean;
-      evalSet?: string;
-    }) => {
-      try {
-        const args: string[] = [
-          '--input',
-          options.input ?? 'train.jsonl',
-          '--model',
-          options.model ?? 'model.pkl',
-        ];
-        if (options.keys) args.push('--keys', options.keys);
-        if (options.json) args.push('--json');
-        if (options.evalSet) args.push('--eval-set', options.evalSet);
-        await runMlEvaluate(args);
-        process.exit(0);
-      } catch (error) {
-        console.error(colors.red('Error:'), (error as Error).message);
-        process.exit(1);
-      }
+  .action(async (options: { input?: string; model?: string; json?: boolean; evalSet?: string }) => {
+    try {
+      const args: string[] = [
+        '--input',
+        options.input ?? 'train.jsonl',
+        '--model',
+        options.model ?? '.',
+      ];
+      if (options.json) args.push('--json');
+      if (options.evalSet) args.push('--eval-set', options.evalSet);
+      await runMlEvaluate(args);
+      process.exit(0);
+    } catch (error) {
+      console.error(colors.red('Error:'), (error as Error).message);
+      process.exit(1);
     }
-  );
+  });
 
 program
   .command('eval-behavioral')
@@ -282,7 +276,7 @@ program
     'Behavioral evaluation dataset JSONL input file',
     'train-behavioral.jsonl'
   )
-  .option('--model <file>', 'Behavioral model file path', 'behavioral-model.pkl')
+  .option('--model <dir>', 'Directory holding behavioral.model.json', '.')
   .option('--json', 'Output evaluation report as JSON')
   .option('--eval-set <name>', 'Evaluation set name')
   .action(async (options: { input?: string; model?: string; json?: boolean; evalSet?: string }) => {
@@ -292,7 +286,7 @@ program
         '--input',
         options.input ?? 'train-behavioral.jsonl',
         '--model',
-        options.model ?? 'behavioral-model.pkl',
+        options.model ?? '.',
       ];
       if (options.json) args.push('--json');
       if (options.evalSet) args.push('--eval-set', options.evalSet);
@@ -402,39 +396,28 @@ program
   .command('eval-heldout-cache')
   .description('Evaluate dependency model using cached held-out validation split')
   .option('--input <file>', 'Input JSONL validation split', 'ml-model/.eval-cache/val.jsonl')
-  .option('--model <file>', 'Held-out model file', 'ml-model/.eval-cache/model.pkl')
-  .option('--keys <file>', 'Held-out feature keys file', 'ml-model/.eval-cache/feature_keys.pkl')
+  .option('--model <dir>', 'Held-out model directory', 'ml-model/.eval-cache')
   .option('--json', 'Output evaluation report as JSON')
   .option('--eval-set <name>', 'Evaluation set name', 'validation')
-  .action(
-    async (options: {
-      input?: string;
-      model?: string;
-      keys?: string;
-      json?: boolean;
-      evalSet?: string;
-    }) => {
-      try {
-        const args: string[] = [
-          'ml-model/evaluate.py',
-          '--input',
-          options.input ?? 'ml-model/.eval-cache/val.jsonl',
-          '--model',
-          options.model ?? 'ml-model/.eval-cache/model.pkl',
-          '--keys',
-          options.keys ?? 'ml-model/.eval-cache/feature_keys.pkl',
-          '--eval-set',
-          options.evalSet ?? 'validation',
-        ];
-        if (options.json) args.push('--json');
-        await runCommand('python3', args, REPO_ROOT);
-        process.exit(0);
-      } catch (error) {
-        console.error(colors.red('Error:'), (error as Error).message);
-        process.exit(1);
-      }
+  .action(async (options: { input?: string; model?: string; json?: boolean; evalSet?: string }) => {
+    try {
+      const args: string[] = [
+        'ml-model/evaluate.py',
+        '--input',
+        options.input ?? 'ml-model/.eval-cache/val.jsonl',
+        '--model',
+        options.model ?? 'ml-model/.eval-cache',
+        '--eval-set',
+        options.evalSet ?? 'validation',
+      ];
+      if (options.json) args.push('--json');
+      await runCommand('python3', args, REPO_ROOT);
+      process.exit(0);
+    } catch (error) {
+      console.error(colors.red('Error:'), (error as Error).message);
+      process.exit(1);
     }
-  );
+  });
 
 program
   .command('heldout-dependency')
@@ -481,9 +464,7 @@ program
           '--input',
           'ml-model/.eval-cache/val.jsonl',
           '--model',
-          'ml-model/.eval-cache/model.pkl',
-          '--keys',
-          'ml-model/.eval-cache/feature_keys.pkl',
+          'ml-model/.eval-cache',
           '--json',
           '--eval-set',
           'validation',
@@ -504,8 +485,8 @@ program
   .action(async (options: { url?: string }) => {
     try {
       ensureMlModelDir();
-      const dependencyModel = path.join(ML_MODEL_DIR, 'model.pkl');
-      const behavioralModel = path.join(ML_MODEL_DIR, 'behavioral-model.pkl');
+      const dependencyModel = path.join(ML_MODEL_DIR, 'model.model.json');
+      const behavioralModel = path.join(ML_MODEL_DIR, 'behavioral.model.json');
       const metadata = path.join(ML_MODEL_DIR, 'metadata.json');
       const behavioralMetadata = path.join(ML_MODEL_DIR, 'behavioral-metadata.json');
 
@@ -552,8 +533,8 @@ program
       await runMlPython('train.py', [
         '--input',
         'train.jsonl',
-        '--output',
-        'model.pkl',
+        '--output-dir',
+        '.',
         '--balance',
         '--calibrate',
       ]);

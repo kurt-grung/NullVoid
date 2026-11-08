@@ -2,8 +2,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const MODEL_CANDIDATES = [
-  path.join(process.cwd(), 'ml-model', 'model.pkl'),
-  path.resolve(__dirname, '../../../ml-model/model.pkl'),
+  path.join(process.cwd(), 'ml-model', 'model.model.json'),
+  path.resolve(__dirname, '../../../ml-model/model.model.json'),
 ];
 
 export function embeddedModelArtifactExists(): boolean {

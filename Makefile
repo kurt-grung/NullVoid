@@ -47,7 +47,7 @@ serve:
 	node ts/dist/bin/nullvoid.js serve --port 8000
 
 train:
-	node ts/dist/bin/nullvoid.js train --input train.jsonl --output model.pkl
+	node ts/dist/bin/nullvoid.js train --input train.jsonl --output-dir .
 
 # Backward-compatible aliases
 ml-serve: serve

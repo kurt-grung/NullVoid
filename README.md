@@ -281,10 +281,10 @@ flowchart TB
     subgraph train [Training]
         JSONL[train.jsonl]
         TrainPy[train.py]
-        Model[model.pkl]
+        Model[model.model.json]
         BehavioralJSONL[train-behavioral.jsonl]
         TrainBehavioral[train-behavioral.py]
-        BehavioralModel[behavioral-model.pkl]
+        BehavioralModel[behavioral.model.json]
     end
 
     subgraph serve [Serving - serve.py]
@@ -340,7 +340,7 @@ flowchart TB
 **Flow:**
 1. **Feature extraction** – `timelineAnalysis`, `commitPatternAnalysis`, `anomalyDetection`, `nlpAnalysis`, `communityAnalysis`, `trustNetwork` feed into `buildFeatureVector`; AST/script analysis feeds `PackageFeatures` (behavioral).
 2. **Export** – `export-features.js` (GHSA, known-good/bad) or `scan --train` → `train.jsonl`; `export-behavioral-features.js` → `train-behavioral.jsonl`.
-3. **Training** – `train.py` (XGBoost + calibration) → `model.pkl`; `train-behavioral.py` → `behavioral-model.pkl`.
+3. **Training** – `train.py` (XGBoost + Platt calibration) → `model.model.json` + `model.calib.json`; `train-behavioral.py` → `behavioral.model.json`. Models are XGBoost's native JSON with sha256 hashes recorded in the metadata; the service refuses an artifact whose hash does not match. No pickle files.
 4. **Serving** – `serve.py` exposes `POST /score`, `POST /behavioral-score`, `POST /batch-score`, `GET /importance`, `POST /explain`.
 5. **Runtime** – `dependencyConfusion` → `runMLDetection` (ML model if `ML_MODEL_URL`) or rule-based; behavioral model (if `BEHAVIORAL_MODEL_URL`) or `computeBehavioralAnomaly`.
 
@@ -360,7 +360,7 @@ nullvoid scan /path/to/malware-projects --no-ioc --train
 nullvoid scan . --export-training ml-model/train.jsonl --export-training-good ml-model/train.jsonl
 
 # 5. Train the model (XGBoost + calibration)
-nullvoid train --input train.jsonl --output model.pkl
+nullvoid train --input train.jsonl --output-dir .
 
 # 6. Start ML server (optional, for live scoring)
 nullvoid serve --port 8000
@@ -370,8 +370,8 @@ nullvoid export-behavioral --out train-behavioral.jsonl
 nullvoid train-behavioral --input train-behavioral.jsonl
 
 # Evaluate current models
-nullvoid eval --input train.jsonl --model model.pkl --json
-nullvoid eval-behavioral --input train-behavioral.jsonl --model behavioral-model.pkl --json
+nullvoid eval --input train.jsonl --model . --json
+nullvoid eval-behavioral --input train-behavioral.jsonl --model . --json
 
 # Deduplicate rows before training (optional)
 nullvoid dedup ml-model/train.jsonl ml-model/train.jsonl
@@ -398,10 +398,10 @@ Legacy npm aliases remain available: `npm run ml:export`, `npm run ml:train`, an
 | `node ml-model/export-features.js --from-ghsa` | Fetch known-bad npm packages from GitHub Security Advisories |
 | `nullvoid scan <path> --train` | Append malware samples from scanned threats (dedupes) |
 | `nullvoid scan <path> --export-training-good <file>` | Append clean packages (label 0) for balanced training |
-| `nullvoid train --input train.jsonl --output model.pkl` | Train XGBoost model from `train.jsonl` → `model.pkl` |
-| `nullvoid train-behavioral --input train-behavioral.jsonl` | Train behavioral model from `train-behavioral.jsonl` → `behavioral-model.pkl` |
-| `nullvoid eval --input train.jsonl --model model.pkl --json` | Evaluate dependency model and print metrics |
-| `nullvoid eval-behavioral --input train-behavioral.jsonl --model behavioral-model.pkl --json` | Evaluate behavioral model and print metrics |
+| `nullvoid train --input train.jsonl --output-dir .` | Train XGBoost model from `train.jsonl` → `model.model.json` + `model.calib.json` |
+| `nullvoid train-behavioral --input train-behavioral.jsonl` | Train behavioral model from `train-behavioral.jsonl` → `behavioral.model.json` |
+| `nullvoid eval --input train.jsonl --model . --json` | Evaluate dependency model and print metrics |
+| `nullvoid eval-behavioral --input train-behavioral.jsonl --model . --json` | Evaluate behavioral model and print metrics |
 | `nullvoid dedup [input] [output]` | Deduplicate training JSONL rows |
 | `nullvoid split-train-val ...` | Split `train.jsonl` into held-out train/validation files |
 | `nullvoid train-heldout-cache ...` | Train model from held-out cache split |
@@ -718,7 +718,7 @@ See [ML Training Pipeline](#-ml-training-pipeline) above for the full setup. Qui
 nullvoid export --out train.jsonl
 node ml-model/export-features.js --from-ghsa --out ml-model/train.jsonl
 nullvoid scan /path/to/malware --no-ioc --train
-nullvoid train --input train.jsonl --output model.pkl
+nullvoid train --input train.jsonl --output-dir .
 nullvoid serve --port 8000
 ```
 

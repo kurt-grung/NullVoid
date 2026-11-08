@@ -1,0 +1,30 @@
+{
+  "method": "sigmoid",
+  "params": {
+    "a": -1.053755974613859,
+    "b": -0.39257106038475204
+  },
+  "feature_keys": [
+    "daysDifference",
+    "recentCommitCount",
+    "scopePrivate",
+    "suspiciousPatternsCount",
+    "timelineAnomaly",
+    "registryIsNpm",
+    "authorCount",
+    "totalCommitCount",
+    "dominantAuthorShare",
+    "commitPatternAnomaly",
+    "branchCount",
+    "recentCommitCount90d",
+    "messageAnomalyScore",
+    "diffAnomalyScore",
+    "nlpSecurityScore",
+    "nlpSuspiciousCount",
+    "crossPackageAnomaly",
+    "behavioralAnomaly",
+    "reviewSecurityScore",
+    "popularityScore",
+    "trustScore"
+  ]
+}
