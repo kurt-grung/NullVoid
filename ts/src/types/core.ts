@@ -231,7 +231,13 @@ export type ThreatType =
   | 'UNKNOWN_ERROR'
   | 'VULNERABLE_PACKAGE'
   | 'SUSPICIOUS_PACKAGE_NAME'
-  | 'TYPOSQUATTING_RISK';
+  | 'TYPOSQUATTING_RISK'
+  // Capability analysis (combinations of Node capabilities in one file)
+  | 'CREDENTIAL_THEFT'
+  | 'REMOTE_CODE_EXECUTION'
+  | 'OBFUSCATED_EXECUTION'
+  | 'DYNAMIC_MODULE_LOAD'
+  | 'CAPABILITY_NOTE';
 
 export type SeverityLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 

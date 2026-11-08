@@ -78,6 +78,37 @@ const SHELL_PAYLOAD_RULES: Array<{
     description: 'world-writable permissions',
   },
   {
+    id: 'powershell-encoded',
+    regex: /\bpowershell(\.exe)?\b[^\n]*\s-(e|enc|encodedcommand)\b/i,
+    severity: 'CRITICAL',
+    description: 'PowerShell with an encoded command',
+  },
+  {
+    id: 'powershell-download-exec',
+    regex:
+      /\bpowershell(\.exe)?\b[^\n]*\b(IEX|Invoke-Expression|DownloadString|Net\.WebClient|Invoke-WebRequest|iwr)\b/i,
+    severity: 'CRITICAL',
+    description: 'PowerShell downloading or evaluating remote content',
+  },
+  {
+    id: 'node-eval-inline',
+    regex: /\bnode(\.exe)?\s+(-e|--eval|-p|--print)\s/i,
+    severity: 'HIGH',
+    description: 'inline node -e payload in a lifecycle script',
+  },
+  {
+    id: 'command-substitution-download',
+    regex: /\$\([^)]*\b(curl|wget|base64)\b[^)]*\)/i,
+    severity: 'HIGH',
+    description: 'command substitution with a download or decode',
+  },
+  {
+    id: 'download-then-execute',
+    regex: /\b(curl|wget)\b[^\n]*\s-o\s*\S+[^\n]*(&&|;)\s*(sh|bash|node|chmod)\b/i,
+    severity: 'CRITICAL',
+    description: 'download to disk followed by execution',
+  },
+  {
     id: 'hex_encoded_shell',
     regex: /\bxxd\s+-r\s+-p\b|\bbase64\s+-d\b.*\|\s*(ba)?sh\b/i,
     severity: 'HIGH',
@@ -99,7 +130,14 @@ export function isLikelyBenignLifecycleScript(body: string): boolean {
   );
   if (hasShellMetachar) return false;
 
-  if (/^node(\s|$)/.test(trimmed) || /^node\s/.test(trimmed)) return true;
+  // `node ./script.js` is the normal way to run an install step; `node -e`
+  // / `-p` with an inline program is not, so those fall through to the rules.
+  if (
+    /^node(\.exe)?(\s|$)/.test(trimmed) &&
+    !/^node(\.exe)?\s+(-e|--eval|-p|--print)\b/.test(trimmed)
+  ) {
+    return true;
+  }
   if (/^(npm|pnpm|yarn)\s+(run|exec)\s+/i.test(trimmed)) return true;
   if (
     /^(tsc|vite|webpack|rollup|esbuild|next|nuxt|turbo|rimraf|mkdirp|cpy-cli|lerna|nx)\b/i.test(

@@ -1,0 +1,194 @@
+{
+  "description": "Malicious benchmark corpus. Each package reconstructs the technique of a real npm incident; none contains a live payload or working C2. Scanner must report at least one HIGH/CRITICAL threat per package.",
+  "packages": [
+    {
+      "name": "env-exfil-https",
+      "incident": "event-stream-style env theft (generic)",
+      "expect": [
+        "DATA_EXFILTRATION"
+      ]
+    },
+    {
+      "name": "npmrc-theft-fetch",
+      "incident": "2021 ua-parser-js / coa credential stealers",
+      "expect": [
+        "CREDENTIAL_THEFT"
+      ]
+    },
+    {
+      "name": "ssh-key-harvest",
+      "incident": "Shai-Hulud 2025 secret harvesting",
+      "expect": [
+        "CREDENTIAL_THEFT"
+      ]
+    },
+    {
+      "name": "postinstall-curl-sh",
+      "incident": "generic dropper lifecycle script",
+      "expect": [
+        "SUSPICIOUS_SCRIPT",
+        "ENHANCED_RULE_SUSPICIOUS_SCRIPTS",
+        "LIFECYCLE"
+      ]
+    },
+    {
+      "name": "postinstall-node-dropper",
+      "incident": "node-ipc / colors style install-time payload",
+      "expect": [
+        "DATA_EXFILTRATION",
+        "CREDENTIAL_THEFT",
+        "LIFECYCLE",
+        "SUSPICIOUS_SCRIPT"
+      ]
+    },
+    {
+      "name": "base64-eval-loader",
+      "incident": "generic obfuscated loader",
+      "expect": [
+        "OBFUSCATED_EXECUTION",
+        "ENHANCED_RULE_OBFUSCATED_CODE"
+      ]
+    },
+    {
+      "name": "fromcharcode-function",
+      "incident": "generic obfuscated loader",
+      "expect": [
+        "OBFUSCATED_EXECUTION",
+        "ENHANCED_RULE_OBFUSCATED_CODE"
+      ]
+    },
+    {
+      "name": "obfuscator-output",
+      "incident": "typical npm malware dropper obfuscation",
+      "expect": [
+        "MALICIOUS_CODE_STRUCTURE",
+        "ENHANCED_RULE_OBFUSCATED_CODE"
+      ]
+    },
+    {
+      "name": "wallet-proxy-hijack",
+      "incident": "Sept 2025 chalk/debug/ansi-styles drainer",
+      "expect": [
+        "WALLET_HIJACKING",
+        "ENHANCED_RULE_WALLET_HIJACKING"
+      ]
+    },
+    {
+      "name": "fetch-response-rewrite",
+      "incident": "Sept 2025 drainer response rewriting",
+      "expect": [
+        "NETWORK_MANIPULATION",
+        "ENHANCED_RULE_NETWORK_MANIPULATION",
+        "WALLET_HIJACKING"
+      ]
+    },
+    {
+      "name": "xhr-prototype-hook",
+      "incident": "browser traffic interception",
+      "expect": [
+        "NETWORK_MANIPULATION",
+        "ENHANCED_RULE_NETWORK_MANIPULATION"
+      ]
+    },
+    {
+      "name": "remote-code-fetch-exec",
+      "incident": "generic second-stage loader",
+      "expect": [
+        "REMOTE_CODE_EXECUTION"
+      ]
+    },
+    {
+      "name": "child-process-download-run",
+      "incident": "generic dropper",
+      "expect": [
+        "REMOTE_CODE_EXECUTION",
+        "SUSPICIOUS_SCRIPT",
+        "ENHANCED_RULE_SUSPICIOUS_SCRIPTS"
+      ]
+    },
+    {
+      "name": "dns-tunnel-exfil",
+      "incident": "DNS tunnelling of secrets",
+      "expect": [
+        "DATA_EXFILTRATION",
+        "ENHANCED_RULE_DATA_EXFILTRATION"
+      ]
+    },
+    {
+      "name": "dynamic-require-join",
+      "incident": "evasion of static require scanning",
+      "expect": [
+        "DYNAMIC_MODULE_LOAD"
+      ]
+    },
+    {
+      "name": "crypto-miner-stratum",
+      "incident": "cryptojacking",
+      "expect": [
+        "CRYPTO_MINING",
+        "ENHANCED_RULE_CRYPTO_MINING"
+      ]
+    },
+    {
+      "name": "browser-cookie-theft",
+      "incident": "infostealer",
+      "expect": [
+        "CREDENTIAL_THEFT"
+      ]
+    },
+    {
+      "name": "preinstall-powershell-enc",
+      "incident": "Windows dropper lifecycle script",
+      "expect": [
+        "SUSPICIOUS_SCRIPT",
+        "ENHANCED_RULE_SUSPICIOUS_SCRIPTS",
+        "LIFECYCLE"
+      ]
+    },
+    {
+      "name": "install-node-e-inline",
+      "incident": "inline lifecycle payload",
+      "expect": [
+        "SUSPICIOUS_SCRIPT",
+        "ENHANCED_RULE_SUSPICIOUS_SCRIPTS",
+        "LIFECYCLE"
+      ]
+    },
+    {
+      "name": "env-to-websocket",
+      "incident": "exfil via ws",
+      "expect": [
+        "DATA_EXFILTRATION"
+      ]
+    },
+    {
+      "name": "hostinfo-beacon",
+      "incident": "reconnaissance beacon",
+      "expect": [
+        "DATA_EXFILTRATION"
+      ]
+    },
+    {
+      "name": "git-credentials-upload",
+      "incident": "credential stealer",
+      "expect": [
+        "CREDENTIAL_THEFT"
+      ]
+    },
+    {
+      "name": "atob-eval-browser",
+      "incident": "browser-side obfuscated loader",
+      "expect": [
+        "OBFUSCATED_EXECUTION",
+        "ENHANCED_RULE_OBFUSCATED_CODE"
+      ]
+    },
+    {
+      "name": "process-binding-evasion",
+      "incident": "native binding evasion",
+      "expect": [
+        "DYNAMIC_MODULE_LOAD"
+      ]
+    }
+  ]
+}
