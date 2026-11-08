@@ -2,6 +2,7 @@ import { Threat, createThreat } from '../types/core';
 import { isNullVoidCode, isTestFile } from './nullvoidDetection';
 import { DETECTION_PATTERNS } from './config';
 import { capabilityThreats } from './capabilityAnalysis';
+import { analyzeStructure, type StructuralSignal } from './structuralAnalysis';
 
 /** Distinct `_0x…` identifiers needed before a file counts as obfuscator output */
 const HEX_IDENTIFIER_MIN_DISTINCT = 3;
@@ -410,12 +411,70 @@ export function detectMalware(content: string, filePath?: string): Threat[] {
 }
 
 /**
- * Analyze code structure for malicious patterns
- * @param code - Code content to analyze
- * @param packageName - Package name for context
- * @returns Analysis result with malicious indicators
+ * Analyze code structure for obfuscation and appended payloads.
+ * Uses AST-derived signals (structuralAnalysis.ts) when the file parses;
+ * falls back to the older text heuristics when it does not.
  */
 function analyzeCodeStructure(
+  code: string,
+  packageName?: string
+): {
+  isMalicious: boolean;
+  reason: string;
+  confidence: number;
+  lineNumber: number | null;
+  sampleCode: string;
+} {
+  if (packageName && isNullVoidCode(packageName)) {
+    return { isMalicious: false, reason: '', confidence: 0, lineNumber: null, sampleCode: '' };
+  }
+
+  const report = analyzeStructure(code);
+  if (!report.parsed) {
+    return analyzeCodeStructureText(code, packageName);
+  }
+
+  if (!report.flagged) {
+    return { isMalicious: false, reason: '', confidence: 0, lineNumber: null, sampleCode: '' };
+  }
+
+  const first = report.hits.find((h) => STRUCTURAL_STRONG.has(h.signal)) ?? report.hits[0];
+  const reason =
+    'MALICIOUS CODE DETECTED: ' +
+    report.hits.map((h) => `${STRUCTURAL_LABEL[h.signal]} (${h.detail})`).join('. ') +
+    '.';
+  const confidence = Math.min(100, report.strong * 40 + report.weak * 15);
+  return {
+    isMalicious: true,
+    reason: `${reason} Confidence: ${confidence}% (${report.hits.length} signals)`,
+    confidence,
+    lineNumber: first && first.line > 0 ? first.line : null,
+    sampleCode: first?.sample ?? '',
+  };
+}
+
+const STRUCTURAL_STRONG = new Set<StructuralSignal>([
+  'obfuscatorIdentifiers',
+  'hexEscapeStringArray',
+  'stringArrayRotator',
+  'charCodeArrayDecode',
+  'codeAfterExports',
+]);
+
+const STRUCTURAL_LABEL: Record<StructuralSignal, string> = {
+  obfuscatorIdentifiers: 'Obfuscator identifiers',
+  hexEscapeStringArray: 'Hex-escaped string array',
+  stringArrayRotator: 'String-array rotation loop',
+  charCodeArrayDecode: 'Byte array feeding a decoder',
+  codeAfterExports: 'Code appended after module.exports',
+  singleLetterIdentifiers: 'Single-letter identifiers',
+  highEntropyStrings: 'High-entropy string literals',
+};
+
+/**
+ * Text-based fallback used only when the file cannot be parsed.
+ */
+function analyzeCodeStructureText(
   code: string,
   packageName?: string
 ): {
