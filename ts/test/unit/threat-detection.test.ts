@@ -71,19 +71,19 @@ describe('Threat Detection', () => {
   });
 
   describe('massive hex array (known obfuscation pattern)', () => {
-    it('detects a large hex-array obfuscation blob', () => {
-      // Pattern: /\[(0x[0-9a-fA-F]+,\s*){3,}/g  — numeric hex literals in an array
-      const hexArray = `var _a = [${Array.from({ length: 50 }, (_, i) => `0x${i.toString(16).padStart(4, '0')}`).join(', ')}];`;
-      const result = detectMalware(hexArray);
+    it('does not flag a numeric lookup table on its own', () => {
+      const table = `var CRC = [${Array.from({ length: 50 }, (_, i) => `0x${i.toString(16).padStart(2, '0')}`).join(', ')}];`;
+      const types = detectMalware(table, 'lib/crc.js').map((t) => t.type);
+      expect(types).not.toContain('MALICIOUS_CODE_STRUCTURE');
+    });
+
+    it('flags a byte array that feeds a decoder', () => {
+      const codes = Array.from({ length: 24 }, (_, i) => 97 + (i % 26)).join(', ');
+      const blob = `var c = [${codes}];\nvar s = String.fromCharCode.apply(null, c);\nmodule.exports = s;`;
+      const result = detectMalware(blob, 'lib/a.js');
       expect(Array.isArray(result)).toBe(true);
-      expect(result.length).toBeGreaterThan(0);
       const types = result.map((t) => t.type);
-      expect(
-        types.some(
-          (t) =>
-            t === 'OBFUSCATED_CODE' || t === 'MALICIOUS_CODE_STRUCTURE' || t === 'MALICIOUS_CODE'
-        )
-      ).toBe(true);
+      expect(types).toContain('MALICIOUS_CODE_STRUCTURE');
     });
   });
 
