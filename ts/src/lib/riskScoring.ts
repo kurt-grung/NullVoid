@@ -27,6 +27,7 @@ const THREAT_TO_CATEGORY: Record<ThreatType, RiskCategory> = {
   OBFUSCATED_EXECUTION: 'integrity',
   DYNAMIC_MODULE_LOAD: 'integrity',
   CAPABILITY_NOTE: 'integrity',
+  RULE_TIMEOUT: 'availability',
   DEPENDENCY_CONFUSION: 'integrity',
   DEPENDENCY_CONFUSION_ACTIVITY: 'integrity',
   DEPENDENCY_CONFUSION_ERROR: 'availability',

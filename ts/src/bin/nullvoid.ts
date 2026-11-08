@@ -48,13 +48,18 @@ function buildSarifForResult(result: ScanResult): ReturnType<typeof generateSari
   });
 }
 
+/**
+ * Options as Commander delivers them: multi-word flags are camelCased
+ * (--skip-cache -> skipCache, --no-ioc -> ioc === false). Reading the kebab
+ * spelling (options['skip-cache']) is always undefined.
+ */
 interface CliOptions {
   depth?: number;
   maxDirDepth?: string;
   parallel?: boolean;
   workers?: string;
   includeDev?: boolean;
-  'skip-cache'?: boolean;
+  skipCache?: boolean;
   output?: string;
   format?: 'json' | 'sarif' | 'text' | 'html' | 'markdown';
   compliance?: 'soc2' | 'iso27001';
@@ -65,17 +70,20 @@ interface CliOptions {
   ml?: boolean;
   sarif?: string;
   all?: boolean;
-  'ioc-providers'?: string;
-  'cache-stats'?: boolean;
+  iocProviders?: string;
   cacheStats?: boolean;
-  'enable-redis'?: boolean;
-  'network-stats'?: boolean;
+  enableRedis?: boolean;
   networkStats?: boolean;
-  'no-ioc'?: boolean;
-  'export-training'?: string;
-  'export-training-good'?: string;
+  /** Commander stores --no-ioc as ioc === false */
+  ioc?: boolean;
+  /** Commander stores --no-dependency-source as dependencySource === false */
+  dependencySource?: boolean;
+  exportTraining?: string;
+  exportTrainingGood?: string;
   train?: boolean;
-  'save-history'?: boolean;
+  saveHistory?: boolean;
+  /** Severity at or above which the process exits 1 (default HIGH); 'none' never fails */
+  failOn?: string;
 }
 
 program.name('nullvoid').description('NullVoid Security Scanner').version(packageJson.version);
@@ -1216,6 +1224,11 @@ program
   .option('--sarif <file>', 'SARIF output file')
   .option('--all', 'Show all threats including low severity')
   .option(
+    '--fail-on <severity>',
+    'Exit 1 when a threat at or above this severity is found: critical, high, medium, low, or none',
+    'high'
+  )
+  .option(
     '--ioc-providers <providers>',
     'Comma-separated list of IoC providers to use (snyk,npm,ghsa,cve)',
     'npm,ghsa,cve'
@@ -1270,6 +1283,11 @@ program
   .option('--sarif <file>', 'SARIF output file')
   .option('--all', 'Show all threats including low severity')
   .option(
+    '--fail-on <severity>',
+    'Exit 1 when a threat at or above this severity is found: critical, high, medium, low, or none',
+    'high'
+  )
+  .option(
     '--ioc-providers <providers>',
     'Comma-separated list of IoC providers to use (snyk,npm,ghsa,cve)',
     'npm,ghsa,cve'
@@ -1301,6 +1319,29 @@ program
     await performScan(target, merged);
   });
 
+export const EXIT_CLEAN = 0;
+export const EXIT_THREATS = 1;
+export const EXIT_SCAN_ERROR = 2;
+
+const SEVERITY_RANK: Record<string, number> = { LOW: 1, MEDIUM: 2, HIGH: 3, CRITICAL: 4 };
+
+/**
+ * Exit code for a completed scan. `failOn` is the lowest severity that fails
+ * the run (default HIGH); 'none' never fails on findings.
+ */
+function exitCodeFor(threats: Array<{ severity: string }>, failOn: string | undefined): number {
+  const level = (failOn ?? 'high').toUpperCase();
+  if (level === 'NONE') return EXIT_CLEAN;
+  const floor = SEVERITY_RANK[level];
+  if (floor === undefined) {
+    console.error(
+      `❌ --fail-on must be one of critical, high, medium, low, none (got "${failOn}")`
+    );
+    process.exit(EXIT_SCAN_ERROR);
+  }
+  return threats.some((t) => (SEVERITY_RANK[t.severity] ?? 0) >= floor) ? EXIT_THREATS : EXIT_CLEAN;
+}
+
 /**
  * Parse --max-dir-depth. A non-numeric value is rejected here rather than
  * becoming NaN (which the directory walker would treat as "do not recurse").
@@ -1316,7 +1357,7 @@ function parseMaxDirDepth(raw: string | undefined): number | undefined {
 }
 
 async function performScan(target: string | undefined, options: CliOptions) {
-  applyCacheCliOptions({ enableRedis: Boolean(options['enable-redis']) });
+  applyCacheCliOptions({ enableRedis: Boolean(options.enableRedis) });
 
   const spinner = ora('🔍 Scanning ...').start();
 
@@ -1336,17 +1377,17 @@ async function performScan(target: string | undefined, options: CliOptions) {
             ? parseInt(options.workers)
             : undefined,
       includeDevDependencies: options.includeDev || false,
-      skipCache: options['skip-cache'] || false,
+      skipCache: options.skipCache || false,
       verbose: options.verbose || false,
       debug: options.debug || false,
       all: options.all || false,
-      iocEnabled: (options as { ioc?: boolean }).ioc !== false, // Commander stores --no-ioc as options.ioc = false
-      scanDependencySource: (options as { dependencySource?: boolean }).dependencySource !== false,
+      iocEnabled: options.ioc !== false,
+      scanDependencySource: options.dependencySource !== false,
     };
 
     // Add optional properties only if they exist
-    if (options['ioc-providers']) {
-      scanOptions.iocProviders = options['ioc-providers'];
+    if (options.iocProviders) {
+      scanOptions.iocProviders = options.iocProviders;
     }
 
     // Add optional properties only if they exist
@@ -1371,19 +1412,15 @@ async function performScan(target: string | undefined, options: CliOptions) {
     if (options.sarif) {
       scanOptions.sarifFile = options.sarif;
     }
-    if (options['export-training']) {
-      scanOptions.exportTrainingData = options['export-training'];
+    if (options.exportTraining) {
+      scanOptions.exportTrainingData = options.exportTraining;
     } else if (options.train) {
       scanOptions.exportTrainingData = 'ml-model/train.jsonl';
     }
-    if (options['export-training-good']) {
-      scanOptions.exportTrainingGood = options['export-training-good'];
+    if (options.exportTrainingGood) {
+      scanOptions.exportTrainingGood = options.exportTrainingGood;
     }
-    if (
-      process.argv.includes('--save-history') ||
-      options['save-history'] ||
-      (options as { saveHistory?: boolean }).saveHistory
-    ) {
+    if (options.saveHistory) {
       scanOptions.saveHistory = true;
     }
 
@@ -1436,6 +1473,17 @@ async function performScan(target: string | undefined, options: CliOptions) {
       }
     };
 
+    // A path-looking target that does not exist is an error, not an empty scan.
+    const looksLikePath =
+      effectiveTarget.startsWith('.') ||
+      effectiveTarget.startsWith('/') ||
+      effectiveTarget.includes(path.sep);
+    if (looksLikePath && !fs.existsSync(effectiveTarget)) {
+      spinner.fail('❌ Scan failed');
+      console.error(`Error: target not found: ${effectiveTarget}`);
+      process.exit(EXIT_SCAN_ERROR);
+    }
+
     let result: ScanResult;
     try {
       result = await scan(effectiveTarget, scanOptions, progressCallback);
@@ -1478,9 +1526,17 @@ async function performScan(target: string | undefined, options: CliOptions) {
         const outPath = path.resolve(options.output);
         fs.writeFileSync(outPath, JSON.stringify(errorResult, null, 2));
         console.error('Error:', (scanError as Error).message);
-        process.exit(1);
+        process.exit(EXIT_SCAN_ERROR);
       }
       throw scanError;
+    }
+
+    // Exit-code contract: 0 clean, 1 threats at/above --fail-on, 2 scan error.
+    // Set exitCode rather than calling exit() so every output branch below
+    // still runs and stdout is flushed.
+    const code = exitCodeFor(result.threats, options.failOn);
+    if (code !== EXIT_CLEAN) {
+      process.exitCode = code;
     }
 
     if (options.sarif) {
@@ -1496,7 +1552,7 @@ async function performScan(target: string | undefined, options: CliOptions) {
     // When format is json and no output file, print JSON only to stdout (machine-readable)
     const isJsonNoOutput = (options.format === 'json' || !options.format) && !options.output;
     if (isJsonNoOutput) {
-      const shouldSave = scanOptions.saveHistory || process.argv.includes('--save-history');
+      const shouldSave = scanOptions.saveHistory;
       if (shouldSave) {
         try {
           const saved = saveScanToHistory(result, effectiveTarget);
@@ -1529,7 +1585,7 @@ async function performScan(target: string | undefined, options: CliOptions) {
       console.log(`Results written to ${outPath}`);
     }
 
-    const shouldSaveHistory = scanOptions.saveHistory || process.argv.includes('--save-history');
+    const shouldSaveHistory = scanOptions.saveHistory;
     if (shouldSaveHistory) {
       try {
         const saved = saveScanToHistory(result, effectiveTarget);
@@ -1543,7 +1599,7 @@ async function performScan(target: string | undefined, options: CliOptions) {
     displayResults(result, options);
 
     // Display cache statistics if requested (Commander exposes --cache-stats as cacheStats)
-    if (options['cache-stats'] ?? options.cacheStats) {
+    if (options.cacheStats) {
       try {
         const ioCManager = getIoCManager();
         const cacheStats = ioCManager.getCacheStats();
@@ -1633,7 +1689,7 @@ async function performScan(target: string | undefined, options: CliOptions) {
     }
 
     // Display network statistics if requested (Commander exposes --network-stats as networkStats)
-    if (options['network-stats'] ?? options.networkStats) {
+    if (options.networkStats) {
       try {
         const connectionPool = getConnectionPool();
         const poolStats = connectionPool.getStats();
@@ -1653,7 +1709,7 @@ async function performScan(target: string | undefined, options: CliOptions) {
   } catch (error) {
     spinner.fail('❌ Scan failed');
     console.error('Error:', (error as Error).message);
-    process.exit(1);
+    process.exit(EXIT_SCAN_ERROR);
   }
 }
 
