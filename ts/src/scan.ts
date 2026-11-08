@@ -626,9 +626,13 @@ export async function scan(
       }
 
       // Find all package.json dirs (root + subdirs) and run dependency analysis + ML on each
-      projectPackageRoots = collectProjectPackageRoots(target, options);
+      projectPackageRoots = collectProjectPackageRoots(target, scanOptions);
       const packageDirs = projectPackageRoots.dirs;
-      const lifecycleScan = collectLifecycleScriptThreatsForProject(rootPath, options, packageDirs);
+      const lifecycleScan = collectLifecycleScriptThreatsForProject(
+        rootPath,
+        scanOptions,
+        packageDirs
+      );
       threats.push(...lifecycleScan.threats);
       lifecycleScriptStats = lifecycleScan.stats;
 
