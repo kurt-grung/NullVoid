@@ -80,7 +80,7 @@ describe('API custom rules', () => {
         mergeRulesWithDefaults: false,
         rules: {
           fixture_rule: {
-            patterns: ['hexArray'],
+            patterns: ['ATTACKER'],
             severity: 'HIGH',
             description: 'fixture marker',
             confidence_threshold: 0.8,
