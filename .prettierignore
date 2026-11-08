@@ -3,3 +3,7 @@ dist
 coverage
 *.min.js
 package-lock.json
+# model artifacts are hash-verified byte for byte (ml-model/model_io.py); never reformat
+ml-model/*.model.json
+ml-model/*.calib.json
+ml-model/*.jsonl
