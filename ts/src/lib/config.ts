@@ -680,8 +680,6 @@ export const DETECTION_PATTERNS = {
     'CONTRIBUTING.md',
     'SECURITY.md',
     'CODE_OF_CONDUCT.md',
-    'TYPESCRIPT_MIGRATION_TODO.md',
-    'TYPESCRIPT_MIGRATION_GUIDE.md',
     'dependencyTree.ts',
     'package.ts',
     'analysis-types.ts',

@@ -98,7 +98,7 @@ vim.keymap.set('n', '<leader>nv', ':split term://npx nullvoid . --output json<CR
 
 | IDE        | How to run NullVoid |
 |-----------|----------------------|
-| **VS Code** | Use the [NullVoid extension](packages/vscode-extension) (F5 + Command Palette). |
+| **VS Code** | Use the [NullVoid extension](../packages/vscode-extension) (F5 + Command Palette). |
 | **IntelliJ** | External Tool or Run Configuration (npm script or `npx nullvoid .`). |
 | **Sublime** | Build system (e.g. `NullVoid.sublime-build`) with **Ctrl+B** / **Cmd+B**. |
 | **Vim/Neovim** | `:!npx nullvoid .` or a shell script + optional keymap. |

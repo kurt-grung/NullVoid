@@ -4,6 +4,184 @@ Train and serve an XGBoost model for dependency confusion threat scoring. Suppor
 
 **Python:** 3.9+ is supported. GitHub Actions uses **3.11** for the ML train/eval step—use 3.11+ locally if you want the same `scikit-learn` resolution as CI.
 
+## Architecture
+
+Train an XGBoost model for dependency confusion and malware detection. Supports calibration, explainability, and balanced training. Both `nullvoid export` and `--train` deduplicate automatically.
+
+NullVoid uses two ML pipelines: **dependency confusion scoring** (timeline, registry, commit patterns) and **behavioral scoring** (package scripts, network usage, eval, child processes).
+
+```mermaid
+flowchart TB
+    subgraph sources [Data Sources]
+        PkgJSON[package.json]
+        Git[Git History]
+        Registry[npm Registry]
+        GHSA[GitHub Security Advisories]
+    end
+
+    subgraph extract [Feature Extraction]
+        Timeline[timelineAnalysis]
+        Commit[commitPatternAnalysis]
+        Anomaly[anomalyDetection]
+        NLP[nlpAnalysis]
+        Community[communityAnalysis]
+        Trust[trustNetwork]
+        AST[AST / Script Analysis]
+    end
+
+    subgraph vector [Feature Vectors]
+        Build[buildFeatureVector]
+        Behavioral[PackageFeatures]
+    end
+
+    subgraph export [Export Pipeline]
+        ExportJS[export-features.js]
+        ExportBehavioral[export-behavioral-features.js]
+        ScanTrain[scan --train]
+        ScanGood[scan --export-training-good]
+    end
+
+    subgraph train [Training]
+        JSONL[train.jsonl]
+        TrainPy[train.py]
+        Model[model.model.json]
+        BehavioralJSONL[train-behavioral.jsonl]
+        TrainBehavioral[train-behavioral.py]
+        BehavioralModel[behavioral.model.json]
+    end
+
+    subgraph serve [Serving - serve.py]
+        ServePy[FastAPI Server]
+        API["POST /score"]
+        BehavioralAPI["POST /behavioral-score"]
+    end
+
+    subgraph runtime [Runtime Detection]
+        DepConf[dependencyConfusion]
+        MLDet[runMLDetection]
+    end
+
+    PkgJSON --> Timeline
+    PkgJSON --> Anomaly
+    PkgJSON --> AST
+    Git --> Timeline
+    Git --> Commit
+    Registry --> Timeline
+    AST --> Behavioral
+    Timeline --> Build
+    Commit --> Build
+    Anomaly --> Build
+    NLP --> Build
+    Community --> Build
+    Trust --> Build
+
+    GHSA --> ExportJS
+    GHSA --> ExportBehavioral
+    Registry --> ExportJS
+    Registry --> ExportBehavioral
+    ExportJS --> JSONL
+    ExportBehavioral --> BehavioralJSONL
+    ScanTrain --> JSONL
+    ScanGood --> JSONL
+
+    JSONL --> TrainPy --> Model
+    BehavioralJSONL --> TrainBehavioral --> BehavioralModel
+
+    Model --> ServePy
+    BehavioralModel --> ServePy
+    ServePy --> API
+    ServePy --> BehavioralAPI
+
+    DepConf --> MLDet
+    MLDet --> Build
+    MLDet -->|ML_MODEL_URL| API
+    MLDet -->|fallback| RuleBased[Rule-based weights]
+    DepConf -->|BEHAVIORAL_MODEL_URL| BehavioralAPI
+    DepConf -->|fallback| BehavioralAnomaly[computeBehavioralAnomaly]
+```
+
+**Flow:**
+1. **Feature extraction** – `timelineAnalysis`, `commitPatternAnalysis`, `anomalyDetection`, `nlpAnalysis`, `communityAnalysis`, `trustNetwork` feed into `buildFeatureVector`; AST/script analysis feeds `PackageFeatures` (behavioral).
+2. **Export** – `export-features.js` (GHSA, known-good/bad) or `scan --train` → `train.jsonl`; `export-behavioral-features.js` → `train-behavioral.jsonl`.
+3. **Training** – `train.py` (XGBoost + Platt calibration) → `model.model.json` + `model.calib.json`; `train-behavioral.py` → `behavioral.model.json`. Models are XGBoost's native JSON with sha256 hashes recorded in the metadata; the service refuses an artifact whose hash does not match. No pickle files.
+4. **Serving** – `serve.py` exposes `POST /score`, `POST /behavioral-score`, `POST /batch-score`, `GET /importance`, `POST /explain`.
+5. **Runtime** – `dependencyConfusion` → `runMLDetection` (ML model if `ML_MODEL_URL`) or rule-based; behavioral model (if `BEHAVIORAL_MODEL_URL`) or `computeBehavioralAnomaly`.
+
+### Quick setup
+
+```bash
+# 1. Export benign samples (label 0)
+nullvoid export --out train.jsonl
+
+# 2. Add known-bad packages from GitHub Security Advisories (optional)
+node ml-model/export-features.js --from-ghsa --limit 100 --out ml-model/train.jsonl
+
+# 3. Scan malware directory and append threat samples (label 1)
+nullvoid scan /path/to/malware-projects --no-ioc --train
+
+# 4. For balanced training, also export clean packages (label 0)
+nullvoid scan . --export-training ml-model/train.jsonl --export-training-good ml-model/train.jsonl
+
+# 5. Train the model (XGBoost + calibration)
+nullvoid train --input train.jsonl --output-dir .
+
+# 6. Start ML server (optional, for live scoring)
+nullvoid serve --port 8000
+
+# Optional: Behavioral model (package script analysis)
+nullvoid export-behavioral --out train-behavioral.jsonl
+nullvoid train-behavioral --input train-behavioral.jsonl
+
+# Evaluate current models
+nullvoid eval --input train.jsonl --model . --json
+nullvoid eval-behavioral --input train-behavioral.jsonl --model . --json
+
+# Deduplicate rows before training (optional)
+nullvoid dedup ml-model/train.jsonl ml-model/train.jsonl
+
+# Held-out validation pipeline (split -> train -> eval)
+nullvoid heldout-dependency
+
+# Check local ML artifact and server status
+nullvoid ml-status --url http://localhost:8000
+
+# Full retrain shortcut (add --with-behavioral to include behavioral model)
+nullvoid retrain --with-behavioral
+# serve.py loads both models when --behavioral-model-dir is set
+```
+
+Legacy npm aliases remain available: `npm run ml:export`, `npm run ml:train`, and related `ml:*` scripts.
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `nullvoid export --out train.jsonl` | Export benign features to `train.jsonl` (dedupes existing) |
+| `nullvoid export-behavioral --out train-behavioral.jsonl` | Export behavioral features (scripts, network, eval) to `train-behavioral.jsonl` |
+| `node ml-model/export-features.js --from-ghsa` | Fetch known-bad npm packages from GitHub Security Advisories |
+| `nullvoid scan <path> --train` | Append malware samples from scanned threats (dedupes) |
+| `nullvoid scan <path> --export-training-good <file>` | Append clean packages (label 0) for balanced training |
+| `nullvoid train --input train.jsonl --output-dir .` | Train XGBoost model from `train.jsonl` → `model.model.json` + `model.calib.json` |
+| `nullvoid train-behavioral --input train-behavioral.jsonl` | Train behavioral model from `train-behavioral.jsonl` → `behavioral.model.json` |
+| `nullvoid eval --input train.jsonl --model . --json` | Evaluate dependency model and print metrics |
+| `nullvoid eval-behavioral --input train-behavioral.jsonl --model . --json` | Evaluate behavioral model and print metrics |
+| `nullvoid dedup [input] [output]` | Deduplicate training JSONL rows |
+| `nullvoid split-train-val ...` | Split `train.jsonl` into held-out train/validation files |
+| `nullvoid train-heldout-cache ...` | Train model from held-out cache split |
+| `nullvoid eval-heldout-cache ...` | Evaluate held-out validation split |
+| `nullvoid heldout-dependency` | Run split + train + eval held-out dependency pipeline |
+| `nullvoid ml-status --url http://localhost:8000` | Show local model artifact presence and server health |
+| `nullvoid retrain [--with-behavioral]` | Run export + train pipeline shortcut |
+| `nullvoid serve --port 8000` | Start ML server on port 8000 (`/score`, `/behavioral-score`, `/batch-score`, `/explain`) |
+
+### Alternative (no global nullvoid)
+
+```bash
+npm run ml:scan -- /path/to/malware-projects --no-ioc --train
+```
+
+See [ml-model/README.md](README.md) for details.
+
 ## Model artifacts
 
 Models are stored as JSON, never pickle (a pickled model executes arbitrary code when loaded):

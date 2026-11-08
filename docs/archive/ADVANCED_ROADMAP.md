@@ -2,7 +2,7 @@
 
 Phase-based roadmap for advanced improvements. No fixed calendar dates — progress is tracked by phase exit criteria.
 
-See also: [ROADMAP.md](ROADMAP.md) (release history and current status), [dashboard-enhancement-plan.md](dashboard-enhancement-plan.md) (dashboard phases).
+See also: [ROADMAP.md](../ROADMAP.md) (release history and current status), [dashboard-enhancement-plan.md](dashboard-enhancement-plan.md) (dashboard phases).
 
 ---
 
@@ -14,7 +14,7 @@ See also: [ROADMAP.md](ROADMAP.md) (release history and current status), [dashbo
 | Trust / blockchain CLI | Complete |
 | Dashboard Phases 1–3 | Complete |
 | Dashboard Phases 4–5 | Not started |
-| GitHub Projects board | See [PROJECT_SETUP.md](../.github/PROJECT_SETUP.md) |
+| GitHub Projects board | See [PROJECT_SETUP.md](../../.github/PROJECT_SETUP.md) |
 
 ### Known gaps
 
@@ -323,7 +323,7 @@ flowchart TD
 
 ## GitHub Projects
 
-Track epics on the [NullVoid project board](https://github.com/kurt-grung/NullVoid/projects). Setup: [.github/PROJECT_SETUP.md](../.github/PROJECT_SETUP.md).
+Track epics on the [NullVoid project board](https://github.com/kurt-grung/NullVoid/projects). Setup: [.github/PROJECT_SETUP.md](../../.github/PROJECT_SETUP.md).
 
 **Columns:** Backlog → Roadmap → In progress → In review → Done
 
@@ -341,7 +341,7 @@ Track epics on the [NullVoid project board](https://github.com/kurt-grung/NullVo
 
 ## Issue templates
 
-Use these bodies when creating epics (see [PROJECT_SETUP.md](../.github/PROJECT_SETUP.md) for label and field setup).
+Use these bodies when creating epics (see [PROJECT_SETUP.md](../../.github/PROJECT_SETUP.md) for label and field setup).
 
 ### Phase 0 example
 

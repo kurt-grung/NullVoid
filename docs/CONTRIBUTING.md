@@ -47,8 +47,8 @@ We welcome feature suggestions! Please include:
 
 ### Questions
 - **Usage Questions**: Open an issue with the `question` label
-- **Documentation**: Check the [README](README.md) and [Troubleshooting Guide](TROUBLESHOOTING.md)
-- **Security Concerns**: Review the [Security Policy](SECURITY.md)
+- **Documentation**: Check the [README](../README.md) and [Troubleshooting Guide](TROUBLESHOOTING.md)
+- **Security Concerns**: Review the [Security Policy](../SECURITY.md)
 
 ### Community Support
 - **GitHub Issues**: For bugs, questions, and feature requests
@@ -125,7 +125,7 @@ Any other relevant information
 
 ## 📄 **License**
 
-NullVoid is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+NullVoid is licensed under the MIT License. See [LICENSE](../LICENSE) for details.
 
 ---
 

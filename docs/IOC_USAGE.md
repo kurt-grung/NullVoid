@@ -1,5 +1,60 @@
 # IoC Integration & Performance Features Usage Guide
 
+## Overview
+
+NullVoid now integrates with multiple vulnerability databases to check packages for known security issues:
+
+### Supported providers
+- **npm Advisories**: npm's official security advisories (public, enabled by default)
+- **GitHub Security Advisories (GHSA)**: GitHub's security database (public, enabled by default)
+- **NVD/CVE**: National Vulnerability Database (public, enabled by default)
+- **Snyk**: Commercial vulnerability database (requires API key)
+
+### CVE filtering
+NullVoid reduces false positives with version-aware and product-aware filtering:
+- **Version-aware**: Excludes CVEs when your installed version is outside the affected range (NVD CPE bounds or "fixed in X" from descriptions)
+- **Product disambiguation**: Excludes CVEs for different products with similar names (e.g. Midnight Commander vs npm commander, grunt/shiba vs js-yaml)
+
+### Usage
+```bash
+# Automatic IoC scanning (enabled by default)
+nullvoid /path/to/project
+
+# Select specific providers
+nullvoid /path/to/project --ioc-providers npm,ghsa,cve
+
+# Include Snyk (requires SNYK_API_KEY environment variable)
+nullvoid /path/to/project --ioc-providers snyk,npm,ghsa,cve
+
+# Disable IoC scanning
+nullvoid /path/to/project --no-ioc
+```
+
+### Configuration
+Set API keys via environment variables:
+```bash
+export SNYK_API_KEY=your-api-key-here      # For Snyk
+export GITHUB_TOKEN=your-token-here        # For better GHSA rate limits
+export NVD_API_KEY=your-api-key-here       # For better NVD rate limits
+```
+
+### Example output
+```
+⚠️  2 high-severity threat(s) detected:
+
+1. VULNERABLE_PACKAGE (HIGH)
+   Vulnerability found: Prototype Pollution in lodash (CVE-2021-23337)
+   Details: Affected versions: <4.17.21
+            Fixed in: 4.17.21
+            CVSS Score: 7.2 (3.1)
+            References: https://nvd.nist.gov/vuln/detail/CVE-2021-23337
+   File: package.json
+   Confidence: 95%
+```
+
+For more details, see [IoC Usage Guide](IOC_USAGE.md).
+
+
 This guide explains how to use Public IoC Integration and Performance Optimizations.
 
 ## Table of Contents
