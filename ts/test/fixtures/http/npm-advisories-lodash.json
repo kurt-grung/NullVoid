@@ -1,0 +1,42 @@
+{
+  "status": 200,
+  "body": {
+    "total": 2,
+    "limit": 20,
+    "offset": 0,
+    "results": [
+      {
+        "id": 1523,
+        "title": "Prototype Pollution",
+        "module_name": "lodash",
+        "vulnerable_versions": "<4.17.19",
+        "patched_versions": ">=4.17.19",
+        "overview": "Versions of lodash prior to 4.17.19 are vulnerable to Prototype Pollution via zipObjectDeep.",
+        "recommendation": "Upgrade to version 4.17.19 or later.",
+        "references": "- https://github.com/lodash/lodash/pull/4759",
+        "severity": "high",
+        "cwe": ["CWE-1321"],
+        "cves": ["CVE-2020-8203"],
+        "url": "https://npmjs.com/advisories/1523",
+        "reported_date": "2020-04-28T00:00:00.000Z",
+        "published_date": "2020-07-15T00:00:00.000Z",
+        "updated_date": "2020-07-15T00:00:00.000Z"
+      },
+      {
+        "id": 1065,
+        "title": "Prototype Pollution",
+        "module_name": "lodash",
+        "vulnerable_versions": "<4.17.12",
+        "patched_versions": ">=4.17.12",
+        "overview": "Versions of lodash before 4.17.12 are vulnerable to Prototype Pollution via defaultsDeep.",
+        "recommendation": "Update to version 4.17.12 or later.",
+        "references": "- https://snyk.io/vuln/SNYK-JS-LODASH-450202",
+        "severity": "critical",
+        "cves": ["CVE-2019-10744"],
+        "url": "https://npmjs.com/advisories/1065",
+        "published_date": "2019-07-15T00:00:00.000Z",
+        "updated_date": "2019-07-15T00:00:00.000Z"
+      }
+    ]
+  }
+}
