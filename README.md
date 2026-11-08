@@ -117,16 +117,6 @@ nullvoid --depth 2
 # or
 nullvoid . --depth 2
 
-# Enable parallel processing
-nullvoid --parallel
-# or
-nullvoid . --parallel
-
-# Set number of workers for parallel processing
-nullvoid --workers 4
-# or
-nullvoid . --workers 4
-
 # JSON output format
 nullvoid --format json
 # or
@@ -223,15 +213,15 @@ Enable features via `.nullvoidrc.json` or environment: `TRUST_CONFIG`, `CONSENSU
 
 ### Combined Options
 ```bash
-# Show all threats with verbose output and parallel processing
-nullvoid --all --verbose --parallel
+# Show all threats with verbose output
+nullvoid --all --verbose
 # or
-nullvoid . --all --verbose --parallel
+nullvoid . --all --verbose
 
-# Scan with limited depth and parallel workers
-nullvoid --depth 2 --parallel --workers 8
+# Scan with limited depth
+nullvoid --depth 2
 # or
-nullvoid . --depth 2 --parallel --workers 8
+nullvoid . --depth 2
 
 # Verbose output with JSON output to file
 nullvoid --verbose --format json --output scan-results.json
@@ -516,7 +506,6 @@ For more details, see [IoC Usage Guide](docs/IOC_USAGE.md).
 - **Code Structure Analysis**: Entropy analysis and malicious code pattern recognition
 
 ### **Production Features**
-- **Chunked File Processing**: `--parallel` processes files in chunks (single-threaded; worker threads are on the roadmap)
 - **Clean Resource Management**: No open handles, proper cleanup, and memory leak prevention
 - **Real-Time Progress**: Live scanning display with consistent threat reporting
 - **CI/CD Ready**: Reliable integration into automated workflows
@@ -621,10 +610,6 @@ nullvoid --verbose
 # or
 nullvoid . --verbose
 
-# Scan with parallel processing
-nullvoid --parallel --workers 4
-# or
-nullvoid . --parallel --workers 4
 
 # Output to JSON file
 nullvoid --format json --output results.json
@@ -827,7 +812,6 @@ graph TD
 ⠋ 🔍 Scanning ...
 📁 nullvoid.js (detected: security tools)
 📁 colors.js
-📁 parallel.js
 📁 rules.js (detected: security tools)
 📁 scan.js (detected: security tools)
 📁 scan.test.js (detected: test file)
@@ -835,7 +819,6 @@ graph TD
 📁 cache.test.js
 📁 entropy.test.js
 📁 gpg-signature.test.js
-📁 parallel.test.js
 📁 signature-verification.test.js
 ✔ ✅ Scan completed
 
@@ -898,8 +881,6 @@ nullvoid . --fail-on critical || echo "critical threat found"
 | `--depth <number>` | Maximum dependency tree depth to scan | `3` |
 | `--tree` | Show dependency tree structure in output | `false` |
 | `--all` | Show all threats including low/medium severity | `false` |
-| `--parallel` | Enable parallel scanning for better performance | `true` |
-| `--workers <number>` | Number of parallel workers to use | `auto` |
 | `--sarif-file <path>` | Write SARIF output to file (requires --output sarif) | - |
 | `--ioc-providers <providers>` | Comma-separated list of IoC providers (npm,ghsa,cve,snyk) | `npm,ghsa,cve` |
 | `--no-ioc` | Disable IoC provider queries | `false` |

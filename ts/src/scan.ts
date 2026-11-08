@@ -1,6 +1,5 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
 import {
   ScanOptions,
   ScanResult,
@@ -11,14 +10,7 @@ import {
 } from './types/core';
 import { createLogger } from './lib/logger';
 import { validateScanOptions } from './lib/validation';
-import { isNullVoidCode } from './lib/nullvoidDetection';
-import { detectMalware } from './lib/detection';
 import { filterThreatsBySeverity } from './lib/detection';
-import { detectFileThreats } from './lib/customRuleEngine';
-import { queryIoCProviders, mergeIoCThreats } from './lib/iocScanIntegration';
-import { analyzeDependencyConfusion } from './lib/dependencyConfusion';
-import { getOptimalWorkerCount, getOptimalChunkSize, chunkPackages } from './lib/parallel';
-import { SCAN_CONFIG, PARALLEL_CONFIG, NLP_CONFIG, SCAN_COVERAGE_LIMITS } from './lib/config';
 import { collectProjectPackageRoots } from './lib/projectPackageRoots';
 import {
   buildScanTruncationReport,
@@ -27,380 +19,200 @@ import {
 } from './lib/scanTruncation';
 import type { DependencySourceScanStats } from './lib/dependencySourceScan';
 import type { LifecycleScriptScanStats } from './lib/lifecycleScriptAnalysis';
+import { SCAN_COVERAGE_LIMITS } from './lib/config';
 import { computeCompositeRisk } from './lib/riskScoring';
-import { runNlpAnalysis } from './lib/nlpAnalysis';
-import { runMLDetection, buildFeatureVector } from './lib/mlDetection';
 import { isNpmPackageSpec, parsePackageSpec, downloadPackageToTemp } from './lib/remotePackageScan';
 import { buildSupplyChainGraph, countPackagesWithThreats } from './lib/supplyChainGraph';
 import { buildDependencyTree, type DependencyTreeStats } from './lib/dependencyTree';
 import { collectInstalledDependencySourcePaths } from './lib/dependencySourceScan';
 import { collectLifecycleScriptThreatsForProject } from './lib/lifecycleScriptAnalysis';
-import { getGitHistorySync } from './lib/dependencyConfusion';
-import { getPackagePublishInfo } from './lib/dependencyConfusion';
-import { publishHistoryFeatures } from './lib/publishHistory';
-import { analyzePackageName } from './lib/dependencyConfusion';
-import type { IoCProviderName } from './types/ioc-types';
+import {
+  collectScanablePaths,
+  directoryTotals,
+  loadNullvoidIgnore,
+  scanFilePaths,
+} from './lib/scanFiles';
+import {
+  analyzeManifest,
+  createScanBudgets,
+  type PackageRef,
+  type ScanBudgets,
+} from './lib/manifestAnalysis';
+import { exportPackagesToTraining, packagesWithThreats } from './lib/trainingExport';
 
 const logger = createLogger('scan');
 
-/** Threat types that indicate malware in code (vs meta/scan errors) */
-const CODE_THREAT_TYPES = new Set([
-  'MALICIOUS_CODE',
-  'WALLET_HIJACKING',
-  'OBFUSCATED_CODE',
-  'SUSPICIOUS_SCRIPT',
-  'CRYPTO_MINING',
-  'SUPPLY_CHAIN_ATTACK',
-  'DATA_EXFILTRATION',
-  'PATH_TRAVERSAL',
-  'COMMAND_INJECTION',
-  'DYNAMIC_REQUIRE',
-  'SUSPICIOUS_MODULE',
-  'OBFUSCATED_IOC',
-  'SUSPICIOUS_DEPENDENCY',
-  'MALICIOUS_CODE_STRUCTURE',
-  'SUSPICIOUS_FILE',
-  'DEPENDENCY_CONFUSION',
-  'DEPENDENCY_CONFUSION_PATTERN',
-  'DEPENDENCY_CONFUSION_ML_ANOMALY',
-  'DEPENDENCY_CONFUSION_TIMELINE',
-  'DEPENDENCY_CONFUSION_SCOPE',
-  'DEPENDENCY_CONFUSION_ACTIVITY',
-  'DEPENDENCY_CONFUSION_PREDICTIVE_RISK',
-]);
-
-function isCodeThreatType(type: string): boolean {
-  return (
-    CODE_THREAT_TYPES.has(type) ||
-    type.startsWith('ENHANCED_RULE_') ||
-    type.startsWith('AGGREGATE_')
-  );
-}
-
-function findPackageRoot(filePath: string): string | null {
-  let dir = path.isAbsolute(filePath)
-    ? path.dirname(filePath)
-    : path.resolve(path.dirname(filePath));
-  const root = path.parse(dir).root;
-  while (dir && dir !== root) {
-    if (fs.existsSync(path.join(dir, 'package.json'))) return dir;
-    dir = path.dirname(dir);
-  }
-  return null;
-}
-
-async function exportThreatsToTraining(
-  threats: Threat[],
-  outPath: string,
-  options: ScanOptions
-): Promise<number> {
-  const seenPkg = new Set<string>();
-  const seenFeatures = new Set<string>();
-
-  if (fs.existsSync(outPath)) {
-    try {
-      const content = fs.readFileSync(outPath, 'utf8').trim();
-      for (const line of content.split('\n')) {
-        try {
-          const row = JSON.parse(line) as { features?: unknown; label?: number };
-          if (row?.features != null && typeof row.label === 'number') {
-            seenFeatures.add(JSON.stringify({ f: row.features, l: row.label }));
-          }
-        } catch {
-          /* skip invalid lines */
-        }
-      }
-    } catch {
-      /* ignore read errors */
-    }
-  }
-
-  const lines: string[] = [];
-
-  for (const threat of threats) {
-    if (!threat.filePath || !isCodeThreatType(threat.type)) continue;
-    const pkgRoot = findPackageRoot(threat.filePath);
-    if (!pkgRoot) continue;
-    const pkgRootNorm = path.resolve(pkgRoot);
-    if (seenPkg.has(pkgRootNorm)) continue;
-    seenPkg.add(pkgRootNorm);
-
-    let packageName: string;
-    try {
-      const pkg = JSON.parse(fs.readFileSync(path.join(pkgRoot, 'package.json'), 'utf8')) as {
-        name?: string;
-      };
-      packageName = pkg?.name ?? path.basename(pkgRoot);
-    } catch {
-      continue;
-    }
-
-    try {
-      let features;
-      try {
-        const publishInfo = await getPackagePublishInfo(packageName);
-        const creationDate = publishInfo?.created ?? null;
-        const gitHistory = getGitHistorySync(pkgRoot);
-        const nameAnalysis = analyzePackageName(packageName);
-
-        const result = await runMLDetection({
-          creationDate: creationDate ?? null,
-          recentCommitCount: gitHistory.recentCommitCount ?? 0,
-          scopeType: nameAnalysis.scopeType ?? null,
-          suspiciousPatternsCount: nameAnalysis.suspiciousPatterns.length,
-          registryName: creationDate ? 'npm' : null,
-          firstCommitDate: gitHistory.firstCommitDate ?? null,
-          packagePath: pkgRoot,
-          publishHistory: publishInfo
-            ? publishHistoryFeatures(packageName, publishInfo.time)
-            : null,
-        });
-        features = result.features;
-      } catch {
-        // Fallback: build minimal features when git/registry unavailable (local malware projects)
-        const nameAnalysis = analyzePackageName(packageName);
-        features = buildFeatureVector({
-          daysDifference: 365,
-          recentCommitCount: 0,
-          scopeType: nameAnalysis.scopeType ?? null,
-          suspiciousPatternsCount: nameAnalysis.suspiciousPatterns.length,
-          registryName: null,
-        });
-      }
-      const key = JSON.stringify({ f: features, l: 1 });
-      if (seenFeatures.has(key)) continue;
-      seenFeatures.add(key);
-      // Label comes from the scanner's own verdict, not ground truth; train.py
-      // drops `scanner-*` rows unless --allow-scanner-labels is passed.
-      lines.push(
-        JSON.stringify({ features, label: 1, name: packageName, source: 'scanner-threats' })
-      );
-    } catch (err) {
-      if (options.verbose) {
-        logger.warn(`Could not export features for ${packageName}: ${(err as Error).message}`);
-      }
-    }
-  }
-
-  if (lines.length > 0) {
-    fs.appendFileSync(outPath, lines.join('\n') + '\n');
-  }
-  return lines.length;
-}
-
-async function exportGoodPackagesToTraining(
-  packages: Array<{ name: string; path: string }>,
-  outPath: string,
-  options: ScanOptions
-): Promise<number> {
-  const seenPkg = new Set<string>();
-  const seenFeatures = new Set<string>();
-
-  if (fs.existsSync(outPath)) {
-    try {
-      const content = fs.readFileSync(outPath, 'utf8').trim();
-      for (const line of content.split('\n')) {
-        try {
-          const row = JSON.parse(line) as { features?: unknown; label?: number };
-          if (row?.features != null && typeof row.label === 'number') {
-            seenFeatures.add(JSON.stringify({ f: row.features, l: row.label }));
-          }
-        } catch {
-          /* skip invalid lines */
-        }
-      }
-    } catch {
-      /* ignore read errors */
-    }
-  }
-
-  const lines: string[] = [];
-
-  for (const pkg of packages) {
-    const pkgRootNorm = path.resolve(pkg.path);
-    if (seenPkg.has(pkgRootNorm)) continue;
-    seenPkg.add(pkgRootNorm);
-
-    const packageName = pkg.name;
-
-    try {
-      let features;
-      try {
-        const publishInfo = await getPackagePublishInfo(packageName);
-        const creationDate = publishInfo?.created ?? null;
-        const gitHistory = getGitHistorySync(pkg.path);
-        const nameAnalysis = analyzePackageName(packageName);
-
-        const result = await runMLDetection({
-          creationDate: creationDate ?? null,
-          recentCommitCount: gitHistory.recentCommitCount ?? 0,
-          scopeType: nameAnalysis.scopeType ?? null,
-          suspiciousPatternsCount: nameAnalysis.suspiciousPatterns.length,
-          registryName: creationDate ? 'npm' : null,
-          firstCommitDate: gitHistory.firstCommitDate ?? null,
-          packagePath: pkg.path,
-          publishHistory: publishInfo
-            ? publishHistoryFeatures(packageName, publishInfo.time)
-            : null,
-        });
-        features = result.features;
-      } catch {
-        const nameAnalysis = analyzePackageName(packageName);
-        features = buildFeatureVector({
-          daysDifference: 365,
-          recentCommitCount: 0,
-          scopeType: nameAnalysis.scopeType ?? null,
-          suspiciousPatternsCount: nameAnalysis.suspiciousPatterns.length,
-          registryName: null,
-        });
-      }
-      const key = JSON.stringify({ f: features, l: 0 });
-      if (seenFeatures.has(key)) continue;
-      seenFeatures.add(key);
-      lines.push(
-        JSON.stringify({ features, label: 0, name: packageName, source: 'scanner-clean' })
-      );
-    } catch (err) {
-      if (options.verbose) {
-        logger.warn(`Could not export features for ${packageName}: ${(err as Error).message}`);
-      }
-    }
-  }
-
-  if (lines.length > 0) {
-    fs.appendFileSync(outPath, lines.join('\n') + '\n');
-  }
-  return lines.length;
-}
-
-// Performance metrics
-const performanceMetrics: PerformanceMetrics = {
-  duration: 0,
-  memoryUsage: 0,
-  cpuUsage: 0,
-  filesPerSecond: 0,
-  packagesPerSecond: 0,
-};
-
-// Suspicious patterns
-const SUSPICIOUS_PATTERNS = {
-  dependencies: ['http://.*', 'git://.*', 'file://.*'],
-  keywords: ['malware', 'virus', 'trojan', 'backdoor'],
-};
-
-const SCANABLE_EXTENSIONS = ['.js', '.mjs', '.cjs', '.ts', '.jsx', '.tsx'];
-
-function isScanableFile(name: string): boolean {
-  return SCANABLE_EXTENSIONS.some((ext) => name.endsWith(ext));
-}
-
-// Directories never scanned. Build output (dist/, build/, out/) is scanned on
-// purpose: published packages often ship only their bundles, and that is
-// where the Sept 2025 chalk/debug/ansi-styles drainer lived.
-const SKIP_DIRS = [
-  'node_modules',
-  '.git',
-  '.vscode',
-  '.idea',
-  '.cursor',
-  'coverage',
-  '.nyc_output',
-  'fixtures',
-];
-
-function loadNullvoidIgnore(rootPath: string): string[] {
-  const ignorePath = path.join(rootPath, '.nullvoidignore');
-  if (!fs.existsSync(ignorePath)) return [];
-  try {
-    const content = fs.readFileSync(ignorePath, 'utf8');
-    return content
-      .split('\n')
-      .map((line) => line.replace(/#.*$/, '').trim())
-      .filter((name) => name.length > 0 && !name.startsWith('/'));
-  } catch {
-    return [];
-  }
-}
+type CpuUsage = ReturnType<typeof process.cpuUsage>;
 
 /**
- * Recursively collect all scanable file paths and directory structure
+ * Everything a target scan produces before enrichment. One instance per
+ * scan() call; the target-specific functions fill it in.
  */
-function collectScanablePaths(
-  dirPath: string,
-  options: ScanOptions
-): { paths: string[]; directoryStructure: DirectoryStructure } {
-  const paths: string[] = [];
-  const files: string[] = [];
-  const directories: string[] = [];
+interface ScanState {
+  target: string;
+  options: ScanOptions;
+  threats: Threat[];
+  filesScanned: number;
+  packagesScanned: number;
+  directoryStructure?: DirectoryStructure;
+  /** Root used for the dependency tree / supply-chain graph */
+  graphRoot: string | null;
+  budgets: ScanBudgets;
+  projectPackageRoots?: ReturnType<typeof collectProjectPackageRoots>;
+  dependencySourceStats?: DependencySourceScanStats;
+  lifecycleScriptStats?: LifecycleScriptScanStats;
+  /** Packages that went through dependency-confusion analysis (training export) */
+  packagesAnalyzedForDepConfusion: PackageRef[];
+  /** Package roots with a code-level dependency-confusion threat (training export) */
+  depConfusionThreatPackageRoots: Set<string>;
+}
 
-  try {
-    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-
-    for (const entry of entries) {
-      const fullPath = path.resolve(path.join(dirPath, entry.name));
-
-      if (entry.isDirectory()) {
-        const skipDirs = [...SKIP_DIRS, ...(options.ignoreDirs ?? [])];
-        if (skipDirs.includes(entry.name)) {
-          continue;
-        }
-        directories.push(entry.name);
-        // Directory recursion is bounded by maxDirDepth, never by the dependency depth.
-        const dirDepth = (options.maxDirDepth ?? 5) - 1;
-        if (dirDepth > 0) {
-          const sub = collectScanablePaths(fullPath, { ...options, maxDirDepth: dirDepth });
-          paths.push(...sub.paths);
-          files.push(...sub.directoryStructure.files.map((f) => path.join(entry.name, f)));
-          directories.push(
-            ...sub.directoryStructure.directories.map((d) => path.join(entry.name, d))
-          );
-        }
-      } else if (entry.isFile()) {
-        files.push(entry.name);
-        if (isScanableFile(entry.name)) {
-          paths.push(fullPath);
-        }
-      }
-    }
-  } catch (error) {
-    if (options.verbose) {
-      logger.warn(`Failed to read directory ${dirPath}: ${(error as Error).message}`);
-    }
-  }
-
+function createScanState(target: string, options: ScanOptions): ScanState {
   return {
-    paths,
-    directoryStructure: {
-      path: dirPath,
-      files,
-      directories,
-      totalFiles: files.length,
-      totalDirectories: directories.length,
-    },
+    target,
+    options,
+    threats: [],
+    filesScanned: 0,
+    packagesScanned: 0,
+    graphRoot: null,
+    budgets: createScanBudgets(),
+    packagesAnalyzedForDepConfusion: [],
+    depConfusionThreatPackageRoots: new Set(),
   };
 }
 
-function assembleScanTruncations(input: {
-  options: ScanOptions;
-  projectPackageRoots?: ReturnType<typeof collectProjectPackageRoots> | undefined;
-  iocQueriesUsed: number;
-  iocQueriesEligible: number;
-  depConfusionProcessed: number;
-  depConfusionEligible: number;
-  dependencySourceStats?: DependencySourceScanStats | undefined;
-  lifecycleScriptStats?: LifecycleScriptScanStats | undefined;
-}): ScanTruncationReport | undefined {
-  const {
-    options,
-    projectPackageRoots,
-    iocQueriesUsed,
-    iocQueriesEligible,
-    depConfusionProcessed,
-    depConfusionEligible,
-    dependencySourceStats,
-    lifecycleScriptStats,
-  } = input;
+// ---------------------------------------------------------------------------
+// Targets
+// ---------------------------------------------------------------------------
 
+/**
+ * Directory target: project files, installed dependency source, lifecycle
+ * scripts and one manifest analysis per package.json under the root.
+ */
+async function scanDirectoryTarget(
+  state: ScanState,
+  dirPath: string,
+  progressCallback?: ProgressCallback
+): Promise<void> {
+  const rootPath = path.resolve(dirPath);
+  const ignoreDirs = loadNullvoidIgnore(rootPath);
+  const options = ignoreDirs.length > 0 ? { ...state.options, ignoreDirs } : state.options;
+  state.graphRoot = rootPath;
+
+  const { paths, directoryStructure } = collectScanablePaths(dirPath, options);
+  state.directoryStructure = directoryStructure;
+  const project = scanFilePaths(paths, options, progressCallback);
+  state.threats.push(...project.threats);
+  state.filesScanned += project.filesScanned;
+
+  const dependencySource = collectInstalledDependencySourcePaths(rootPath, options);
+  state.dependencySourceStats = dependencySource.stats;
+  if (dependencySource.paths.length > 0) {
+    const depScan = scanFilePaths(dependencySource.paths, options, progressCallback);
+    state.threats.push(...depScan.threats);
+    state.filesScanned += depScan.filesScanned;
+    state.packagesScanned += dependencySource.stats.packagesVisited;
+  }
+
+  state.projectPackageRoots = collectProjectPackageRoots(dirPath, options);
+  const packageDirs = state.projectPackageRoots.dirs;
+
+  const lifecycleScan = collectLifecycleScriptThreatsForProject(rootPath, options, packageDirs);
+  state.threats.push(...lifecycleScan.threats);
+  state.lifecycleScriptStats = lifecycleScan.stats;
+
+  for (const packageDir of packageDirs) {
+    const manifest = await analyzeManifest(packageDir, state.options, state.budgets);
+    if (!manifest) continue;
+    state.packagesScanned += manifest.dependencyCount;
+    state.threats.push(...manifest.threats);
+    state.packagesAnalyzedForDepConfusion.push(...manifest.packagesAnalyzed);
+    for (const root of manifest.threatPackageRoots) state.depConfusionThreatPackageRoots.add(root);
+  }
+}
+
+/** Single file target. */
+function scanFileTarget(state: ScanState, filePath: string): void {
+  const { threats, filesScanned } = scanFilePaths([filePath], state.options);
+  state.threats.push(...threats);
+  state.filesScanned += filesScanned;
+}
+
+/** `name` / `name@version`: download the tarball and scan it as a directory. */
+async function scanRemoteTarget(
+  state: ScanState,
+  spec: { name: string; version: string },
+  progressCallback?: ProgressCallback
+): Promise<void> {
+  const resolved = await downloadPackageToTemp(spec.name, spec.version);
+  if (!resolved) {
+    state.threats.push({
+      type: 'PACKAGE_NOT_FOUND',
+      message: `Could not download package: ${state.target}`,
+      filePath: state.target,
+      filename: path.basename(state.target),
+      severity: 'MEDIUM',
+      details: `Package ${spec.name}@${spec.version} was not found on the npm registry.`,
+      confidence: 0.9,
+    });
+    return;
+  }
+  try {
+    if (state.options.verbose) {
+      logger.info(`Scanning remote package ${resolved.packageName}@${resolved.version}`);
+    }
+    const { paths, directoryStructure } = collectScanablePaths(resolved.extractDir, state.options);
+    const files = scanFilePaths(paths, state.options, progressCallback);
+    state.threats.push(...files.threats);
+    state.filesScanned += files.filesScanned;
+    state.packagesScanned = 1;
+    state.directoryStructure = directoryStructure;
+    state.graphRoot = resolved.extractDir;
+  } finally {
+    resolved.cleanup();
+  }
+}
+
+function notFoundThreat(target: string): Threat {
+  return {
+    type: 'PACKAGE_NOT_FOUND',
+    message: `Package or file not found: ${target}`,
+    filePath: target,
+    filename: path.basename(target),
+    severity: 'LOW',
+    details:
+      'Path does not exist and target is not a valid npm package spec (name or name@version).',
+    confidence: 0.5,
+  };
+}
+
+async function scanTarget(state: ScanState, progressCallback?: ProgressCallback): Promise<void> {
+  const { target } = state;
+  if (fs.existsSync(target)) {
+    if (fs.statSync(target).isDirectory()) {
+      await scanDirectoryTarget(state, target, progressCallback);
+    } else {
+      scanFileTarget(state, target);
+    }
+    return;
+  }
+  if (isNpmPackageSpec(target)) {
+    const spec = parsePackageSpec(target);
+    if (spec) {
+      await scanRemoteTarget(state, spec, progressCallback);
+      return;
+    }
+  }
+  state.threats.push(notFoundThreat(target));
+}
+
+// ---------------------------------------------------------------------------
+// Enrichment
+// ---------------------------------------------------------------------------
+
+function assembleScanTruncations(state: ScanState): ScanTruncationReport | undefined {
+  const { options, projectPackageRoots, budgets, dependencySourceStats, lifecycleScriptStats } =
+    state;
   return buildScanTruncationReport([
     projectPackageRoots
       ? truncationCap(
@@ -414,16 +226,16 @@ function assembleScanTruncations(input: {
       ? truncationCap(
           'iocQueriesPerScan',
           SCAN_COVERAGE_LIMITS.IOC_QUERIES_PER_SCAN,
-          iocQueriesUsed,
-          iocQueriesEligible
+          budgets.iocQueriesUsed,
+          budgets.iocQueriesEligible
         )
       : undefined,
     options.dependencyConfusionEnabled !== false
       ? truncationCap(
           'dependencyConfusionPackages',
           SCAN_COVERAGE_LIMITS.DEPENDENCY_CONFUSION_PACKAGES,
-          depConfusionProcessed,
-          depConfusionEligible
+          budgets.depConfusionProcessed,
+          budgets.depConfusionEligible
         )
       : undefined,
     dependencySourceStats?.truncatedByPackageBudget
@@ -454,122 +266,151 @@ function assembleScanTruncations(input: {
 }
 
 /**
- * Process file paths: read content, skip NullVoid files, run detectMalware.
- * Uses parallel chunks when options.parallel and SCAN_CONFIG.enableParallel and path count >= MIN_CHUNK_SIZE.
+ * CPU time this process spent during the scan as a percentage of wall time
+ * (100 = one core busy throughout).
  */
-async function processPaths(
-  filePaths: string[],
-  options: ScanOptions,
-  progressCallback?: ProgressCallback
-): Promise<{ threats: Threat[]; filesScanned: number }> {
-  const threats: Threat[] = [];
-  let filesScanned = 0;
-
-  const useParallel =
-    options.parallel !== false &&
-    SCAN_CONFIG.enableParallel &&
-    filePaths.length >= PARALLEL_CONFIG.MIN_CHUNK_SIZE;
-
-  if (!useParallel) {
-    for (let i = 0; i < filePaths.length; i++) {
-      const fullPath = filePaths[i] as string;
-      if (progressCallback) {
-        progressCallback({
-          current: i + 1,
-          total: filePaths.length,
-          message: `Scanning ${path.basename(fullPath)}`,
-          packageName: fullPath,
-        });
-      }
-      try {
-        const content = fs.readFileSync(fullPath, 'utf8');
-        if (isNullVoidCode(fullPath)) {
-          if (options.verbose) {
-            logger.info(`Skipping NullVoid file: ${path.basename(fullPath)}`);
-          }
-          continue;
-        }
-        const fileThreats = detectFileThreats(content, fullPath, options, detectMalware);
-        threats.push(...fileThreats);
-        filesScanned++;
-      } catch (error) {
-        if (options.verbose) {
-          logger.warn(`Failed to scan file ${fullPath}: ${(error as Error).message}`);
-        }
-      }
-    }
-    return { threats, filesScanned };
-  }
-
-  const workerCount = getOptimalWorkerCount();
-  const chunkSize = getOptimalChunkSize(filePaths.length, workerCount);
-  const chunks = chunkPackages(filePaths, chunkSize);
-
-  const chunkResults = await Promise.all(
-    chunks.map(async (chunk) => {
-      const chunkThreats: Threat[] = [];
-      let chunkScanned = 0;
-      for (const fullPath of chunk) {
-        try {
-          const content = fs.readFileSync(fullPath, 'utf8');
-          if (isNullVoidCode(fullPath)) {
-            continue;
-          }
-          const fileThreats = detectFileThreats(content, fullPath, options, detectMalware);
-          chunkThreats.push(...fileThreats);
-          chunkScanned++;
-        } catch (error) {
-          if (options.verbose) {
-            logger.warn(`Failed to scan file ${fullPath}: ${(error as Error).message}`);
-          }
-        }
-      }
-      return { threats: chunkThreats, filesScanned: chunkScanned };
-    })
-  );
-
-  for (const result of chunkResults) {
-    threats.push(...result.threats);
-    filesScanned += result.filesScanned;
-  }
-
-  if (progressCallback && filePaths.length > 0) {
-    progressCallback({
-      current: filePaths.length,
-      total: filePaths.length,
-      message: 'Scan completed',
-      packageName: '',
-    });
-  }
-
-  return { threats, filesScanned };
+function cpuPercent(start: CpuUsage, durationMs: number): number {
+  if (durationMs <= 0) return 0;
+  const delta = process.cpuUsage(start);
+  return Math.round(((delta.user + delta.system) / 1000 / durationMs) * 100);
 }
 
-/**
- * Scan a directory for threats (uses parallel file processing when enabled)
- */
-async function scanDirectory(
-  dirPath: string,
-  options: ScanOptions,
-  progressCallback?: ProgressCallback
-): Promise<{
-  threats: Threat[];
-  filesScanned: number;
-  packagesScanned: number;
-  directoryStructure: DirectoryStructure;
-}> {
-  const { paths, directoryStructure } = collectScanablePaths(dirPath, options);
-  const { threats, filesScanned } = await processPaths(paths, options, progressCallback);
+function performanceMetrics(
+  state: ScanState,
+  startTime: number,
+  cpuStart: CpuUsage
+): PerformanceMetrics {
+  const duration = Date.now() - startTime;
+  const perSecond = (n: number): number =>
+    n > 0 && duration > 0 ? Math.round(n / (duration / 1000)) : 0;
   return {
-    threats,
-    filesScanned,
-    packagesScanned: 0,
-    directoryStructure,
+    duration,
+    memoryUsage: process.memoryUsage().heapUsed / 1024 / 1024,
+    cpuUsage: cpuPercent(cpuStart, duration),
+    filesPerSecond: perSecond(state.filesScanned),
+    packagesPerSecond: perSecond(state.packagesScanned),
   };
 }
 
+async function exportTrainingRows(state: ScanState): Promise<void> {
+  const { options, threats } = state;
+  if (options.exportTrainingData && threats.length > 0) {
+    try {
+      const outPath = path.resolve(options.exportTrainingData);
+      const exported = await exportPackagesToTraining(
+        packagesWithThreats(threats),
+        1,
+        outPath,
+        options
+      );
+      if (exported > 0) {
+        logger.info(`Exported ${exported} threat package(s) to ${outPath} (label 1)`);
+      }
+    } catch (err) {
+      if (options.verbose) logger.warn(`Export training failed: ${(err as Error).message}`);
+    }
+  }
+  if (options.exportTrainingGood && state.packagesAnalyzedForDepConfusion.length > 0) {
+    try {
+      const clean = state.packagesAnalyzedForDepConfusion.filter(
+        (p) => !state.depConfusionThreatPackageRoots.has(path.resolve(p.path))
+      );
+      if (clean.length > 0) {
+        const outPath = path.resolve(options.exportTrainingGood);
+        const exported = await exportPackagesToTraining(clean, 0, outPath, options);
+        if (exported > 0) {
+          logger.info(`Exported ${exported} clean package(s) to ${outPath} (label 0)`);
+        }
+      }
+    } catch (err) {
+      if (options.verbose) logger.warn(`Export training good failed: ${(err as Error).message}`);
+    }
+  }
+}
+
+/** Dependency tree + supply-chain graph for the scanned root (best effort). */
+function dependencyEnrichment(
+  state: ScanState,
+  filteredThreats: Threat[]
+): {
+  supplyChainGraph?: ReturnType<typeof buildSupplyChainGraph>;
+  dependencyStats?: DependencyTreeStats;
+} {
+  if (!state.graphRoot) return {};
+  try {
+    const { tree, stats } = buildDependencyTree(state.graphRoot, {
+      maxDepth: state.options.depth,
+      includeDevDependencies: state.options.includeDevDependencies,
+    });
+    return {
+      dependencyStats: stats,
+      supplyChainGraph: buildSupplyChainGraph(tree, filteredThreats),
+    };
+  } catch {
+    return {};
+  }
+}
+
+async function enrichResult(
+  state: ScanState,
+  startTime: number,
+  cpuStart: CpuUsage
+): Promise<ScanResult> {
+  const { options, target } = state;
+  const metrics = performanceMetrics(state, startTime, cpuStart);
+  const filteredThreats = filterThreatsBySeverity(state.threats, options.all || false);
+  const riskAssessment = computeCompositeRisk(filteredThreats);
+
+  await exportTrainingRows(state);
+
+  const scanTruncations = assembleScanTruncations(state);
+  const { supplyChainGraph, dependencyStats } = dependencyEnrichment(state, filteredThreats);
+  const totals = directoryTotals(state.directoryStructure);
+
+  return {
+    threats: filteredThreats,
+    metrics,
+    summary: {
+      totalFiles: state.filesScanned,
+      totalPackages: state.packagesScanned,
+      threatsFound: filteredThreats.length,
+      scanDuration: metrics.duration,
+    },
+    packagesScanned: state.packagesScanned,
+    filesScanned: state.filesScanned,
+    performance: metrics,
+    metadata: {
+      target,
+      scanTime: new Date().toISOString(),
+      options,
+      ...(state.dependencySourceStats ? { dependencySourceScan: state.dependencySourceStats } : {}),
+      ...(state.lifecycleScriptStats
+        ? { lifecycleScriptAnalysis: state.lifecycleScriptStats }
+        : {}),
+      ...(supplyChainGraph ? { supplyChainGraph } : {}),
+      ...(scanTruncations ? { scanTruncations } : {}),
+    },
+    ...(scanTruncations ? { scanTruncations } : {}),
+    directoryStructure: state.directoryStructure
+      ? { ...state.directoryStructure, ...totals }
+      : { path: target, files: [], directories: [], totalDirectories: 0, totalFiles: 0 },
+    dependencyTree: {
+      totalPackages: dependencyStats?.totalPackages ?? state.packagesScanned,
+      maxDepth: dependencyStats?.maxDepth ?? 0,
+      packagesWithThreats:
+        supplyChainGraph?.packagesWithThreats ?? countPackagesWithThreats(filteredThreats),
+      deepDependencies: dependencyStats?.deepDependencies ?? 0,
+    },
+    riskAssessment,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Entry point
+// ---------------------------------------------------------------------------
+
 /**
- * Main scan function
+ * Scan a directory, a file, or an npm package spec (`name`, `name@version`).
  */
 export async function scan(
   target: string,
@@ -577,8 +418,8 @@ export async function scan(
   progressCallback?: ProgressCallback
 ): Promise<ScanResult> {
   const startTime = Date.now();
+  const cpuStart = process.cpuUsage();
 
-  // Validate inputs
   try {
     validateScanOptions(options);
   } catch (error) {
@@ -586,479 +427,21 @@ export async function scan(
     throw error;
   }
 
-  const threats: Threat[] = [];
-  const packagesAnalyzedForDepConfusion: Array<{ name: string; path: string }> = [];
-  const depConfusionThreatPackageRoots = new Set<string>();
-  let packagesScanned = 0;
-  let filesScanned = 0;
-  let directoryStructure: DirectoryStructure | undefined;
-  let performanceData: PerformanceMetrics;
-  let graphRoot: string | null = null;
-  let dependencySourceStats:
-    | ReturnType<typeof collectInstalledDependencySourcePaths>['stats']
-    | undefined;
-  let lifecycleScriptStats:
-    | ReturnType<typeof collectLifecycleScriptThreatsForProject>['stats']
-    | undefined;
-  let projectPackageRoots: ReturnType<typeof collectProjectPackageRoots> | undefined;
-  let iocQueriesUsed = 0;
-  let iocQueriesEligible = 0;
-  let depConfusionProcessed = 0;
-  let depConfusionEligible = 0;
-
-  // Reset performance metrics
-  performanceMetrics.duration = 0;
-  performanceMetrics.memoryUsage = 0;
-  performanceMetrics.cpuUsage = 0;
-  performanceMetrics.filesPerSecond = 0;
-  performanceMetrics.packagesPerSecond = 0;
-
+  const state = createScanState(target || process.cwd(), options);
   try {
-    // If no target specified, scan current directory
-    if (!target) {
-      target = process.cwd();
-    }
-
-    // Check if target is a directory
-    if (fs.existsSync(target) && fs.statSync(target).isDirectory()) {
-      const rootPath = path.resolve(target);
-      graphRoot = rootPath;
-      const ignoreDirs = loadNullvoidIgnore(rootPath);
-      const scanOptions = ignoreDirs.length > 0 ? { ...options, ignoreDirs } : options;
-      const directoryResult = await scanDirectory(target, scanOptions, progressCallback);
-      threats.push(...directoryResult.threats);
-      filesScanned = directoryResult.filesScanned;
-      packagesScanned = directoryResult.packagesScanned;
-      directoryStructure = directoryResult.directoryStructure;
-
-      const dependencySource = collectInstalledDependencySourcePaths(rootPath, scanOptions);
-      dependencySourceStats = dependencySource.stats;
-      if (dependencySource.paths.length > 0) {
-        const depScan = await processPaths(dependencySource.paths, scanOptions, progressCallback);
-        threats.push(...depScan.threats);
-        filesScanned += depScan.filesScanned;
-        packagesScanned += dependencySource.stats.packagesVisited;
-      }
-
-      // Find all package.json dirs (root + subdirs) and run dependency analysis + ML on each
-      projectPackageRoots = collectProjectPackageRoots(target, scanOptions);
-      const packageDirs = projectPackageRoots.dirs;
-      const lifecycleScan = collectLifecycleScriptThreatsForProject(
-        rootPath,
-        scanOptions,
-        packageDirs
-      );
-      threats.push(...lifecycleScan.threats);
-      lifecycleScriptStats = lifecycleScan.stats;
-
-      for (const packageDir of packageDirs) {
-        const packageJsonPath = path.join(packageDir, 'package.json');
-        if (!fs.existsSync(packageJsonPath)) continue;
-        try {
-          const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-          const dependencies: Record<string, string> = {
-            ...(packageJson.dependencies || {}),
-            ...(options.includeDevDependencies !== false ? packageJson.devDependencies || {} : {}),
-          };
-
-          if (Object.keys(dependencies).length > 0) {
-            packagesScanned += Object.keys(dependencies).length;
-
-            // Check for suspicious dependencies and query IoC providers
-            const dependencyThreats: Threat[] = [];
-            const iocQueries: Promise<Threat[]>[] = [];
-            const nlpQueries: Promise<Threat[]>[] = [];
-
-            for (const [depName, depVersion] of Object.entries(dependencies)) {
-              if (typeof depVersion === 'string') {
-                // A keyword in a dependency *name* ("virus-scan", "clamav",
-                // "backdoor-detector") is a weak signal on its own, so it is
-                // reported at LOW and only surfaces with --all.
-                if (
-                  SUSPICIOUS_PATTERNS.keywords.some((keyword) =>
-                    depName.toLowerCase().includes(keyword.toLowerCase())
-                  )
-                ) {
-                  dependencyThreats.push({
-                    type: 'SUSPICIOUS_DEPENDENCY',
-                    message: `Suspicious dependency name: ${depName}`,
-                    filePath: packageJsonPath,
-                    filename: 'package.json',
-                    severity: 'LOW',
-                    details: `Dependency "${depName}" contains a suspicious keyword in its name`,
-                    confidence: 0.3,
-                  });
-                }
-
-                // Check for suspicious version patterns
-                if (
-                  SUSPICIOUS_PATTERNS.dependencies.some((pattern) =>
-                    depVersion.match(new RegExp(pattern))
-                  )
-                ) {
-                  dependencyThreats.push({
-                    type: 'SUSPICIOUS_DEPENDENCY',
-                    message: `Suspicious dependency version: ${depName}@${depVersion}`,
-                    filePath: packageJsonPath,
-                    filename: 'package.json',
-                    severity: 'HIGH',
-                    details: `Dependency "${depName}" has suspicious version pattern: ${depVersion}`,
-                    confidence: 0.8,
-                  });
-                }
-
-                if (options.iocEnabled !== false) {
-                  iocQueriesEligible += 1;
-                  if (iocQueriesUsed < SCAN_COVERAGE_LIMITS.IOC_QUERIES_PER_SCAN) {
-                    const cleanVersion = depVersion.replace(/^[\^~>=<]+\s*/, '');
-
-                    let providerNames: IoCProviderName[] | undefined;
-                    if (options.iocProviders) {
-                      const providerList = options.iocProviders
-                        .split(',')
-                        .map((p) => p.trim().toLowerCase());
-                      providerNames = providerList.filter(
-                        (p) => p === 'snyk' || p === 'npm' || p === 'ghsa' || p === 'cve'
-                      ) as IoCProviderName[];
-                    }
-
-                    iocQueries.push(
-                      queryIoCProviders(depName, cleanVersion, providerNames, packageJsonPath)
-                    );
-                    iocQueriesUsed += 1;
-                  }
-                }
-
-                // NLP analysis on dependencies (if enabled, limit to avoid rate limits)
-                if (NLP_CONFIG.ENABLED && nlpQueries.length < 20) {
-                  const cleanVersion = depVersion.replace(/^[\^~>=<]+\s*/, '');
-                  nlpQueries.push(
-                    runNlpAnalysis(depName, cleanVersion, NLP_CONFIG)
-                      .then((nlpResult): Threat[] => {
-                        if (
-                          nlpResult &&
-                          nlpResult.nlpSecurityScore >= 0.5 &&
-                          nlpResult.suspiciousPhrases.length > 0
-                        ) {
-                          return [
-                            {
-                              type: 'NLP_SECURITY_INDICATOR',
-                              message: `NLP analysis: security indicators in ${depName} docs/issues`,
-                              filePath: packageJsonPath,
-                              filename: 'package.json',
-                              severity: nlpResult.nlpSecurityScore >= 0.7 ? 'MEDIUM' : 'LOW',
-                              details: `Security score: ${(nlpResult.nlpSecurityScore * 100).toFixed(0)}%. Suspicious: ${nlpResult.suspiciousPhrases.slice(0, 3).join(', ')}`,
-                              confidence: Math.round(nlpResult.nlpSecurityScore * 80),
-                            },
-                          ];
-                        }
-                        return [];
-                      })
-                      .catch((err: Error) => {
-                        if (options.verbose) {
-                          logger.warn(`NLP query failed for ${depName}: ${err.message}`);
-                        }
-                        return [];
-                      })
-                  );
-                }
-              }
-            }
-
-            // Wait for IoC and NLP queries, then merge results
-            const allExtraThreats: Threat[] = [];
-            if (iocQueries.length > 0) {
-              try {
-                const iocResults = await Promise.all(iocQueries);
-                allExtraThreats.push(...iocResults.flat());
-              } catch (error) {
-                if (options.verbose) {
-                  logger.warn(`IoC query failed: ${(error as Error).message}`);
-                }
-              }
-            }
-            if (nlpQueries.length > 0) {
-              try {
-                const nlpResults = await Promise.all(nlpQueries);
-                allExtraThreats.push(...nlpResults.flat());
-              } catch (error) {
-                if (options.verbose) {
-                  logger.warn(`NLP query failed: ${(error as Error).message}`);
-                }
-              }
-            }
-            const mergedThreats = mergeIoCThreats(dependencyThreats, allExtraThreats);
-            threats.push(...mergedThreats);
-
-            // Dependency confusion analysis (root package + node_modules when available)
-            if (options.dependencyConfusionEnabled !== false) {
-              try {
-                if (options.verbose) {
-                  logger.info('Analyzing dependency confusion patterns...');
-                }
-                const packagesToAnalyze: Array<{ name: string; path: string }> = [];
-                let depConfusionEligibleThisDir = 0;
-                const rootName = packageJson.name as string | undefined;
-                const depConfusionLimit = SCAN_COVERAGE_LIMITS.DEPENDENCY_CONFUSION_PACKAGES;
-                if (rootName) {
-                  depConfusionEligibleThisDir += 1;
-                  packagesToAnalyze.push({ name: rootName, path: packageDir });
-                }
-                const nodeModulesPath = path.join(packageDir, 'node_modules');
-                if (fs.existsSync(nodeModulesPath)) {
-                  const deps = {
-                    ...((packageJson.dependencies as Record<string, string>) || {}),
-                    ...(options.includeDevDependencies !== false
-                      ? (packageJson.devDependencies as Record<string, string>) || {}
-                      : {}),
-                  };
-                  for (const depName of Object.keys(deps)) {
-                    const depPath = path.join(nodeModulesPath, depName);
-                    if (fs.existsSync(depPath)) {
-                      depConfusionEligibleThisDir += 1;
-                      if (packagesToAnalyze.length < depConfusionLimit) {
-                        packagesToAnalyze.push({ name: depName, path: depPath });
-                      }
-                    }
-                  }
-                }
-                depConfusionEligible += depConfusionEligibleThisDir;
-                depConfusionProcessed += packagesToAnalyze.length;
-                if (packagesToAnalyze.length > 0) {
-                  packagesAnalyzedForDepConfusion.push(...packagesToAnalyze);
-                  const depConfusionThreats = await analyzeDependencyConfusion(packagesToAnalyze, {
-                    emitMlThreats: options.mlThreats === true,
-                  });
-                  threats.push(...depConfusionThreats);
-                  for (const t of depConfusionThreats) {
-                    if (t.filePath && isCodeThreatType(t.type)) {
-                      const root = findPackageRoot(t.filePath);
-                      if (root) depConfusionThreatPackageRoots.add(path.resolve(root));
-                    }
-                  }
-                  if (options.verbose && depConfusionThreats.length > 0) {
-                    logger.info(
-                      `Found ${depConfusionThreats.length} dependency confusion threat(s)`
-                    );
-                  }
-                }
-              } catch (error) {
-                if (options.verbose) {
-                  logger.warn(`Dependency confusion analysis failed: ${(error as Error).message}`);
-                }
-              }
-            }
-          }
-        } catch (error) {
-          if (options.verbose) {
-            logger.warn(`Warning: Could not parse package.json: ${(error as Error).message}`);
-          }
-        }
-      }
-    } else {
-      // Single file scan
-      if (fs.existsSync(target)) {
-        try {
-          const content = fs.readFileSync(target, 'utf8');
-          const fileThreats = detectFileThreats(content, target, options, detectMalware);
-          threats.push(...fileThreats);
-          filesScanned = 1;
-        } catch (error) {
-          if (options.verbose) {
-            logger.warn(`Failed to scan file ${target}: ${(error as Error).message}`);
-          }
-        }
-      } else if (isNpmPackageSpec(target)) {
-        const spec = parsePackageSpec(target);
-        if (spec) {
-          const resolved = await downloadPackageToTemp(spec.name, spec.version);
-          if (resolved) {
-            try {
-              if (options.verbose) {
-                logger.info(`Scanning remote package ${resolved.packageName}@${resolved.version}`);
-              }
-              const dirResult = await scanDirectory(resolved.extractDir, options, progressCallback);
-              threats.push(...dirResult.threats);
-              filesScanned = dirResult.filesScanned;
-              packagesScanned = 1;
-              directoryStructure = dirResult.directoryStructure;
-              graphRoot = resolved.extractDir;
-            } finally {
-              resolved.cleanup();
-            }
-          } else {
-            threats.push({
-              type: 'PACKAGE_NOT_FOUND',
-              message: `Could not download package: ${target}`,
-              filePath: target,
-              filename: path.basename(target),
-              severity: 'MEDIUM',
-              details: `Package ${spec.name}@${spec.version} was not found on the npm registry.`,
-              confidence: 0.9,
-            });
-          }
-        }
-      } else {
-        threats.push({
-          type: 'PACKAGE_NOT_FOUND',
-          message: `Package or file not found: ${target}`,
-          filePath: target,
-          filename: path.basename(target),
-          severity: 'LOW',
-          details:
-            'Path does not exist and target is not a valid npm package spec (name or name@version).',
-          confidence: 0.5,
-        });
-      }
-    }
+    await scanTarget(state, progressCallback);
   } catch (error) {
     logger.error(`Scan error: ${(error as Error).message}`);
-    threats.push({
+    state.threats.push({
       type: 'SCAN_ERROR',
       message: `Scan failed: ${(error as Error).message}`,
-      filePath: target,
-      filename: path.basename(target),
+      filePath: state.target,
+      filename: path.basename(state.target),
       severity: 'MEDIUM',
       details: (error as Error).stack || '',
       confidence: 0.9,
     });
   }
 
-  // Calculate performance metrics
-  const duration = Date.now() - startTime;
-  const memoryUsage = process.memoryUsage().heapUsed / 1024 / 1024; // MB
-  const cpuUsage = os.loadavg()[0] || 0;
-
-  performanceData = {
-    duration,
-    memoryUsage,
-    cpuUsage,
-    filesPerSecond:
-      filesScanned > 0 && duration > 0 ? Math.round(filesScanned / (duration / 1000)) : 0,
-    packagesPerSecond:
-      packagesScanned > 0 && duration > 0 ? Math.round(packagesScanned / (duration / 1000)) : 0,
-  };
-
-  // Filter threats based on options
-  const filteredThreats = filterThreatsBySeverity(threats, options.all || false);
-
-  // Compute composite risk assessment
-  const riskAssessment = computeCompositeRisk(filteredThreats);
-
-  // Export training data for packages with threats (use unfiltered threats)
-  if (options.exportTrainingData && threats.length > 0) {
-    try {
-      const outPath = path.resolve(options.exportTrainingData);
-      const exported = await exportThreatsToTraining(threats, outPath, options);
-      if (exported > 0) {
-        logger.info(`Exported ${exported} threat package(s) to ${outPath} (label 1)`);
-      }
-    } catch (err) {
-      if (options.verbose) {
-        logger.warn(`Export training failed: ${(err as Error).message}`);
-      }
-    }
-  }
-
-  // Export training data for packages with no dependency confusion threats (label 0)
-  if (options.exportTrainingGood && packagesAnalyzedForDepConfusion.length > 0) {
-    try {
-      const goodPackages = packagesAnalyzedForDepConfusion.filter(
-        (p) => !depConfusionThreatPackageRoots.has(path.resolve(p.path))
-      );
-      if (goodPackages.length > 0) {
-        const outPath = path.resolve(options.exportTrainingGood);
-        const exported = await exportGoodPackagesToTraining(goodPackages, outPath, options);
-        if (exported > 0) {
-          logger.info(`Exported ${exported} clean package(s) to ${outPath} (label 0)`);
-        }
-      }
-    } catch (err) {
-      if (options.verbose) {
-        logger.warn(`Export training good failed: ${(err as Error).message}`);
-      }
-    }
-  }
-
-  // Calculate directory structure totals
-  const totalDirectories = directoryStructure
-    ? directoryStructure.directories.length +
-      directoryStructure.directories.reduce(
-        (acc, dir) => acc + (dir.includes('/') ? dir.split('/').length - 1 : 0),
-        0
-      )
-    : 0;
-  const totalFiles = directoryStructure
-    ? directoryStructure.files.length +
-      directoryStructure.files.reduce(
-        (acc, file) => acc + (file.includes('/') ? file.split('/').length - 1 : 0),
-        0
-      )
-    : 0;
-
-  const scanTruncations = assembleScanTruncations({
-    options,
-    projectPackageRoots,
-    iocQueriesUsed,
-    iocQueriesEligible,
-    depConfusionProcessed,
-    depConfusionEligible,
-    dependencySourceStats,
-    lifecycleScriptStats,
-  });
-
-  const scanRoot = graphRoot;
-  let supplyChainGraphPayload: ReturnType<typeof buildSupplyChainGraph> | undefined;
-  let dependencyStats: DependencyTreeStats | undefined;
-  if (scanRoot) {
-    try {
-      const { tree, stats } = buildDependencyTree(scanRoot, {
-        maxDepth: options.depth,
-        includeDevDependencies: options.includeDevDependencies,
-      });
-      dependencyStats = stats;
-      supplyChainGraphPayload = buildSupplyChainGraph(tree, filteredThreats);
-    } catch {
-      /* optional enrichment */
-    }
-  }
-
-  return {
-    threats: filteredThreats,
-    metrics: performanceData,
-    summary: {
-      totalFiles: filesScanned,
-      totalPackages: packagesScanned,
-      threatsFound: filteredThreats.length,
-      scanDuration: duration,
-    },
-    packagesScanned,
-    filesScanned,
-    performance: performanceData,
-    metadata: {
-      target,
-      scanTime: new Date().toISOString(),
-      options,
-      ...(dependencySourceStats ? { dependencySourceScan: dependencySourceStats } : {}),
-      ...(lifecycleScriptStats ? { lifecycleScriptAnalysis: lifecycleScriptStats } : {}),
-      ...(supplyChainGraphPayload ? { supplyChainGraph: supplyChainGraphPayload } : {}),
-      ...(scanTruncations ? { scanTruncations } : {}),
-    },
-    ...(scanTruncations ? { scanTruncations } : {}),
-    directoryStructure: directoryStructure
-      ? {
-          ...directoryStructure,
-          totalDirectories,
-          totalFiles,
-        }
-      : { path: target, files: [], directories: [], totalDirectories: 0, totalFiles: 0 },
-    dependencyTree: {
-      totalPackages: dependencyStats?.totalPackages ?? packagesScanned,
-      maxDepth: dependencyStats?.maxDepth ?? 0,
-      packagesWithThreats:
-        supplyChainGraphPayload?.packagesWithThreats ?? countPackagesWithThreats(filteredThreats),
-      deepDependencies: dependencyStats?.deepDependencies ?? 0,
-    },
-    riskAssessment,
-  };
+  return enrichResult(state, startTime, cpuStart);
 }

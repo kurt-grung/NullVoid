@@ -13,10 +13,6 @@ export interface ScanOptions {
   depth?: number;
   /** Maximum directory recursion depth when discovering files and package roots (default: 5) */
   maxDirDepth?: number;
-  /** Enable parallel processing */
-  parallel?: boolean;
-  /** Number of workers for parallel processing */
-  workers?: number | undefined;
   /** Include development dependencies */
   includeDevDependencies?: boolean;
   /** Skip cache */

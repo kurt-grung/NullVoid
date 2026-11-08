@@ -79,7 +79,6 @@ describe('lifecycle script analysis', () => {
     const result = await scan(root, {
       depth: 2,
       iocEnabled: false,
-      parallel: false,
       dependencyConfusionEnabled: false,
       all: true,
     });
