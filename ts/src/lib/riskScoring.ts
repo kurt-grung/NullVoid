@@ -28,6 +28,7 @@ const THREAT_TO_CATEGORY: Record<ThreatType, RiskCategory> = {
   DYNAMIC_MODULE_LOAD: 'integrity',
   CAPABILITY_NOTE: 'integrity',
   RULE_TIMEOUT: 'availability',
+  LIFECYCLE_PAYLOAD: 'integrity',
   DEPENDENCY_CONFUSION: 'integrity',
   DEPENDENCY_CONFUSION_ACTIVITY: 'integrity',
   DEPENDENCY_CONFUSION_ERROR: 'availability',
