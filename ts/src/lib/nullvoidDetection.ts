@@ -253,8 +253,6 @@ export function getNullVoidFiles(): string[] {
     'config.ts',
     'logger.js',
     'logger.ts',
-    'parallel.js',
-    'parallel.ts',
     'rateLimiter.js',
     'rateLimiter.ts',
     'pathSecurity.js',

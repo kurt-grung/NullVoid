@@ -26,7 +26,6 @@ describe('scan truncation metadata', () => {
 
     const result = await scan(root, {
       depth: 5,
-      parallel: false,
       iocEnabled: false,
       dependencyConfusionEnabled: false,
       scanDependencySource: false,

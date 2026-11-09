@@ -112,18 +112,6 @@ export const NETWORK_CONFIG = {
 } as const;
 
 /**
- * Parallel processing configuration
- */
-export const PARALLEL_CONFIG = {
-  MAX_WORKERS: 8,
-  CHUNK_SIZE: 10,
-  TIMEOUT: 30000, // 30 seconds
-  RETRY_ATTEMPTS: 2,
-  MIN_CHUNK_SIZE: 5,
-  MAX_CHUNK_SIZE: 20,
-} as const;
-
-/**
  * File processing configuration
  */
 export const FILE_CONFIG = {
@@ -978,8 +966,6 @@ export const SCAN_CONFIG: ScanConfig = {
   enableSandbox: true,
   sandboxTimeout: 100,
   maxMemory: 128 * 1024 * 1024, // 128MB
-  enableParallel: true,
-  maxWorkers: PARALLEL_CONFIG.MAX_WORKERS,
 };
 
 export const SECURITY_CONFIG: SecurityConfig = {
@@ -1166,14 +1152,6 @@ export function updateConfigFromEnv(): void {
     const timeout = parseInt(process.env['NULLVOID_NETWORK_TIMEOUT'], 10);
     if (!isNaN(timeout) && timeout > 0) {
       (NETWORK_CONFIG as Record<string, unknown>)['TIMEOUT'] = timeout;
-    }
-  }
-
-  // Update max workers from environment
-  if (process.env['NULLVOID_MAX_WORKERS']) {
-    const workers = parseInt(process.env['NULLVOID_MAX_WORKERS'], 10);
-    if (!isNaN(workers) && workers > 0 && workers <= 32) {
-      (PARALLEL_CONFIG as Record<string, unknown>)['MAX_WORKERS'] = workers;
     }
   }
 

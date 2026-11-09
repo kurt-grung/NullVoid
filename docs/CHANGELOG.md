@@ -5,6 +5,15 @@ All notable changes to NullVoid will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Removed
+- `--parallel` / `--workers` and `NULLVOID_MAX_WORKERS`: the flags never ran anything concurrently (one thread, synchronous regex/AST work over `Promise.all`), so they could not be faster than a sequential scan. Both flags are still accepted as hidden no-ops with a deprecation warning for one release and will be removed in the next major version. The unused `WorkerPool` (`lib/parallel.ts`) and resource monitor are gone.
+
+### Changed
+- `scan()` is split into target-specific functions (`scanDirectoryTarget`, `scanFileTarget`, `scanRemoteTarget`) plus `lib/scanFiles.ts` (file discovery), `lib/manifestAnalysis.ts` (per-package.json IoC / NLP / dependency-confusion analysis) and `lib/trainingExport.ts` (one exporter for both labels). Behaviour unchanged; `metrics.cpuUsage` is now the process CPU time during the scan as a percentage of wall time instead of the 1-minute load average.
+- The default command and the `scan` subcommand share one `addScanOptions()` definition.
+
 ## [2.1.0] - 2025-01-31
 
 ### Added

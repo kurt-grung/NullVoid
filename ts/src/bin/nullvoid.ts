@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { program } from 'commander';
+import { program, Command, Option } from 'commander';
 import * as path from 'path';
 import * as fs from 'fs';
 import { spawn } from 'child_process';
@@ -56,6 +56,7 @@ function buildSarifForResult(result: ScanResult): ReturnType<typeof generateSari
 interface CliOptions {
   depth?: number;
   maxDirDepth?: string;
+  /** Deprecated no-ops kept for one release */
   parallel?: boolean;
   workers?: string;
   includeDev?: boolean;
@@ -1176,137 +1177,96 @@ rulesCmd
     }
   });
 
+/**
+ * Scan options shared by the default command and the `scan` subcommand, so the
+ * two never drift apart.
+ */
+function addScanOptions(cmd: Command): Command {
+  return (
+    cmd
+      .argument(
+        '[target]',
+        'Package name, directory, or file to scan (defaults to current directory)'
+      )
+      .option('-d, --depth <number>', 'Maximum depth for dependency scanning', '5')
+      .option(
+        '--max-dir-depth <number>',
+        'Maximum directory recursion depth for file discovery (1-50, default 5)'
+      )
+      .option('--include-dev', 'Include development dependencies')
+      .option('--skip-cache', 'Skip cache')
+      .option('-o, --output <file>', 'Output file path')
+      .option('-f, --format <format>', 'Output format (json, sarif, text, html, markdown)', 'json')
+      .option(
+        '--compliance <framework>',
+        'Add compliance section (soc2, iso27001) to html/markdown reports'
+      )
+      .option('-v, --verbose', 'Enable verbose logging')
+      .option('--debug', 'Enable debug mode')
+      .option('-r, --rules <file>', 'Custom rules file')
+      .option(
+        '--no-builtin-rules',
+        'Skip the built-in detection rules (wallet hijacking, network manipulation, ...)'
+      )
+      .option('--ml', 'Report experimental ML anomaly and predictive-risk threats')
+      .option('--sarif <file>', 'SARIF output file')
+      .option('--all', 'Show all threats including low severity')
+      .option(
+        '--fail-on <severity>',
+        'Exit 1 when a threat at or above this severity is found: critical, high, medium, low, or none',
+        'high'
+      )
+      .option(
+        '--ioc-providers <providers>',
+        'Comma-separated list of IoC providers to use (snyk,npm,ghsa,cve)',
+        'npm,ghsa,cve'
+      )
+      .option('--cache-stats', 'Show cache statistics')
+      .option('--enable-redis', 'Enable Redis distributed cache (L3)')
+      .option('--network-stats', 'Show network performance metrics')
+      .option('--no-ioc', 'Disable IoC provider queries')
+      .option('--no-dependency-source', 'Skip scanning installed dependency source in node_modules')
+      .option(
+        '--export-training <file>',
+        'Append feature vectors for packages with threats to JSONL file (label 1) for ML training'
+      )
+      .option(
+        '--export-training-good <file>',
+        'Append feature vectors for packages with no threats to JSONL file (label 0) for balanced ML training'
+      )
+      .option(
+        '--train',
+        'Shorthand for --export-training ml-model/train.jsonl (rows are labelled by the scanner, not ground truth; see ml-model/README.md)',
+        false
+      )
+      .option('--save-history', 'Save scan to ~/.nullvoid/history/ for trends')
+      // --parallel / --workers never ran anything concurrently (one thread, sync
+      // regex work); accepted for one release as hidden no-ops so existing CI
+      // invocations keep working, then removed.
+      .addOption(new Option('-p, --parallel', 'Deprecated: no effect').hideHelp())
+      .addOption(new Option('-w, --workers <number>', 'Deprecated: no effect').hideHelp())
+  );
+}
+
 // Main scan command (default action)
-program
-  .argument('[target]', 'Package name, directory, or file to scan (defaults to current directory)')
-  .option('-d, --depth <number>', 'Maximum depth for dependency scanning', '5')
-  .option(
-    '--max-dir-depth <number>',
-    'Maximum directory recursion depth for file discovery (1-50, default 5)'
-  )
-  .option('-p, --parallel', 'Enable parallel processing')
-  .option('-w, --workers <number>', 'Number of workers for parallel processing', 'auto')
-  .option('--include-dev', 'Include development dependencies')
-  .option('--skip-cache', 'Skip cache')
-  .option('-o, --output <file>', 'Output file path')
-  .option('-f, --format <format>', 'Output format (json, sarif, text, html, markdown)', 'json')
-  .option(
-    '--compliance <framework>',
-    'Add compliance section (soc2, iso27001) to html/markdown reports'
-  )
-  .option('-v, --verbose', 'Enable verbose logging')
-  .option('--debug', 'Enable debug mode')
-  .option('-r, --rules <file>', 'Custom rules file')
-  .option(
-    '--no-builtin-rules',
-    'Skip the built-in detection rules (wallet hijacking, network manipulation, ...)'
-  )
-  .option('--ml', 'Report experimental ML anomaly and predictive-risk threats')
-  .option('--sarif <file>', 'SARIF output file')
-  .option('--all', 'Show all threats including low severity')
-  .option(
-    '--fail-on <severity>',
-    'Exit 1 when a threat at or above this severity is found: critical, high, medium, low, or none',
-    'high'
-  )
-  .option(
-    '--ioc-providers <providers>',
-    'Comma-separated list of IoC providers to use (snyk,npm,ghsa,cve)',
-    'npm,ghsa,cve'
-  )
-  .option('--cache-stats', 'Show cache statistics')
-  .option('--enable-redis', 'Enable Redis distributed cache (L3)')
-  .option('--network-stats', 'Show network performance metrics')
-  .option('--no-ioc', 'Disable IoC provider queries')
-  .option('--no-dependency-source', 'Skip scanning installed dependency source in node_modules')
-  .option(
-    '--export-training <file>',
-    'Append feature vectors for packages with threats to JSONL file (label 1) for ML training'
-  )
-  .option(
-    '--export-training-good <file>',
-    'Append feature vectors for packages with no threats to JSONL file (label 0) for balanced ML training'
-  )
-  .option(
-    '--train',
-    'Shorthand for --export-training ml-model/train.jsonl (rows are labelled by the scanner, not ground truth; see ml-model/README.md)',
-    false
-  )
-  .option('--save-history', 'Save scan to ~/.nullvoid/history/ for trends')
-  .action(async (target: string | undefined, options: CliOptions) => {
-    await performScan(target, options);
-  });
+addScanOptions(program).action(async (target: string | undefined, options: CliOptions) => {
+  await performScan(target, options);
+});
 
 // Backward compatibility: "nullvoid scan" command
-program
-  .command('scan')
-  .description('Scan for security threats (backward compatibility)')
-  .argument('[target]', 'Package name, directory, or file to scan (defaults to current directory)')
-  .option('-d, --depth <number>', 'Maximum depth for dependency scanning', '5')
-  .option(
-    '--max-dir-depth <number>',
-    'Maximum directory recursion depth for file discovery (1-50, default 5)'
-  )
-  .option('-p, --parallel', 'Enable parallel processing')
-  .option('-w, --workers <number>', 'Number of workers for parallel processing', 'auto')
-  .option('--include-dev', 'Include development dependencies')
-  .option('--skip-cache', 'Skip cache')
-  .option('-o, --output <file>', 'Output file path')
-  .option('-f, --format <format>', 'Output format (json, sarif, text, html, markdown)', 'json')
-  .option(
-    '--compliance <framework>',
-    'Add compliance section (soc2, iso27001) to html/markdown reports'
-  )
-  .option('-v, --verbose', 'Enable verbose logging')
-  .option('--debug', 'Enable debug mode')
-  .option('-r, --rules <file>', 'Custom rules file')
-  .option(
-    '--no-builtin-rules',
-    'Skip the built-in detection rules (wallet hijacking, network manipulation, ...)'
-  )
-  .option('--ml', 'Report experimental ML anomaly and predictive-risk threats')
-  .option('--sarif <file>', 'SARIF output file')
-  .option('--all', 'Show all threats including low severity')
-  .option(
-    '--fail-on <severity>',
-    'Exit 1 when a threat at or above this severity is found: critical, high, medium, low, or none',
-    'high'
-  )
-  .option(
-    '--ioc-providers <providers>',
-    'Comma-separated list of IoC providers to use (snyk,npm,ghsa,cve)',
-    'npm,ghsa,cve'
-  )
-  .option('--cache-stats', 'Show cache statistics')
-  .option('--enable-redis', 'Enable Redis distributed cache (L3)')
-  .option('--network-stats', 'Show network performance metrics')
-  .option('--no-ioc', 'Disable IoC provider queries')
-  .option('--no-dependency-source', 'Skip scanning installed dependency source in node_modules')
-  .option(
-    '--export-training <file>',
-    'Append feature vectors for packages with threats to JSONL file (label 1) for ML training'
-  )
-  .option(
-    '--export-training-good <file>',
-    'Append feature vectors for packages with no threats to JSONL file (label 0) for balanced ML training'
-  )
-  .option(
-    '--train',
-    'Shorthand for --export-training ml-model/train.jsonl (rows are labelled by the scanner, not ground truth; see ml-model/README.md)',
-    false
-  )
-  .option('--save-history', 'Save scan to ~/.nullvoid/history/ for trends')
-  .action(async function (
-    this: { opts: () => CliOptions },
-    target: string | undefined,
-    options: CliOptions
-  ) {
-    const opts = this.opts() as CliOptions;
-    const merged: CliOptions = { ...options, ...opts };
-    // Commander subcommand may not parse --train; fallback to argv check
-    if (process.argv.includes('--train') && !merged.train) merged.train = true;
-    await performScan(target, merged);
-  });
+addScanOptions(
+  program.command('scan').description('Scan for security threats (backward compatibility)')
+).action(async function (
+  this: { opts: () => CliOptions },
+  target: string | undefined,
+  options: CliOptions
+) {
+  const opts = this.opts() as CliOptions;
+  const merged: CliOptions = { ...options, ...opts };
+  // Commander subcommand may not parse --train; fallback to argv check
+  if (process.argv.includes('--train') && !merged.train) merged.train = true;
+  await performScan(target, merged);
+});
 
 export const EXIT_CLEAN = 0;
 export const EXIT_THREATS = 1;
@@ -1346,6 +1306,12 @@ function parseMaxDirDepth(raw: string | undefined): number | undefined {
 }
 
 async function performScan(target: string | undefined, options: CliOptions) {
+  if (options.parallel || (options.workers !== undefined && options.workers !== 'auto')) {
+    console.error(
+      colors.yellow('Warning:'),
+      '--parallel/--workers are deprecated and have no effect (the scan was never multi-threaded); they will be removed in the next major release.'
+    );
+  }
   applyCacheCliOptions({ enableRedis: Boolean(options.enableRedis) });
 
   const spinner = ora('🔍 Scanning ...').start();
@@ -1358,13 +1324,6 @@ async function performScan(target: string | undefined, options: CliOptions) {
     const scanOptions: ScanOptions = {
       depth: options.depth ? parseInt(options.depth.toString()) : defaultDepth,
       maxDirDepth: parseMaxDirDepth(options.maxDirDepth) ?? rc.maxDirDepth ?? 5,
-      parallel: options.parallel || false,
-      workers:
-        options.workers === 'auto'
-          ? undefined
-          : options.workers
-            ? parseInt(options.workers)
-            : undefined,
       includeDevDependencies: options.includeDev || false,
       skipCache: options.skipCache || false,
       verbose: options.verbose || false,

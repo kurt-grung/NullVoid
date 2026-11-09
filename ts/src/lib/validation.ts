@@ -38,10 +38,8 @@ export interface ValidationResult {
 export interface ScanOptions {
   maxDepth?: number;
   maxDirDepth?: number;
-  workers?: number | undefined;
   output?: string;
   verbose?: boolean;
-  parallel?: boolean;
   all?: boolean;
   maxDependencySourcePackages?: number;
   maxDependencySourceFiles?: number;
@@ -366,22 +364,6 @@ export function validateScanOptions(options: ScanOptions): boolean {
         'dependencySourceFileDepth must be an integer between 1 and 20',
         'dependencySourceFileDepth',
         options.dependencySourceFileDepth
-      );
-    }
-  }
-
-  // Validate workers count
-  if (options.workers !== undefined) {
-    if (
-      typeof options.workers !== 'number' ||
-      !Number.isInteger(options.workers) ||
-      options.workers < 1 ||
-      options.workers > 16
-    ) {
-      throw new ValidationError(
-        'workers must be an integer between 1 and 16',
-        'workers',
-        options.workers
       );
     }
   }
