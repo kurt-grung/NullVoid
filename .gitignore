@@ -159,3 +159,7 @@ ts/benchmark/results.json
 # Benchmark fixtures deliberately ship dist/ and build/ bundles
 !ts/benchmark/malicious/**/dist/
 !ts/benchmark/malicious/**/dist/**
+
+# Pickled models execute code on load; models are stored as JSON (ml-model/model_io.py)
+*.pkl
+*.joblib

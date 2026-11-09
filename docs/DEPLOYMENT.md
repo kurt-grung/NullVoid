@@ -48,7 +48,7 @@ Run NullVoid in the cloud for demos or development—100% free (60 hours/month),
 
 The ML page (Export, Train) works in Codespaces. Use SQLite (no Turso needed). Optional: `make serve` for the scoring API on port 8000.
 
-**Model files (`model.pkl`, `behavioral-model.pkl`)** are not committed to keep the clone small. After opening the ML page, run **Train** once (or `npm run ml:train` in the repo root) to generate them from the checked-in `ml-model/train.jsonl`; expect roughly one to two minutes on first run. `make serve` then loads `ml-model/model.pkl` for local scoring.
+**Model files (`model.model.json`, `model.calib.json`, `behavioral.model.json`, `behavioral.calib.json`)** are committed as XGBoost JSON with sha256 hashes recorded in `metadata.json` / `behavioral-metadata.json`; no pickle files are used. To retrain, run **Train** on the ML page (or `npm run ml:train` in the repo root); expect roughly one to two minutes. `make serve` loads the verified model from `ml-model/` for local scoring and exits with code 2 if a hash does not match.
 
 ### Notes
 

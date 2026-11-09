@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Train an XGBoost model for dependency confusion threat scoring.
-Reads JSONL from stdin or --input, outputs model.pkl, calibration.pkl, feature_keys.pkl, metadata.json.
+Reads JSONL from stdin or --input, outputs model.model.json, model.calib.json, metadata.json (see model_io.py).
 
 Usage:
   python train.py --input train.jsonl
@@ -11,21 +11,25 @@ Usage:
 """
 
 import argparse
+
+import numpy as np
 import json
 import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from model_io import save_model
+
 try:
-    import joblib
+    pass
     import xgboost as xgb
     from sklearn.calibration import CalibratedClassifierCV
     from sklearn.model_selection import GridSearchCV
     from sklearn.model_selection import train_test_split
     from sklearn.metrics import accuracy_score, classification_report, roc_auc_score, precision_score, recall_score
 except ImportError as e:
-    print("Install: pip install scikit-learn xgboost joblib", file=sys.stderr)
+    print("Install: pip install scikit-learn xgboost", file=sys.stderr)
     raise e
 
 _MANIFEST_PATH = Path(__file__).parent / "feature-keys.json"
@@ -70,8 +74,8 @@ def extract_features(row: Dict) -> List[float]:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--input", "-i", help="Input JSONL file")
-    ap.add_argument("--output", "-o", default="model.pkl", help="Output model path")
-    ap.add_argument("--output-dir", help="Output directory (saves model, calibration, feature_keys, metadata)")
+    ap.add_argument("--output-dir", "-o", default=".", help="Output directory (model.model.json, model.calib.json, metadata.json)")
+    ap.add_argument("--output", help=argparse.SUPPRESS)  # legacy: a path whose parent directory is used
     ap.add_argument("--test-size", type=float, default=0.2, help="Test set fraction")
     ap.add_argument("--balance", action="store_true", help="Balance classes (oversample minority)")
     ap.add_argument(
@@ -187,10 +191,28 @@ def main():
             print(f"Tuning skipped due to error: {e}")
     base_model = xgb.XGBClassifier(**xgb_kw)
 
+    # Calibration: one booster trained on all training data, plus Platt
+    # scaling fitted on out-of-fold margins (cross_val_predict). This keeps a
+    # single exportable booster instead of CalibratedClassifierCV's three.
+    calib_margins = None
     if do_calibrate:
-        model = CalibratedClassifierCV(base_model, method="sigmoid", cv=3)
-    else:
-        model = base_model
+        from sklearn.model_selection import StratifiedKFold, cross_val_predict
+
+        n_min = min(int(sum(1 for v in y_train if v == 1)), int(sum(1 for v in y_train if v == 0)))
+        folds = max(2, min(3, n_min))
+        if n_min >= 2:
+            proba = cross_val_predict(
+                xgb.XGBClassifier(**xgb_kw),
+                np.asarray(X_train, dtype=float),
+                np.asarray(y_train),
+                cv=StratifiedKFold(n_splits=folds, shuffle=True, random_state=42),
+                method="predict_proba",
+            )[:, 1]
+            proba = np.clip(proba, 1e-6, 1 - 1e-6)
+            calib_margins = np.log(proba / (1 - proba))
+        else:
+            print("Calibration skipped: fewer than 2 samples in a class")
+    model = base_model
 
     model.fit(X_train, y_train)
     training_scores = []
@@ -221,16 +243,11 @@ def main():
     else:
         print("Trained on all data (no test split; add more samples for evaluation)")
 
-    out_path = Path(args.output)
-    out_dir = Path(args.output_dir) if args.output_dir else out_path.parent
+    out_dir = Path(args.output).parent if args.output else Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    model_path = out_dir / "model.pkl" if args.output_dir else out_path
-    joblib.dump(model, model_path)
-    joblib.dump(FEATURE_KEYS, out_dir / "feature_keys.pkl")
-
     metadata = {
-        "model_type": "xgboost" + ("_calibrated" if do_calibrate else ""),
+        "model_type": "xgboost" + ("_calibrated" if calib_margins is not None else ""),
         "feature_keys": FEATURE_KEYS,
         "feature_schema_version": FEATURE_SCHEMA_VERSION,
         "training_date": datetime.utcnow().isoformat() + "Z",
@@ -244,10 +261,11 @@ def main():
         "metrics": metrics,
         "training_scores": training_scores,
     }
-    with open(out_dir / "metadata.json", "w") as f:
-        json.dump(metadata, f, indent=2)
+    # Stored as XGBoost JSON + Platt parameters, hashed into metadata (model_io.py).
+    # No pickle: a pickled model executes code on load.
+    hashes = save_model(model, out_dir, "model", FEATURE_KEYS, metadata, y_calib=y_train, calib_margins=calib_margins)
 
-    print(f"Model saved to {model_path}")
+    print(f"Model saved to {out_dir / 'model.model.json'} (sha256 {hashes['model'][:12]}…)")
     print(f"Metadata saved to {out_dir / 'metadata.json'}")
 
 

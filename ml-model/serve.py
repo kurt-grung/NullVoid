@@ -7,12 +7,13 @@ GET /health returns ok, behavioral_loaded, and shap (whether SHAP is installed).
 
 Usage:
   python serve.py
-  python serve.py --model model.pkl --port 8000
+  python serve.py --model-dir . --port 8000
   python serve.py --model-dir models/v1 --port 8000
 """
 
 import argparse
 import json
+import sys
 import os
 from pathlib import Path
 from typing import Any, Optional
@@ -20,12 +21,12 @@ from typing import Any, Optional
 DEFAULT_MAX_BATCH = 512
 
 try:
-    import joblib
+    import model_io as mio
     from fastapi import FastAPI
     from pydantic import BaseModel
     from uvicorn import run
 except ImportError:
-    print("Install: pip install fastapi uvicorn scikit-learn joblib", file=__import__("sys").stderr)
+    print("Install: pip install fastapi uvicorn scikit-learn xgboost", file=__import__("sys").stderr)
     raise
 
 
@@ -42,8 +43,7 @@ SHAP_AVAILABLE = _shap_available()
 
 app = FastAPI(title="NullVoid ML Score API")
 
-MODEL_PATH = Path(__file__).parent / "model.pkl"
-KEYS_PATH = Path(__file__).parent / "feature_keys.pkl"
+MODEL_PATH = Path(__file__).parent / "model.model.json"
 
 model = None
 feature_keys = None
@@ -150,49 +150,24 @@ def get_top_reasons(feats: dict, importance: dict[str, float], top_n: int = 5) -
 
 
 def load_model(path: Path, dir_path: Optional[Path] = None):
-    global model, feature_keys, metadata, model_dir
+    """Load the dependency model from JSON artifacts (model_io), verifying hashes."""
+    global model, feature_keys, metadata, model_dir, feature_schema_version
     model_dir = dir_path or path.parent
-    model = joblib.load(path)
-    keys_path = model_dir / "feature_keys.pkl"
-    feature_keys = joblib.load(keys_path) if keys_path.exists() else [
-        "daysDifference", "recentCommitCount", "scopePrivate", "suspiciousPatternsCount",
-        "timelineAnomaly", "registryIsNpm", "authorCount", "totalCommitCount",
-        "dominantAuthorShare", "commitPatternAnomaly", "branchCount", "recentCommitCount90d",
-        "messageAnomalyScore", "diffAnomalyScore", "nlpSecurityScore", "nlpSuspiciousCount",
-        "crossPackageAnomaly", "behavioralAnomaly", "reviewSecurityScore", "popularityScore",
-        "trustScore",
-    ]
-    meta_path = model_dir / "metadata.json"
-    global feature_schema_version
-    if meta_path.exists():
-        with open(meta_path, encoding="utf-8") as f:
-            metadata = json.load(f)
-        feature_schema_version = metadata.get("feature_schema_version")
-    else:
-        metadata = {"model_type": "unknown", "feature_keys": feature_keys}
-        feature_schema_version = None
+    model, metadata = mio.load_model(model_dir, "model")
+    feature_keys = model.feature_keys or metadata.get("feature_keys") or []
+    feature_schema_version = metadata.get("feature_schema_version")
 
 
 def load_behavioral_model(dir_path: Path):
     global behavioral_model, behavioral_feature_keys, behavioral_model_dir, behavioral_metadata, ensemble_model
-    model_path = dir_path / "behavioral-model.pkl"
-    if not model_path.exists():
+    if not (dir_path / "behavioral.model.json").exists():
         return
-    behavioral_model = joblib.load(model_path)
-    keys_path = dir_path / "behavioral-feature_keys.pkl"
-    behavioral_feature_keys = (
-        joblib.load(keys_path) if keys_path.exists() else BEHAVIORAL_FEATURE_KEYS
-    )
+    behavioral_model, behavioral_metadata = mio.load_model(dir_path, "behavioral")
+    behavioral_feature_keys = behavioral_model.feature_keys or BEHAVIORAL_FEATURE_KEYS
     behavioral_model_dir = dir_path
-    meta_path = dir_path / "behavioral-metadata.json"
-    if meta_path.exists():
-        with open(meta_path, encoding="utf-8") as f:
-            behavioral_metadata = json.load(f)
-    else:
-        behavioral_metadata = {"model_type": "unknown", "feature_keys": behavioral_feature_keys}
-    ensemble_path = dir_path / "ensemble-model.pkl"
+    ensemble_path = dir_path / "ensemble.model.json"
     if ensemble_path.exists():
-        ensemble_model = joblib.load(ensemble_path)
+        ensemble_model = mio.load_stacker(ensemble_path, dir_path / "ensemble-metadata.json")
 
 
 def extract_behavioral_vector(feats: dict) -> list[float]:
@@ -486,38 +461,40 @@ def health():
 if __name__ == "__main__":
     import os
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", "-m", help="Path to model.pkl")
-    ap.add_argument("--model-dir", help="Model directory (model.pkl, feature_keys.pkl, metadata.json)")
-    ap.add_argument("--behavioral-model-dir", help="Behavioral model directory (behavioral-model.pkl, behavioral-feature_keys.pkl)")
-    ap.add_argument("--ensemble-model", help="Path to ensemble-model.pkl (optional)")
+    ap.add_argument("--model", "-m", help="Path to model.model.json (its directory is used)")
+    ap.add_argument("--model-dir", help="Model directory (model.model.json, model.calib.json, metadata.json)")
+    ap.add_argument("--behavioral-model-dir", help="Directory holding behavioral.model.json (default: same as --model-dir)")
+    ap.add_argument("--ensemble-model", help="Path to ensemble.model.json (optional; default: next to the model)")
     ap.add_argument("--port", "-p", type=int, default=int(os.environ.get("PORT", "8000")))
     args = ap.parse_args()
     port = args.port if args.port is not None else int(os.environ.get("PORT", 8000))
 
-    path = None
-    dir_path = None
-    if args.model_dir:
-        dir_path = Path(args.model_dir)
-        path = dir_path / "model.pkl"
-    else:
-        path = Path(args.model or str(MODEL_PATH))
+    dir_path = Path(args.model_dir) if args.model_dir else Path(args.model or str(MODEL_PATH)).parent
+    path = dir_path / "model.model.json"
 
     if path.exists():
-        load_model(path, dir_path)
+        try:
+            load_model(path, dir_path)
+        except mio.ModelIntegrityError as e:
+            print(f"Refusing to load model: {e}", file=sys.stderr)
+            raise SystemExit(2)
     else:
         print(f"Warning: {path} not found. Train first: python train.py --input train.jsonl")
 
-    if args.behavioral_model_dir:
-        bdir = Path(args.behavioral_model_dir)
-        if (bdir / "behavioral-model.pkl").exists():
+    bdir = Path(args.behavioral_model_dir) if args.behavioral_model_dir else dir_path
+    if (bdir / "behavioral.model.json").exists():
+        try:
             load_behavioral_model(bdir)
             print("Behavioral model loaded from", bdir)
-        else:
-            print(f"Warning: behavioral model not found in {bdir}")
+        except mio.ModelIntegrityError as e:
+            print(f"Refusing to load behavioral model: {e}", file=sys.stderr)
+            raise SystemExit(2)
+    elif args.behavioral_model_dir:
+        print(f"Warning: behavioral model not found in {bdir}")
     if args.ensemble_model:
         ep = Path(args.ensemble_model)
         if ep.exists():
-            ensemble_model = joblib.load(ep)
+            ensemble_model = mio.load_stacker(ep, ep.with_name("ensemble-metadata.json"))
             print("Ensemble model loaded from", ep)
         else:
             print(f"Warning: ensemble model not found at {ep}")

@@ -60,7 +60,7 @@ jobs:
         run: |
           cd ml-model && python3 train.py \
             --input train.jsonl \
-            --output model.pkl \
+            --output-dir . \
             --balance \
             --calibrate
 
@@ -87,8 +87,8 @@ jobs:
         id: changes
         run: |
           git diff --quiet \
-            ml-model/train.jsonl ml-model/model.pkl ml-model/metadata.json ml-model/feature_keys.pkl \
-            ml-model/train-behavioral.jsonl ml-model/behavioral-model.pkl ml-model/behavioral-metadata.json ml-model/behavioral-feature_keys.pkl \
+            ml-model/train.jsonl ml-model/model.model.json ml-model/model.calib.json ml-model/metadata.json \
+            ml-model/train-behavioral.jsonl ml-model/behavioral.model.json ml-model/behavioral.calib.json ml-model/behavioral-metadata.json \
             2>/dev/null && echo "changed=false" >> $GITHUB_OUTPUT || echo "changed=true" >> $GITHUB_OUTPUT
 
       - name: Commit and push model updates

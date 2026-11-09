@@ -88,12 +88,12 @@ Set **Config file path** on each Railway service to the row above. The dashboard
 
 ## ML model files
 
-The ML service expects `model.pkl` (and optionally `behavioral-model.pkl`) in `ml-model/`. If they're missing, the service starts but returns a default score of 0.5.
+The ML service expects `model.model.json` + `model.calib.json` + `metadata.json` (and optionally the `behavioral.*` equivalents) in `ml-model/`. If they're missing, the service starts but returns a default score of 0.5; if a file's sha256 does not match its metadata, the service refuses to start (exit 2).
 
 To train and include models:
 
 1. Train locally: `npm run ml:train` and `npm run ml:train-behavioral`
-2. Commit `model.pkl`, `feature_keys.pkl`, `metadata.json` (and behavioral equivalents) to the repo
+2. Commit `model.model.json`, `model.calib.json`, `metadata.json` (and behavioral equivalents) to the repo
 3. Or use a build step / artifact to produce them before deploy
 
 ## Health checks
@@ -115,4 +115,4 @@ bash .github/scripts/verify-production-smoke.sh
 - **Dashboard deploy fails**: Use `/railway.dashboard.json`, not `/railway.json`. Build needs monorepo root (`npm ci && VITE_BASE=/ npm run dashboard:build`).
 - **ML build fails**: Ensure `requirements.txt` is valid and Python 3.9+ is used.
 - **Database errors**: Verify `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` in the API service.
-- **ML returns "Model not loaded"**: Train the model and commit the `.pkl` files, or accept the default score.
+- **ML returns "Model not loaded"**: Train the model and commit the JSON artifacts, or accept the default score.
