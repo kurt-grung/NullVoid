@@ -20,7 +20,7 @@
     "lifecycleThreatCount"
   ],
   "feature_schema_version": 2,
-  "training_date": "2026-11-09T01:59:56.634349Z",
+  "training_date": "2026-11-09T02:05:53.000563Z",
   "dataset_size": 2865,
   "class_distribution": {
     "good": 2725,
