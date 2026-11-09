@@ -13,10 +13,6 @@ export interface ScanConfig {
   sandboxTimeout: number;
   /** Maximum memory usage */
   maxMemory: number;
-  /** Enable parallel processing */
-  enableParallel: boolean;
-  /** Maximum parallel workers */
-  maxWorkers: number;
 }
 
 export interface SecurityConfig {

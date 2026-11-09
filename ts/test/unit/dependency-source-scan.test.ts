@@ -55,7 +55,6 @@ describe('dependency source scan', () => {
     const result = await scan(root, {
       depth: 2,
       iocEnabled: false,
-      parallel: false,
       dependencyConfusionEnabled: false,
       all: true,
     });
@@ -87,7 +86,6 @@ describe('dependency source scan', () => {
     const result = await scan(root, {
       depth: 2,
       iocEnabled: false,
-      parallel: false,
       dependencyConfusionEnabled: false,
       scanDependencySource: false,
       all: true,

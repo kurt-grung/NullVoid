@@ -41,7 +41,6 @@ describe('Scan Integration Tests', () => {
       const result = await scan(tempDir, {
         verbose: false,
         output: 'table',
-        parallel: true,
         all: false,
       });
 
@@ -101,7 +100,6 @@ describe('Scan Integration Tests', () => {
       const result = await scan(tempDir, {
         verbose: false,
         output: 'table',
-        parallel: true,
         all: false,
       });
 
@@ -113,7 +111,6 @@ describe('Scan Integration Tests', () => {
       const result = await scan(tempDir, {
         verbose: false,
         output: 'table',
-        parallel: true,
         all: false,
       });
 
@@ -180,7 +177,6 @@ describe('Scan Integration Tests', () => {
       await scan(tempDir, {
         verbose: false,
         output: 'table',
-        parallel: true,
         all: false,
       });
 
