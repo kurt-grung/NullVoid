@@ -164,3 +164,14 @@ NullVoid's TypeScript migration and v2.1.0 optimizations deliver significant per
 - **🎨 Enhanced UX**: Beautiful colored output with professional formatting
 - **🔒 Security Hardened**: Fixed memory leaks and enhanced security measures
 - **Tested**: Unit and integration suites run in CI on Node 20, 22 and 24
+
+## Publishing
+
+The npm package `nullvoid` is the `ts/` workspace; the repository root (`nullvoid-monorepo`) is private and never published.
+
+```bash
+npm version <patch|minor|major> --workspace=nullvoid   # bump ts/package.json
+npm publish --workspace=nullvoid                        # prepack builds and copies README/LICENSE in
+```
+
+CI's "Verify publish contents" step dry-runs the pack and fails if `dist/bin/nullvoid.js` or the README is missing or any `src/`/`test/` file is included.

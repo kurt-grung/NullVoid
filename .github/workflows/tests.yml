@@ -38,11 +38,14 @@ jobs:
       - name: Format (Prettier)
         run: npm run format:check
 
+      # `nullvoid` on npm is the ts/ workspace (root is the private monorepo manifest).
       - name: Verify publish contents
         run: |
-          npm pack --dry-run 2>&1 | tee /tmp/pack.txt
-          grep -q 'ts/dist/bin/nullvoid.js' /tmp/pack.txt
-          ! grep -qE 'ts/(src|test)/' /tmp/pack.txt
+          npm pack --dry-run --workspace=nullvoid 2>&1 | tee /tmp/pack.txt
+          grep -q 'name: nullvoid' /tmp/pack.txt
+          grep -q 'dist/bin/nullvoid.js' /tmp/pack.txt
+          grep -q 'README.md' /tmp/pack.txt
+          ! grep -qE '(^|\s)(src|test)/' /tmp/pack.txt
 
       - name: Verify unit test isolation
         run: bash .github/scripts/verify-unit-test-isolation.sh
@@ -101,7 +104,7 @@ jobs:
       # ts/ runs with coverage so the floor in ts/jest.config.js is enforced;
       # the CLI project needs the built binary.
       - name: Build CLI for smoke tests
-        run: npm run build --workspace=@nullvoid/ts
+        run: npm run build --workspace=nullvoid
 
       - name: Run tests (ts with coverage floor, api)
         run: |
