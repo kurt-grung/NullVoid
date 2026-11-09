@@ -1,0 +1,24 @@
+{
+  "method": "sigmoid",
+  "params": {
+    "a": -0.214211959778875,
+    "b": -0.9131994618841441
+  },
+  "feature_keys": [
+    "scriptCount",
+    "scriptTotalLength",
+    "hasPostinstall",
+    "postinstallLength",
+    "preinstallLength",
+    "postuninstallLength",
+    "networkScriptCount",
+    "evalUsageCount",
+    "childProcessCount",
+    "fileSystemAccessCount",
+    "base64DecodeCount",
+    "obfuscationMarkerCount",
+    "socketDnsCount",
+    "dependencyCount",
+    "devDependencyCount"
+  ]
+}

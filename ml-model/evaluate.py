@@ -2,8 +2,8 @@
 """
 Evaluate a trained NullVoid ML model on a JSONL dataset (dependency or behavioral).
 
-Loads feature key order from feature_keys.pkl (dependency) or behavioral-feature_keys.pkl
-(behavioral), unless --keys is set.
+Loads the JSON model artifacts (model_io) and their feature key order
+(behavioral).
 
 Metrics (JSON): samples, accuracy, precision, recall, optional roc_auc, optional brier
 (mean squared error of predicted probability vs label).
@@ -20,9 +20,9 @@ When the eval set has no label-1 (bad) rows, --min-precision and --min-recall ar
 precision_recall_gates_skipped: true.
 
 Usage:
-  python evaluate.py --input train.jsonl --model model.pkl
-  python evaluate.py --input val.jsonl --model /tmp/m.pkl --keys /tmp/feature_keys.pkl --json
-  python evaluate.py --behavioral --input val.jsonl --model behavioral-model.pkl --json
+  python evaluate.py --input train.jsonl --model .
+  python evaluate.py --input val.jsonl --model /tmp/out --json
+  python evaluate.py --behavioral --input val.jsonl --model . --json
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import joblib
+from model_io import ModelIntegrityError, load_model
 
 try:
     from sklearn.exceptions import InconsistentVersionWarning
@@ -51,7 +51,7 @@ try:
         roc_auc_score,
     )
 except ImportError as e:
-    print("Install: pip install scikit-learn joblib", file=sys.stderr)
+    print("Install: pip install scikit-learn xgboost", file=sys.stderr)
     raise e
 
 # Pickles may come from CI (newer sklearn); local older sklearn still evaluates correctly.
@@ -85,18 +85,12 @@ def main() -> None:
         "--model",
         "-m",
         default=None,
-        help="Trained model (joblib); default model.pkl or behavioral-model.pkl",
-    )
-    ap.add_argument(
-        "--keys",
-        "-k",
-        default=None,
-        help="feature_keys.pkl or behavioral-feature_keys.pkl (default: next to model)",
+        help="Directory with model.model.json / behavioral.model.json (default: .)",
     )
     ap.add_argument(
         "--behavioral",
         action="store_true",
-        help="Behavioral model (defaults: behavioral-model.pkl, behavioral-feature_keys.pkl)",
+        help="Evaluate the behavioral model (behavioral.model.json) from the model directory",
     )
     ap.add_argument("--json", action="store_true", help="Print single-line JSON metrics to stdout")
     ap.add_argument(
@@ -124,25 +118,20 @@ def main() -> None:
     )
     args = ap.parse_args()
 
-    model_path_str = args.model
-    if not model_path_str:
-        model_path_str = "behavioral-model.pkl" if args.behavioral else "model.pkl"
-    model_path = Path(model_path_str)
-    if not model_path.is_file():
-        print(f"Model not found: {model_path}", file=sys.stderr)
+    # --model may be a directory holding the JSON artifacts, or the
+    # model.model.json / behavioral.model.json file itself.
+    name = "behavioral" if args.behavioral else "model"
+    model_arg = Path(args.model) if args.model else Path(".")
+    model_dir = model_arg if model_arg.is_dir() else model_arg.parent
+    if (model_dir / f"{name}.model.json").is_file() is False:
+        print(f"Model not found: {model_dir / f'{name}.model.json'}", file=sys.stderr)
         sys.exit(1)
-
-    if args.keys:
-        keys_path = Path(args.keys)
-    else:
-        keys_name = "behavioral-feature_keys.pkl" if args.behavioral else "feature_keys.pkl"
-        keys_path = model_path.parent / keys_name
-    if not keys_path.is_file():
-        print(f"Feature keys not found: {keys_path}", file=sys.stderr)
-        sys.exit(1)
-
-    model = joblib.load(model_path)
-    feature_keys: List[str] = joblib.load(keys_path)
+    try:
+        model, _meta = load_model(model_dir, name)
+    except ModelIntegrityError as e:
+        print(f"Refusing to load model: {e}", file=sys.stderr)
+        sys.exit(2)
+    feature_keys: List[str] = model.feature_keys
 
     rows = load_jsonl(args.input)
     if not rows:
