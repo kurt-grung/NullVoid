@@ -28,7 +28,7 @@
   "dataset_size": 3063,
   "class_distribution": {
     "good": 3,
-    "bad": 3060
+    "bad": 3085
   },
   "imbalance_strategy": "oversample",
   "xgboost_params": {
