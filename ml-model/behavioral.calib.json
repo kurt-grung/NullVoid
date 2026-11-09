@@ -1,8 +1,8 @@
 {
   "method": "sigmoid",
   "params": {
-    "a": -2.212600649620765,
-    "b": 0.8444215649177337
+    "a": -0.5979237417850768,
+    "b": 0.08354679325789205
   },
   "feature_keys": [
     "scriptCount",
@@ -19,8 +19,6 @@
     "obfuscationMarkerCount",
     "socketDnsCount",
     "dependencyCount",
-    "devDependencyCount",
-    "lifecycleThreatScore",
-    "lifecycleThreatCount"
+    "devDependencyCount"
   ]
 }
