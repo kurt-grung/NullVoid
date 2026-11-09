@@ -14,6 +14,7 @@ import type {
 } from '../../types/ioc-types';
 import { logger } from '../logger';
 import { providerFetch } from './providerHttpClient';
+import { versionInRange } from './versionRange';
 
 /**
  * GHSA GraphQL response types
@@ -301,60 +302,11 @@ export class GHSAProvider implements IoCProvider {
 
         // Check if version is in vulnerable range
         if (vuln.vulnerableVersionRange) {
-          return this.isVersionInRange(version, vuln.vulnerableVersionRange);
+          return versionInRange(version, vuln.vulnerableVersionRange);
         }
         return true;
       });
     });
-  }
-
-  /**
-   * Check if version is in semver range
-   */
-  private isVersionInRange(version: string, range: string): boolean {
-    try {
-      // Handle common npm range patterns
-      if (range === '*') return true;
-      if (range === '<0.0.0') return false;
-
-      // Handle ranges like ">=1.0.0 <2.0.0"
-      const rangeParts = range.split(/\s+/);
-      for (const part of rangeParts) {
-        if (part.startsWith('>=')) {
-          const minVersion = part.substring(2).trim();
-          if (this.compareVersions(version, minVersion) < 0) return false;
-        } else if (part.startsWith('<=')) {
-          const maxVersion = part.substring(2).trim();
-          if (this.compareVersions(version, maxVersion) > 0) return false;
-        } else if (part.startsWith('>')) {
-          const minVersion = part.substring(1).trim();
-          if (this.compareVersions(version, minVersion) <= 0) return false;
-        } else if (part.startsWith('<')) {
-          const maxVersion = part.substring(1).trim();
-          if (this.compareVersions(version, maxVersion) >= 0) return false;
-        }
-      }
-      return true;
-    } catch {
-      return true; // Default to include if we can't parse
-    }
-  }
-
-  /**
-   * Simple version comparison
-   */
-  private compareVersions(v1: string, v2: string): number {
-    const parts1 = v1.split('.').map(Number);
-    const parts2 = v2.split('.').map(Number);
-    const maxLength = Math.max(parts1.length, parts2.length);
-
-    for (let i = 0; i < maxLength; i++) {
-      const part1 = parts1[i] || 0;
-      const part2 = parts2[i] || 0;
-      if (part1 > part2) return 1;
-      if (part1 < part2) return -1;
-    }
-    return 0;
   }
 
   /**

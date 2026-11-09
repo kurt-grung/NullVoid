@@ -14,6 +14,7 @@ import type {
 } from '../../types/ioc-types';
 import { logger } from '../logger';
 import { providerFetch } from './providerHttpClient';
+import { versionInRange } from './versionRange';
 
 /**
  * Snyk API response types
@@ -200,58 +201,10 @@ export class SnykProvider implements IoCProvider {
     return vulnerabilities.filter((vuln) => {
       // Check if version is in vulnerable range
       if (vuln.semver?.vulnerable) {
-        return vuln.semver.vulnerable.some((range) => this.isVersionInRange(version, range));
+        return vuln.semver.vulnerable.some((range) => versionInRange(version, range));
       }
       return true; // Include if no version info
     });
-  }
-
-  /**
-   * Check if version is in semver range
-   */
-  private isVersionInRange(version: string, range: string): boolean {
-    // Simple semver range checking (can be enhanced with semver library)
-    try {
-      // Handle common patterns
-      if (range === '*') return true;
-      if (range.startsWith('>=')) {
-        const minVersion = range.substring(2).trim();
-        return this.compareVersions(version, minVersion) >= 0;
-      }
-      if (range.startsWith('<=')) {
-        const maxVersion = range.substring(2).trim();
-        return this.compareVersions(version, maxVersion) <= 0;
-      }
-      if (range.includes(' - ')) {
-        const [min, max] = range.split(' - ').map((v) => v.trim());
-        const minVersion = min || '';
-        const maxVersion = max || '';
-        return (
-          this.compareVersions(version, minVersion) >= 0 &&
-          this.compareVersions(version, maxVersion) <= 0
-        );
-      }
-      return true; // Default to include if we can't parse
-    } catch {
-      return true;
-    }
-  }
-
-  /**
-   * Simple version comparison
-   */
-  private compareVersions(v1: string, v2: string): number {
-    const parts1 = v1.split('.').map(Number);
-    const parts2 = v2.split('.').map(Number);
-    const maxLength = Math.max(parts1.length, parts2.length);
-
-    for (let i = 0; i < maxLength; i++) {
-      const part1 = parts1[i] || 0;
-      const part2 = parts2[i] || 0;
-      if (part1 > part2) return 1;
-      if (part1 < part2) return -1;
-    }
-    return 0;
   }
 
   /**

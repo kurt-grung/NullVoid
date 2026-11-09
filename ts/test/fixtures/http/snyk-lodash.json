@@ -1,0 +1,22 @@
+{
+  "status": 200,
+  "body": {
+    "vulnerabilities": [
+      {
+        "id": "SNYK-JS-LODASH-1018905",
+        "title": "Regular Expression Denial of Service (ReDoS)",
+        "description": "lodash is a modern JavaScript utility library. Affected versions of this package are vulnerable to ReDoS via the toNumber, trim and trimEnd functions.",
+        "severity": "medium",
+        "cvssScore": 5.3,
+        "identifiers": { "CVE": ["CVE-2020-28500"], "CWE": ["CWE-400"] },
+        "semver": { "vulnerable": ["<4.17.21"] },
+        "patched": [">=4.17.21"],
+        "publicationTime": "2021-02-15T13:09:34Z",
+        "disclosureTime": "2021-02-15T00:00:00Z",
+        "language": "js",
+        "packageManager": "npm",
+        "packageName": "lodash"
+      }
+    ]
+  }
+}
