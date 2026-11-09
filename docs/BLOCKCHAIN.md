@@ -1,5 +1,7 @@
 # Blockchain Verification
 
+> **Experimental.** These commands are shipped for evaluation, are off by default and are not part of the scan's exit-code contract. Interfaces and on-chain formats may change without a major version bump.
+
 NullVoid supports on-chain storage of package CIDs for decentralized integrity verification.
 
 ## Requirements

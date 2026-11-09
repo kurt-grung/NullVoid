@@ -72,7 +72,7 @@
 ### 3.3 ML pre-trained models
 
 - `train.jsonl` and `train-behavioral.jsonl` are in the repo for training.
-- **Decision:** `model.model.json` / `behavioral.model.json` (XGBoost JSON + `.calib.json`) are committed with sha256 hashes in metadata; `*.pkl` is git-ignored. Historical note: pickles previously stayed **out of git** (size + churn). Demos run **Train** once after create; see [DEPLOYMENT.md](DEPLOYMENT.md) (GitHub Codespaces section).
+- **Decision:** `model.model.json` / `behavioral.model.json` (XGBoost JSON + `.calib.json`) are committed with sha256 hashes in metadata; `*.pkl` is git-ignored. Historical note: pickles previously stayed **out of git** (size + churn). Demos run **Train** once after create; see [DEPLOYMENT.md](../DEPLOYMENT.md) (GitHub Codespaces section).
 
 ---
 

@@ -106,21 +106,21 @@ NullVoid aims to be the most comprehensive and accurate static analysis security
 ### **🛠️ Developer Experience**
 
 #### **IDE Integration** ✅ **VS Code + IntelliJ/Sublime/Vim**
-- **VS Code Extension**: Real-time scanning and threat detection in VS Code — *implemented & documented* ([packages/vscode-extension](packages/vscode-extension): Quick start, Usage, Testing; F5 + Command Palette)
-- **IntelliJ / Sublime / Vim**: External tools and build systems — *documented* ([docs/IDE_INTEGRATION.md](docs/IDE_INTEGRATION.md): IntelliJ External Tool & Run Config, Sublime build system, Vim script & keymap)
+- **VS Code Extension**: Real-time scanning and threat detection in VS Code — *implemented & documented* ([packages/vscode-extension](../packages/vscode-extension): Quick start, Usage, Testing; F5 + Command Palette)
+- **IntelliJ / Sublime / Vim**: External tools and build systems — *documented* ([docs/IDE_INTEGRATION.md](IDE_INTEGRATION.md): IntelliJ External Tool & Run Config, Sublime build system, Vim script & keymap)
 
 #### **Pre-commit Hooks** ✅ **Documented**
-- **Git Hooks**: Automatic scanning before commits — *documented* (README: `NULLVOID_PRE_COMMIT=1`, example `.husky/pre-commit`, [scripts/nullvoid-pre-commit.js](scripts/nullvoid-pre-commit.js))
+- **Git Hooks**: Automatic scanning before commits — *documented* (README: `NULLVOID_PRE_COMMIT=1`, example `.husky/pre-commit`, [scripts/nullvoid-pre-commit.js](../scripts/nullvoid-pre-commit.js))
 - **Customizable Rules**: Configurable scanning rules and thresholds
 - **Fast Fail Mode**: Quick scanning for rapid feedback
 - **Integration with Git Hooks**: Seamless integration with existing git workflows
 
 #### **CI/CD Platform Expansion** ✅ **CircleCI + GitLab + Travis + Azure**
-- **Jenkins Integration**: Declarative pipeline example ([Jenkinsfile.example](../Jenkinsfile.example)); copy to `Jenkinsfile` or add as a stage
-- **CircleCI Support**: Native CircleCI orb for easy integration — *implemented* ([.circleci/config.yml](.circleci/config.yml))
-- **Travis CI Integration**: Travis CI configuration templates and examples — *example added* ([.travis.example.yml](.travis.example.yml))
-- **Azure DevOps**: Azure DevOps pipeline integration — *example added* ([azure-pipelines.example.yml](azure-pipelines.example.yml))
-- **GitLab CI Enhancement**: Enhanced GitLab CI integration — *example added* (README + [.gitlab-ci.example.yml](.gitlab-ci.example.yml))
+- **Jenkins Integration**: Declarative pipeline example ([ci-examples/Jenkinsfile](ci-examples/Jenkinsfile)); copy to `Jenkinsfile` or add as a stage
+- **CircleCI Support**: Native CircleCI orb for easy integration — *implemented* ([ci-examples/circleci-config.yml](ci-examples/circleci-config.yml))
+- **Travis CI Integration**: Travis CI configuration templates and examples — *example added* ([ci-examples/travis.yml](ci-examples/travis.yml))
+- **Azure DevOps**: Azure DevOps pipeline integration — *example added* ([ci-examples/azure-pipelines.yml](ci-examples/azure-pipelines.yml))
+- **GitLab CI Enhancement**: Enhanced GitLab CI integration — *example added* ([ci-examples/gitlab-ci.yml](ci-examples/gitlab-ci.yml))
 
 #### **Configuration UI** *(deferred → Phase 4)*
 - **Web-based Interface**: Browser-based configuration interface — *Phase 4*
@@ -240,7 +240,7 @@ NullVoid aims to be the most comprehensive and accurate static analysis security
 
 ## 🗺️ **Advanced Roadmap (Phase-Based)**
 
-Full detail: [ADVANCED_ROADMAP.md](ADVANCED_ROADMAP.md). Track epics on [GitHub Projects](https://github.com/kurt-grung/NullVoid/projects).
+Long-form phase detail (archived): [archive/ADVANCED_ROADMAP.md](archive/ADVANCED_ROADMAP.md). Track epics on [GitHub Projects](https://github.com/kurt-grung/NullVoid/projects).
 
 No fixed calendar dates — advance by **exit criteria** per phase.
 

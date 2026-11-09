@@ -282,8 +282,6 @@ export function getNullVoidFiles(): string[] {
     'CONTRIBUTING.md',
     'SECURITY.md',
     'CODE_OF_CONDUCT.md',
-    'TYPESCRIPT_MIGRATION_TODO.md',
-    'TYPESCRIPT_MIGRATION_GUIDE.md',
   ];
 }
 

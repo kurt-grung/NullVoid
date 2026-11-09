@@ -597,7 +597,7 @@ program
 // Sign package (compute CID, optional pin)
 program
   .command('sign-package <path>')
-  .description('Compute IPFS CID for a package tarball')
+  .description('[experimental] Compute IPFS CID for a package tarball')
   .option('--pin', 'Pin to IPFS (requires PIN_SERVICE_URL and PIN_SERVICE_TOKEN)')
   .option('-o, --output <file>', 'Write verification record JSON to file')
   .option('--update-package-json <file>', 'Write nullvoid.verification.cid into package.json')
@@ -680,7 +680,7 @@ program
 program
   .command('verify-package <spec>')
   .description(
-    'Verify package integrity against CID. Use <name>@<version> or path to .tgz. CID from --cid or package nullvoid.verification'
+    '[experimental] Verify package integrity against CID. Use <name>@<version> or path to .tgz. CID from --cid or package nullvoid.verification'
   )
   .option('--cid <cid>', 'Expected CID (overrides nullvoid.verification from package)')
   .option('--consensus', 'Run consensus verification across npm, GitHub, IPFS')
@@ -878,7 +878,7 @@ program
 // Registry health command (must be before default to match "nullvoid registry-health")
 program
   .command('registry-health')
-  .description('Check health and availability of configured package registries')
+  .description('[experimental] Check health and availability of configured package registries')
   .option('-j, --json', 'Output as JSON')
   .option('-t, --timeout <ms>', 'Health check timeout in ms', '5000')
   .action(async function (this: { opts: () => { json?: boolean; timeout?: string } }) {
@@ -911,7 +911,7 @@ program
 program
   .command('trust-status <spec>')
   .description(
-    'Show trust score and verification status for a package (name@version or package name)'
+    '[experimental] Show trust score and verification status for a package (name@version or package name)'
   )
   .option('-j, --json', 'Output as JSON')
   .action(async (spec: string, options: { json?: boolean }) => {
@@ -949,7 +949,7 @@ program
 program
   .command('register-on-chain <path>')
   .description(
-    'Compute CID for package tarball and register on blockchain. Requires viem, CONTRACT_ADDRESS, PRIVATE_KEY.'
+    '[experimental] Compute CID for package tarball and register on blockchain. Requires viem, CONTRACT_ADDRESS, PRIVATE_KEY.'
   )
   .option('-j, --json', 'Output as JSON')
   .action(async (pathArg: string, options: { json?: boolean }) => {
@@ -1016,7 +1016,7 @@ program
 program
   .command('verify-consensus <spec>')
   .description(
-    'Verify package integrity via consensus across npm, GitHub Packages, and IPFS. Use <name>@<version>'
+    '[experimental] Verify package integrity via consensus across npm, GitHub Packages, and IPFS. Use <name>@<version>'
   )
   .option('--cid <cid>', 'Known CID for IPFS source (optional)')
   .option('-j, --json', 'Output as JSON')
@@ -1055,7 +1055,7 @@ program
 program
   .command('verify-on-chain <spec>')
   .description(
-    'Verify package CID against blockchain. Use <name>@<version>. CID from --cid or package nullvoid.verification'
+    '[experimental] Verify package CID against blockchain. Use <name>@<version>. CID from --cid or package nullvoid.verification'
   )
   .option('--cid <cid>', 'Expected CID (overrides nullvoid.verification)')
   .option('-j, --json', 'Output as JSON')
