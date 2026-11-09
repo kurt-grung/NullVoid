@@ -15,6 +15,7 @@ import type {
 } from '../../types/ioc-types';
 import { logger } from '../logger';
 import { providerFetch } from './providerHttpClient';
+import { compareVersions } from './versionRange';
 
 /**
  * NVD API response types
@@ -379,7 +380,7 @@ export class CVEProvider implements IoCProvider {
       }
       // Fallback: parse "fixed in X" / "prior to X" from description when NVD has no CPE version bounds
       const fixedIn = this.parseFixedVersionFromDescription(description);
-      if (fixedIn && this.compareVersions(version, fixedIn) >= 0) {
+      if (fixedIn && compareVersions(version, fixedIn) >= 0) {
         logger.debug(
           `CVE ${cve.id} excluded: package version ${version} >= fixed version ${fixedIn}`
         );
@@ -445,22 +446,13 @@ export class CVEProvider implements IoCProvider {
     }
   ): boolean {
     try {
-      if (
-        match.versionStartIncluding &&
-        this.compareVersions(version, match.versionStartIncluding) < 0
-      )
+      if (match.versionStartIncluding && compareVersions(version, match.versionStartIncluding) < 0)
         return false;
-      if (
-        match.versionStartExcluding &&
-        this.compareVersions(version, match.versionStartExcluding) <= 0
-      )
+      if (match.versionStartExcluding && compareVersions(version, match.versionStartExcluding) <= 0)
         return false;
-      if (match.versionEndIncluding && this.compareVersions(version, match.versionEndIncluding) > 0)
+      if (match.versionEndIncluding && compareVersions(version, match.versionEndIncluding) > 0)
         return false;
-      if (
-        match.versionEndExcluding &&
-        this.compareVersions(version, match.versionEndExcluding) >= 0
-      )
+      if (match.versionEndExcluding && compareVersions(version, match.versionEndExcluding) >= 0)
         return false;
       return true;
     } catch {
@@ -480,19 +472,6 @@ export class CVEProvider implements IoCProvider {
     const priorToMatch = description.match(/prior to\s+(?:v)?(\d+\.\d+\.\d+)/i);
     if (priorToMatch?.[1]) return priorToMatch[1];
     return null;
-  }
-
-  private compareVersions(v1: string, v2: string): number {
-    const parts1 = v1.split('.').map(Number);
-    const parts2 = v2.split('.').map(Number);
-    const maxLength = Math.max(parts1.length, parts2.length);
-    for (let i = 0; i < maxLength; i++) {
-      const part1 = parts1[i] || 0;
-      const part2 = parts2[i] || 0;
-      if (part1 > part2) return 1;
-      if (part1 < part2) return -1;
-    }
-    return 0;
   }
 
   /**

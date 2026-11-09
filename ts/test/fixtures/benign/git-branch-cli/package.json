@@ -1,0 +1,1 @@
+{"name":"git-branch-cli","version":"1.0.0","main":"cli.js","license":"MIT","bin":{"git-branch-cli":"cli.js"}}

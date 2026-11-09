@@ -1,0 +1,41 @@
+{
+  "status": 200,
+  "body": {
+    "data": {
+      "securityAdvisories": {
+        "nodes": [
+          {
+            "ghsaId": "GHSA-xvch-5gv4-984h",
+            "summary": "Prototype Pollution in minimist",
+            "description": "Minimist prior to 1.2.6 and 0.2.4 is vulnerable to prototype pollution via setKey.",
+            "severity": "CRITICAL",
+            "identifiers": [
+              { "type": "GHSA", "value": "GHSA-xvch-5gv4-984h" },
+              { "type": "CVE", "value": "CVE-2021-44906" }
+            ],
+            "publishedAt": "2022-03-18T00:01:09Z",
+            "updatedAt": "2023-01-27T05:05:57Z",
+            "permalink": "https://github.com/advisories/GHSA-xvch-5gv4-984h",
+            "cvss": { "score": 9.8, "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H" },
+            "cwes": { "nodes": [{ "cweId": "CWE-1321", "name": "Prototype Pollution" }] },
+            "vulnerabilities": {
+              "nodes": [
+                {
+                  "package": { "name": "minimist", "ecosystem": "NPM" },
+                  "vulnerableVersionRange": "< 0.2.4",
+                  "firstPatchedVersion": { "identifier": "0.2.4" }
+                },
+                {
+                  "package": { "name": "minimist", "ecosystem": "NPM" },
+                  "vulnerableVersionRange": ">= 1.0.0, < 1.2.6",
+                  "firstPatchedVersion": { "identifier": "1.2.6" }
+                }
+              ]
+            }
+          }
+        ],
+        "pageInfo": { "hasNextPage": false, "endCursor": null }
+      }
+    }
+  }
+}

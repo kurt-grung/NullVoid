@@ -16,7 +16,7 @@
     "test:integration": "jest test/integration --watchman=false",
     "test:performance": "jest test/performance --watchman=false",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
+    "test:coverage": "jest --coverage --maxWorkers=2 --watchman=false",
     "benchmark": "ts-node --transpile-only benchmark/run.ts",
     "scan": "node dist/scan.js",
     "scan:dev": "ts-node src/scan.ts",
@@ -58,6 +58,7 @@
     "js-yaml": "^4.1.1",
     "node-fetch": "^2.7.0",
     "ora": "^5.4.1",
+    "semver": "^7.8.6",
     "tar": "^7.5.7"
   },
   "devDependencies": {

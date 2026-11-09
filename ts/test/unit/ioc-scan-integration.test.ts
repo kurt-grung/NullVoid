@@ -2,12 +2,24 @@
  * IoC Scan Integration Tests
  */
 
-import { describe, it, expect, afterEach } from '@jest/globals';
+import { describe, it, expect, afterEach, beforeEach, jest } from '@jest/globals';
+
+// No network: every provider request gets a recorded 404 ("no advisories").
+jest.mock('../../src/lib/providers/fetchWithTimeout');
+
+import { useRecordedHttp } from '../helpers/recordedHttp';
 import { getIoCManager } from '../../src/lib/iocIntegration';
 import { queryIoCProviders } from '../../src/lib/iocScanIntegration';
 import type { AggregatedIoCResults } from '../../src/types/ioc-types';
 
+const http = useRecordedHttp();
+
 describe('IoC Scan Integration', () => {
+  beforeEach(() => {
+    http.reset();
+    http.on(/./, 'http-404');
+  });
+
   afterEach(() => {
     jest.restoreAllMocks();
   });
