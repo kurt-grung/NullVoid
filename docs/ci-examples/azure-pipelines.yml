@@ -1,5 +1,5 @@
 # Azure DevOps example: NullVoid security scan
-# Copy to azure-pipelines.yml or add as a template.
+# Copy to azure-pipelines.yml in your repository, or add as a template.
 # See https://docs.microsoft.com/en-us/azure/devops/pipelines/
 
 trigger:

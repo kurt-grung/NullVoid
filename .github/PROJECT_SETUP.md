@@ -1,6 +1,6 @@
 # GitHub Project Setup for NullVoid
 
-Use [GitHub Projects](https://docs.github.com/en/issues/planning-and-tracking-with-projects) to track the [Advanced Roadmap](../docs/ADVANCED_ROADMAP.md).
+Use [GitHub Projects](https://docs.github.com/en/issues/planning-and-tracking-with-projects) to track the [Advanced Roadmap](../docs/archive/ADVANCED_ROADMAP.md).
 
 ## Create the project
 
@@ -27,7 +27,7 @@ Use [GitHub Projects](https://docs.github.com/en/issues/planning-and-tracking-wi
    |-------|--------|
    | **Phase** | `0`, `1`, `2`, `3`, `4`, `5` |
    | **Pillar** | `detection`, `ml`, `enterprise`, `dashboard`, `trust`, `tech-debt`, `test` |
-   | **Exit criterion** | Free text from [ADVANCED_ROADMAP.md](../docs/ADVANCED_ROADMAP.md) |
+   | **Exit criterion** | Free text from [ADVANCED_ROADMAP.md](../docs/archive/ADVANCED_ROADMAP.md) |
 
 5. **Project views**
    - **By phase** — group by Phase field
@@ -165,7 +165,7 @@ tech-debt
 - README and publish config point to TypeScript build
 
 ## Key files
-- `js/`, `package.json`, `turbo.json`, `docs/TYPESCRIPT_MIGRATION_TODO.md`
+- `js/`, `package.json`, `turbo.json`, `docs/archive/TYPESCRIPT_MIGRATION_TODO.md`
 ```
 
 ### Example: Phase 3 — Webhooks
@@ -201,7 +201,7 @@ enterprise
 
 - **Create project**: https://github.com/kurt-grung/NullVoid/projects/new
 - **Issues**: https://github.com/kurt-grung/NullVoid/issues (epics #22–#41)
-- **Advanced roadmap**: [docs/ADVANCED_ROADMAP.md](../docs/ADVANCED_ROADMAP.md)
+- **Advanced roadmap**: [docs/ADVANCED_ROADMAP.md](../docs/archive/ADVANCED_ROADMAP.md)
 - **Release roadmap**: [docs/ROADMAP.md](../docs/ROADMAP.md)
 
 ### GitHub CLI project board

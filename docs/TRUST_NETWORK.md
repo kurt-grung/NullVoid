@@ -1,5 +1,7 @@
 # Trust Network
 
+> **Experimental.** These commands are shipped for evaluation, are off by default and are not part of the scan's exit-code contract. Interfaces and on-chain formats may change without a major version bump.
+
 NullVoid's Trust Network enables local reputation tracking for packages and publishers. Trust propagates from verified CIDs and clean scan history.
 
 ## Overview

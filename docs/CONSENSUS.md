@@ -1,5 +1,7 @@
 # Consensus Verification
 
+> **Experimental.** These commands are shipped for evaluation, are off by default and are not part of the scan's exit-code contract. Interfaces and on-chain formats may change without a major version bump.
+
 NullVoid's consensus verification compares package integrity across multiple sources: npm, GitHub Packages, and IPFS.
 
 ## Overview

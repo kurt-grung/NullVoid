@@ -4,7 +4,8 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.0.x   | :white_check_mark: |
+| 2.1.x   | :white_check_mark: |
+| < 2.1   | :x:                |
 
 ## Reporting a Vulnerability
 
@@ -30,7 +31,6 @@ NullVoid is designed with security in mind:
 
 - Static analysis only - never executes potentially malicious code
 - No network requests to untrusted sources during scanning
-- Sandboxed execution environment
 - Minimal dependencies with security audits
 
 ## Best Practices
