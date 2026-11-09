@@ -323,7 +323,7 @@ program
   .option('--val-fraction <number>', 'Validation fraction', '0.2')
   .option('--seed <number>', 'Random seed', '42')
   .option('--time-val-newest', 'Use newest rows as validation set')
-  .option('--time-field <field>', 'Timestamp field for time-based split', 'exportedAt')
+  .option('--time-field <field>', 'Timestamp field for time-based split', 'time')
   .action(
     async (options: {
       input?: string;
@@ -440,7 +440,7 @@ program
           '42',
           '--time-val-newest',
           '--time-field',
-          'exportedAt',
+          'time',
         ],
         REPO_ROOT
       );
@@ -1227,7 +1227,11 @@ program
     '--export-training-good <file>',
     'Append feature vectors for packages with no threats to JSONL file (label 0) for balanced ML training'
   )
-  .option('--train', 'Shorthand for --export-training ml-model/train.jsonl', false)
+  .option(
+    '--train',
+    'Shorthand for --export-training ml-model/train.jsonl (rows are labelled by the scanner, not ground truth; see ml-model/README.md)',
+    false
+  )
   .option('--save-history', 'Save scan to ~/.nullvoid/history/ for trends')
   .action(async (target: string | undefined, options: CliOptions) => {
     await performScan(target, options);
@@ -1286,7 +1290,11 @@ program
     '--export-training-good <file>',
     'Append feature vectors for packages with no threats to JSONL file (label 0) for balanced ML training'
   )
-  .option('--train', 'Shorthand for --export-training ml-model/train.jsonl', false)
+  .option(
+    '--train',
+    'Shorthand for --export-training ml-model/train.jsonl (rows are labelled by the scanner, not ground truth; see ml-model/README.md)',
+    false
+  )
   .option('--save-history', 'Save scan to ~/.nullvoid/history/ for trends')
   .action(async function (
     this: { opts: () => CliOptions },

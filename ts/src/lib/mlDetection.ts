@@ -20,6 +20,7 @@ import {
 } from './commitPatternAnalysis';
 import type { NlpAnalysisResult } from './nlpAnalysis';
 import type { CommunityAnalysisResult } from './communityAnalysis';
+import { PUBLISH_HISTORY_FEATURE_KEYS, type PublishHistoryFeatures } from './publishHistory';
 
 const DEFAULT_ML_WEIGHTS: Record<string, number> = {
   timelineAnomaly: 0.4,
@@ -133,6 +134,16 @@ export interface FeatureVector {
   reviewSecurityScore?: number;
   popularityScore?: number;
   trustScore?: number;
+  // Publish-history features (feature schema v2), see publishHistory.ts
+  versionCount?: number;
+  publishSpanDays?: number;
+  firstToSecondVersionHours?: number;
+  versionsPerWeek?: number;
+  ageAtReferenceDays?: number;
+  nameLength?: number;
+  nameEntropy?: number;
+  nameDigitRatio?: number;
+  nameSeparatorCount?: number;
 }
 
 export interface MLDetectionParams {
@@ -150,6 +161,8 @@ export interface MLDetectionParams {
   behavioralAnomaly?: number | null;
   communityResult?: CommunityAnalysisResult | null;
   trustScore?: number | null;
+  /** Registry publish-history features; computed from the registry `time` map */
+  publishHistory?: PublishHistoryFeatures | null;
 }
 
 export interface MLDetectionResult {
@@ -189,6 +202,7 @@ export function buildFeatureVector(
     behavioralAnomaly = null,
     communityResult = null,
     trustScore = null,
+    publishHistory = null,
   } = params;
   const timeline = analyzeTimeline({
     registryCreated: params.registryCreated ?? params.creationDate ?? null,
@@ -228,6 +242,12 @@ export function buildFeatureVector(
     features.popularityScore = 1 - (communityResult.popularityScore ?? 0.5);
   }
   if (trustScore != null) features.trustScore = 1 - trustScore;
+  if (publishHistory) {
+    for (const key of PUBLISH_HISTORY_FEATURE_KEYS) {
+      const v = publishHistory[key];
+      if (typeof v === 'number' && Number.isFinite(v)) features[key] = v;
+    }
+  }
   return features;
 }
 
@@ -494,6 +514,7 @@ export async function runMLDetection(params: MLDetectionParams): Promise<MLDetec
     behavioralAnomaly: params.behavioralAnomaly ?? null,
     communityResult: params.communityResult ?? null,
     trustScore: params.trustScore ?? null,
+    publishHistory: params.publishHistory ?? null,
   };
   const features = buildFeatureVector(buildParams);
 
