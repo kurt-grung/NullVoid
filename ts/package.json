@@ -1,5 +1,5 @@
 {
-  "name": "@nullvoid/ts",
+  "name": "nullvoid",
   "version": "2.1.0",
   "description": "Detect malicious code",
   "main": "dist/scan.js",
@@ -26,7 +26,9 @@
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
     "type-check": "tsc --noEmit",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "prepack": "cp ../README.md ../LICENSE . && npm run build",
+    "postpack": "rm -f README.md LICENSE"
   },
   "keywords": [
     "security",
@@ -50,11 +52,10 @@
     "node": ">=20"
   },
   "dependencies": {
-    "async-mutex": "^0.5.0",
+    "acorn": "^8.15.0",
+    "acorn-walk": "^8.3.4",
     "axios": "^1.13.5",
     "commander": "^11.1.0",
-    "fs-extra": "^11.1.0",
-    "glob": "^14.0.3",
     "js-yaml": "^4.1.1",
     "node-fetch": "^2.7.0",
     "ora": "^5.4.1",
@@ -62,27 +63,10 @@
     "tar": "^7.5.7"
   },
   "devDependencies": {
-    "@babel/parser": "^7.28.5",
-    "@babel/traverse": "^7.28.5",
-    "@eslint/js": "^9.17.0",
-    "@jest/globals": "^30.2.0",
-    "@types/fs-extra": "^11.0.4",
-    "@types/jest": "^30.0.0",
     "@types/js-yaml": "^4.0.9",
-    "@types/node": "^24.10.1",
     "@types/node-fetch": "^2.6.13",
-    "@types/tar": "^6.1.13",
-    "@typescript-eslint/eslint-plugin": "^8.48.0",
-    "@typescript-eslint/parser": "^8.48.0",
-    "acorn": "^8.15.0",
-    "acorn-walk": "^8.3.4",
-    "eslint": "^9.39.2",
-    "eslint-config-prettier": "^9.1.0",
-    "globals": "^15.14.0",
-    "jest": "^30.2.0",
-    "ts-jest": "^29.4.5",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "@types/semver": "^7.8.0",
+    "@types/tar": "^6.1.13"
   },
   "optionalDependencies": {
     "redis": "^4.7.0"
@@ -98,10 +82,12 @@
     "url": "https://github.com/kurt-grung/NullVoid/issues"
   },
   "homepage": "https://github.com/kurt-grung/NullVoid#readme",
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
   "publishConfig": {
     "access": "public"
-  },
-  "files": [
-    "dist/"
-  ]
+  }
 }

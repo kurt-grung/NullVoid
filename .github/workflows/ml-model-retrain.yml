@@ -46,7 +46,7 @@ jobs:
           pip install -r ml-model/requirements.txt
 
       - name: Build scanner (feature builders are shared with the exporters)
-        run: npm run build --workspace=@nullvoid/ts
+        run: npm run build --workspace=nullvoid
 
       - name: Keep previous metadata for the regression check
         run: |
