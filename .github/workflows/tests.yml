@@ -111,30 +111,18 @@ jobs:
       - name: Install Python ML dependencies
         run: python3 -m pip install -r ml-model/requirements.txt
 
-      - name: Split JSONL for held-out ML evaluation
-        run: |
-          python3 ml-model/split_train_val.py \
-            --input ml-model/train.jsonl \
-            --train-out /tmp/ml-dep-train.jsonl \
-            --val-out /tmp/ml-dep-val.jsonl \
-            --val-fraction 0.2 --seed 42 \
-            --time-val-newest --time-field exportedAt
-          python3 ml-model/split_train_val.py \
-            --input ml-model/train-behavioral.jsonl \
-            --train-out /tmp/ml-beh-train.jsonl \
-            --val-out /tmp/ml-beh-val.jsonl \
-            --val-fraction 0.2 --seed 42 \
-            --time-val-newest --time-field exportedAt
-
-      - name: ML train + evaluate (dependency + behavioral, held-out validation)
+      # train.py / train-behavioral.py hold out the newest 20% of packages per
+      # class, record the metrics in metadata.json and refit on all rows.
+      # check_metrics.py fails the job on empty metrics or metrics under the floors.
+      - name: ML train + held-out evaluation (dependency + behavioral)
         run: |
           cd ml-model
-          python3 train.py --input /tmp/ml-dep-train.jsonl --output-dir /tmp/ml-dep-ci --balance --calibrate
-          python3 evaluate.py --input /tmp/ml-dep-val.jsonl --model /tmp/ml-dep-ci --json --eval-set validation \
-            --min-precision 0.01 --min-recall 0.01 > /tmp/ml-dep-metrics.json
-          python3 train-behavioral.py --input /tmp/ml-beh-train.jsonl --output-dir /tmp/ml-beh-ci --balance --calibrate
-          python3 evaluate.py --behavioral --input /tmp/ml-beh-val.jsonl --model /tmp/ml-beh-ci --json --eval-set validation \
-            --min-precision 0.01 --min-recall 0.01 --min-roc-auc 0.15 > /tmp/ml-beh-metrics.json
+          python3 train.py --input train.jsonl --output-dir /tmp/ml-dep-ci --balance --calibrate
+          python3 train-behavioral.py --input train-behavioral.jsonl --output-dir /tmp/ml-beh-ci --balance --calibrate
+          python3 check_metrics.py --metadata /tmp/ml-dep-ci/metadata.json \
+            --min-roc-auc 0.9 --min-pr-auc 0.5 --min-recall 0.8 > /tmp/ml-dep-metrics.json
+          python3 check_metrics.py --metadata /tmp/ml-beh-ci/behavioral-metadata.json \
+            --min-roc-auc 0.7 --min-pr-auc 0.3 > /tmp/ml-beh-metrics.json
           cd ..
           python3 -c "import json, pathlib; p=pathlib.Path('ml-eval-report.json'); p.write_text(json.dumps({'dependency': json.load(open('/tmp/ml-dep-metrics.json')), 'behavioral': json.load(open('/tmp/ml-beh-metrics.json'))}, indent=2))"
 

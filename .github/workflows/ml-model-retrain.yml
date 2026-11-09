@@ -30,7 +30,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: '20.x'
+          node-version: '24.x'
           cache: 'npm'
 
       - name: Setup Python
@@ -45,18 +45,27 @@ jobs:
         run: |
           pip install -r ml-model/requirements.txt
 
-      - name: Export features from GHSA and known-good
+      - name: Build scanner (feature builders are shared with the exporters)
+        run: npm run build --workspace=@nullvoid/ts
+
+      - name: Keep previous metadata for the regression check
+        run: |
+          cp ml-model/metadata.json /tmp/prev-metadata.json
+          cp ml-model/behavioral-metadata.json /tmp/prev-behavioral-metadata.json
+
+      # Labels are ground truth: GHSA *malware* advisories = 1, the reviewed
+      # benign list = 0. The exporters never label from the scanner's output.
+      - name: Export dependency features (GHSA malware + benign list)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           node ml-model/export-features.js \
-            --from-ghsa --limit 200 \
+            --overwrite \
+            --from-ghsa --limit 5000 \
+            --good-file ml-model/benign-packages.txt \
             --out ml-model/train.jsonl
 
-      - name: Deduplicate training data
-        run: node ml-model/dedup-train.js ml-model/train.jsonl ml-model/train.jsonl
-
-      - name: Train dependency confusion model
+      - name: Train dependency model (time-stratified held-out metrics in metadata.json)
         run: |
           cd ml-model && python3 train.py \
             --input train.jsonl \
@@ -64,24 +73,35 @@ jobs:
             --balance \
             --calibrate
 
-      - name: Export behavioral features (GHSA + known-good, fresh file)
+      - name: Export behavioral features (GHSA malware + benign list)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           node ml-model/export-behavioral-features.js \
             --overwrite \
-            --from-ghsa --limit 200 \
+            --from-ghsa --limit 5000 \
+            --good-file ml-model/benign-packages.txt \
             --out ml-model/train-behavioral.jsonl
-
-      - name: Deduplicate behavioral training data
-        run: node ml-model/dedup-train.js ml-model/train-behavioral.jsonl ml-model/train-behavioral.jsonl
 
       - name: Train behavioral model
         run: |
           cd ml-model && python3 train-behavioral.py \
             --input train-behavioral.jsonl \
+            --output-dir . \
             --balance \
             --calibrate
+
+      # A retrain that produced no metrics, fell below the floors, or regressed
+      # more than 5 points of ROC-AUC / PR-AUC against the committed model fails
+      # here and nothing is pushed.
+      - name: Metrics gate
+        run: |
+          python3 ml-model/check_metrics.py --metadata ml-model/metadata.json \
+            --baseline /tmp/prev-metadata.json --max-regression 0.05 \
+            --min-roc-auc 0.9 --min-pr-auc 0.5 --min-recall 0.8
+          python3 ml-model/check_metrics.py --metadata ml-model/behavioral-metadata.json \
+            --baseline /tmp/prev-behavioral-metadata.json --max-regression 0.05 \
+            --min-roc-auc 0.7 --min-pr-auc 0.3
 
       - name: Check for model changes
         id: changes

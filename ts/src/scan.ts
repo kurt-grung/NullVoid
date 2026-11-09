@@ -36,7 +36,8 @@ import { buildDependencyTree, type DependencyTreeStats } from './lib/dependencyT
 import { collectInstalledDependencySourcePaths } from './lib/dependencySourceScan';
 import { collectLifecycleScriptThreatsForProject } from './lib/lifecycleScriptAnalysis';
 import { getGitHistorySync } from './lib/dependencyConfusion';
-import { getPackageCreationDate } from './lib/dependencyConfusion';
+import { getPackagePublishInfo } from './lib/dependencyConfusion';
+import { publishHistoryFeatures } from './lib/publishHistory';
 import { analyzePackageName } from './lib/dependencyConfusion';
 import type { IoCProviderName } from './types/ioc-types';
 
@@ -137,7 +138,8 @@ async function exportThreatsToTraining(
     try {
       let features;
       try {
-        const creationDate = await getPackageCreationDate(packageName);
+        const publishInfo = await getPackagePublishInfo(packageName);
+        const creationDate = publishInfo?.created ?? null;
         const gitHistory = getGitHistorySync(pkgRoot);
         const nameAnalysis = analyzePackageName(packageName);
 
@@ -149,6 +151,9 @@ async function exportThreatsToTraining(
           registryName: creationDate ? 'npm' : null,
           firstCommitDate: gitHistory.firstCommitDate ?? null,
           packagePath: pkgRoot,
+          publishHistory: publishInfo
+            ? publishHistoryFeatures(packageName, publishInfo.time)
+            : null,
         });
         features = result.features;
       } catch {
@@ -165,7 +170,11 @@ async function exportThreatsToTraining(
       const key = JSON.stringify({ f: features, l: 1 });
       if (seenFeatures.has(key)) continue;
       seenFeatures.add(key);
-      lines.push(JSON.stringify({ features, label: 1 }));
+      // Label comes from the scanner's own verdict, not ground truth; train.py
+      // drops `scanner-*` rows unless --allow-scanner-labels is passed.
+      lines.push(
+        JSON.stringify({ features, label: 1, name: packageName, source: 'scanner-threats' })
+      );
     } catch (err) {
       if (options.verbose) {
         logger.warn(`Could not export features for ${packageName}: ${(err as Error).message}`);
@@ -217,7 +226,8 @@ async function exportGoodPackagesToTraining(
     try {
       let features;
       try {
-        const creationDate = await getPackageCreationDate(packageName);
+        const publishInfo = await getPackagePublishInfo(packageName);
+        const creationDate = publishInfo?.created ?? null;
         const gitHistory = getGitHistorySync(pkg.path);
         const nameAnalysis = analyzePackageName(packageName);
 
@@ -229,6 +239,9 @@ async function exportGoodPackagesToTraining(
           registryName: creationDate ? 'npm' : null,
           firstCommitDate: gitHistory.firstCommitDate ?? null,
           packagePath: pkg.path,
+          publishHistory: publishInfo
+            ? publishHistoryFeatures(packageName, publishInfo.time)
+            : null,
         });
         features = result.features;
       } catch {
@@ -244,7 +257,9 @@ async function exportGoodPackagesToTraining(
       const key = JSON.stringify({ f: features, l: 0 });
       if (seenFeatures.has(key)) continue;
       seenFeatures.add(key);
-      lines.push(JSON.stringify({ features, label: 0 }));
+      lines.push(
+        JSON.stringify({ features, label: 0, name: packageName, source: 'scanner-clean' })
+      );
     } catch (err) {
       if (options.verbose) {
         logger.warn(`Could not export features for ${packageName}: ${(err as Error).message}`);

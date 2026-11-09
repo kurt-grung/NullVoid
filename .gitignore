@@ -163,3 +163,5 @@ ts/benchmark/results.json
 # Pickled models execute code on load; models are stored as JSON (ml-model/model_io.py)
 *.pkl
 *.joblib
+__pycache__/
+*.pyc
