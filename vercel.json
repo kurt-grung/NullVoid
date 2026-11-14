@@ -1,15 +1,32 @@
 {
-  "version": 2,
-  "buildCommand": "npm ci && npm run api:build && VITE_BASE=/ npm run dashboard:build",
-  "outputDirectory": "packages/dashboard/dist",
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "/api"
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "dashboard": {
+      "root": "packages/dashboard",
+      "framework": "vite",
+      "installCommand": "cd ../.. && npm ci",
+      "buildCommand": "cd ../.. && VITE_BASE=/ npm run dashboard:build",
+      "outputDirectory": "dist",
+      "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
     },
-    {
-      "source": "/((?!api|assets/|vite\\.svg|favicon\\.svg).*)",
-      "destination": "/index.html"
+    "api": {
+      "root": "packages/api",
+      "framework": "express",
+      "entrypoint": "src/index.ts",
+      "installCommand": "cd ../.. && npm ci",
+      "buildCommand": "cd ../.. && npm run api:build",
+      "bindings": [
+        { "type": "service", "service": "ml-model", "format": "url", "env": "ML_SERVICE_URL" }
+      ]
+    },
+    "ml-model": {
+      "root": "ml-model",
+      "framework": "fastapi",
+      "entrypoint": "serve:app"
     }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": { "service": "api" } },
+    { "source": "/(.*)", "destination": { "service": "dashboard" } }
   ]
 }

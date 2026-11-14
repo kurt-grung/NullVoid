@@ -1,6 +1,5 @@
 import * as path from 'path';
 
-const tsDist = path.resolve(__dirname, '../../../ts/dist');
 
 type RemoteScanHelpers = {
   isNpmPackageSpec: (target: string) => boolean;
@@ -12,11 +11,11 @@ let remoteScanHelpers: RemoteScanHelpers | null = null;
 
 function getRemoteScanHelpers(): RemoteScanHelpers {
   if (!remoteScanHelpers) {
-    const remote = require(path.join(tsDist, 'lib/remotePackageScan')) as {
+    const remote = require('nullvoid/dist/lib/remotePackageScan') as {
       isNpmPackageSpec: RemoteScanHelpers['isNpmPackageSpec'];
       parsePackageSpec: RemoteScanHelpers['parsePackageSpec'];
     };
-    const pathSec = require(path.join(tsDist, 'lib/pathSecurity')) as {
+    const pathSec = require('nullvoid/dist/lib/pathSecurity') as {
       validatePackageName: RemoteScanHelpers['validatePackageName'];
     };
     remoteScanHelpers = {
@@ -77,4 +76,11 @@ export function sanitizeRulesFilePath(rawPath: unknown, scanRoot: string): strin
     throw new Error('rulesFile must be a .json, .yaml, or .yml file');
   }
   return resolved;
+}
+
+/** Package name when the (already sanitized) target is an npm package spec, else null. */
+export function npmPackageNameOf(target: string): string | null {
+  const { isNpmPackageSpec, parsePackageSpec } = getRemoteScanHelpers();
+  if (!isNpmPackageSpec(target)) return null;
+  return parsePackageSpec(target)?.name ?? null;
 }

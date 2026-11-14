@@ -67,6 +67,12 @@ export async function insertScan(row: {
   target: string;
   status: string;
 }): Promise<void> {
+  if (row.organizationId) {
+    // Create the organization on first use so the scans.organization_id foreign key is satisfied.
+    getDb()
+      .prepare('INSERT OR IGNORE INTO organizations (id, name) VALUES (?, ?)')
+      .run(row.organizationId, row.organizationId);
+  }
   const stmt = getDb().prepare(
     'INSERT INTO scans (id, organization_id, team_id, target, status) VALUES (?, ?, ?, ?, ?)'
   );

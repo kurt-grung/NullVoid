@@ -165,3 +165,8 @@ ts/benchmark/results.json
 *.joblib
 __pycache__/
 *.pyc
+
+# Python virtualenvs (vercel dev creates one per Python service)
+.venv/
+.vercel
+.env*
