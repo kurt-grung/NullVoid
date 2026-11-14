@@ -1,6 +1,14 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "services": {
+    "dashboard": {
+      "root": "packages/dashboard",
+      "framework": "vite",
+      "installCommand": "cd ../.. && npm ci",
+      "buildCommand": "cd ../.. && VITE_BASE=/ npm run dashboard:build",
+      "outputDirectory": "dist",
+      "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+    },
     "api": {
       "root": "packages/api",
       "framework": "express",
@@ -17,5 +25,8 @@
       "entrypoint": "serve:app"
     }
   },
-  "rewrites": [{ "source": "/(.*)", "destination": { "service": "api" } }]
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": { "service": "api" } },
+    { "source": "/(.*)", "destination": { "service": "dashboard" } }
+  ]
 }
