@@ -4,6 +4,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/nullvoid.svg)](https://www.npmjs.com/package/nullvoid)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Tests](https://github.com/kurt-grung/NullVoid/workflows/Tests/badge.svg)](https://github.com/kurt-grung/NullVoid/actions)
+[![Powered by GitHub Advisory Database](https://img.shields.io/badge/powered%20by-GitHub%20Advisory%20Database-181717?logo=github)](docs/GITHUB.md)
 
 **Ø NullVoid** — detect malicious code in JavaScript/Node.js projects and npm packages.
 
@@ -105,7 +106,7 @@ The following are shipped but experimental and **off by default**; their output 
 
 ## Contributing and security
 
-This repository does not accept external pull requests; bug reports and feature requests are welcome as [issues](https://github.com/kurt-grung/NullVoid/issues) — see [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md). Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+This repository does not accept external pull requests; bug reports and feature requests are welcome as [issues](https://github.com/kurt-grung/NullVoid/issues) — see [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md). Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md). For other support, email [caterer.01boars@icloud.com](mailto:caterer.01boars@icloud.com).
 
 ## License
 
