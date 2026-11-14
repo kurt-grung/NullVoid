@@ -4,7 +4,7 @@
     "api": {
       "root": "packages/api",
       "framework": "express",
-      "entrypoint": "dist/index.js",
+      "entrypoint": "src/index.ts",
       "installCommand": "cd ../.. && npm ci",
       "buildCommand": "cd ../.. && npm run api:build",
       "bindings": [
