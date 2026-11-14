@@ -460,7 +460,13 @@ async function computeThreatScoreFromModel(
     if (result.score != null) return result;
   }
   if (!ML_MODEL_URL && !ML_ENSEMBLE_URL && embeddedUrl) {
-    const result = await fetchModelScoreFromUrl(embeddedUrl, features, MODEL_TIMEOUT, ML_EXPLAIN);
+    // embeddedUrl is the service base URL; the scorer lives at /score
+    const result = await fetchModelScoreFromUrl(
+      `${embeddedUrl}/score`,
+      features,
+      MODEL_TIMEOUT,
+      ML_EXPLAIN
+    );
     if (result.score != null) return result;
   }
   if (ML_MODEL_PATH) {
