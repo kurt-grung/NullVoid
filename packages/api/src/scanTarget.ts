@@ -77,3 +77,10 @@ export function sanitizeRulesFilePath(rawPath: unknown, scanRoot: string): strin
   }
   return resolved;
 }
+
+/** Package name when the (already sanitized) target is an npm package spec, else null. */
+export function npmPackageNameOf(target: string): string | null {
+  const { isNpmPackageSpec, parsePackageSpec } = getRemoteScanHelpers();
+  if (!isNpmPackageSpec(target)) return null;
+  return parsePackageSpec(target)?.name ?? null;
+}

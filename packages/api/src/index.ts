@@ -29,7 +29,7 @@ import {
 } from './db';
 import { registerEnterpriseRoutes, dispatchWebhooks, appendAudit } from './enterprise/routes';
 import { startScheduleRunner } from './enterprise/jobs';
-import { sanitizeScanTarget } from './scanTarget';
+import { npmPackageNameOf, sanitizeScanTarget } from './scanTarget';
 import { buildScanRulesOptions, validateRulesPayload, rulesTemplate } from './customRules';
 
 /** Wrap async route handlers so rejections reach error middleware */
@@ -43,6 +43,18 @@ const asyncHandler =
 function getScanFn(): (target: string, options?: object) => Promise<unknown> {
   const scanModule = require('nullvoid/dist/scan');
   return scanModule.scan;
+}
+
+/** Lazy-load the ML risk helper; never throws, null when no ML service is reachable */
+async function getPackageMlRisk(packageName: string): Promise<unknown> {
+  try {
+    const mod = require('nullvoid/dist/lib/mlRiskScore') as {
+      computePackageMlRisk: (name: string) => Promise<unknown>;
+    };
+    return await mod.computePackageMlRisk(packageName);
+  } catch {
+    return null;
+  }
 }
 
 const PORT = parseInt(process.env['PORT'] ?? process.env['NULLVOID_API_PORT'] ?? '3001', 10);
@@ -482,6 +494,7 @@ app.post(
       details: { target: displayTarget },
       createdAt: new Date().toISOString(),
     });
+    const packageSpecName = npmPackageNameOf(resolvedTarget);
     const scan = getScanFn();
     try {
       const result = await scan(resolvedTarget, {
@@ -489,6 +502,11 @@ app.post(
         ...scanRulesOptions,
         ...(req.body?.mlThreats === true ? { mlThreats: true } : {}),
       });
+      // Informational only: the model's view of an npm package's registry history.
+      const mlRisk = packageSpecName ? await getPackageMlRisk(packageSpecName) : null;
+      if (mlRisk && result && typeof result === 'object') {
+        (result as Record<string, unknown>)['mlRisk'] = mlRisk;
+      }
       const completedAt = new Date().toISOString();
       await updateScan(id, {
         status: 'completed',
