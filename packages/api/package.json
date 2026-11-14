@@ -19,7 +19,8 @@
     "express": "^4.21.2",
     "express-rate-limit": "^8.3.2",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "nullvoid": "*"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

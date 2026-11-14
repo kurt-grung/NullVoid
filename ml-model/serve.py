@@ -458,6 +458,21 @@ def health():
     }
 
 
+def _load_models_on_import() -> None:
+    """When imported by an ASGI host (e.g. Vercel, `uvicorn serve:app`), load models from
+    NULLVOID_ML_MODEL_DIR or this directory; the CLI path below loads them from its arguments."""
+    dir_path = Path(os.environ.get("NULLVOID_ML_MODEL_DIR", str(MODEL_PATH.parent)))
+    if not (dir_path / "model.model.json").exists():
+        print(f"Warning: no model.model.json in {dir_path}", file=sys.stderr)
+        return
+    load_model(dir_path / "model.model.json", dir_path)
+    load_behavioral_model(dir_path)
+
+
+if __name__ != "__main__":
+    _load_models_on_import()
+
+
 if __name__ == "__main__":
     import os
     ap = argparse.ArgumentParser()

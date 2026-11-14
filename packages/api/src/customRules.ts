@@ -1,6 +1,5 @@
 import * as path from 'path';
 
-const tsDist = path.resolve(__dirname, '../../../ts/dist');
 
 type EnhancedRules = Record<
   string,
@@ -33,7 +32,7 @@ let rulesModule: RulesModule | null = null;
 
 function getRulesModule(): RulesModule {
   if (!rulesModule) {
-    rulesModule = require(path.join(tsDist, 'lib/rules')) as RulesModule;
+    rulesModule = require('nullvoid/dist/lib/rules') as RulesModule;
   }
   return rulesModule;
 }

@@ -103,6 +103,14 @@ export async function insertScan(row: {
   status: string;
 }): Promise<void> {
   await ensureSchema();
+  if (row.organizationId) {
+    // Organization IDs come from the X-Organization-Id header; create the row on first use
+    // so the scans.organization_id foreign key is satisfied.
+    await getClient().execute({
+      sql: 'INSERT OR IGNORE INTO organizations (id, name) VALUES (?, ?)',
+      args: [row.organizationId, row.organizationId],
+    });
+  }
   await getClient().execute({
     sql: 'INSERT INTO scans (id, organization_id, team_id, target, status) VALUES (?, ?, ?, ?, ?)',
     args: [row.id, row.organizationId ?? null, row.teamId ?? null, row.target, row.status],

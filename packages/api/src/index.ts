@@ -41,8 +41,7 @@ const asyncHandler =
 
 /** Lazy-load scan module (heavy) - only when POST /scan runs */
 function getScanFn(): (target: string, options?: object) => Promise<unknown> {
-  const tsDist = path.resolve(__dirname, '../../../ts/dist');
-  const scanModule = require(path.join(tsDist, 'scan'));
+  const scanModule = require('nullvoid/dist/scan');
   return scanModule.scan;
 }
 
@@ -54,6 +53,8 @@ const SCAN_ROOT = path.resolve(process.env['NULLVOID_SCAN_ROOT'] ?? process.cwd(
 const isRailway = !!(process.env['RAILWAY_PROJECT_ID'] ?? process.env['RAILWAY_ENVIRONMENT_ID']);
 
 const app = express();
+// Behind exactly one proxy on Vercel/Railway: lets express-rate-limit key on the real client IP
+app.set('trust proxy', 1);
 // CORS: allow dashboard on Vercel (or other origins) to call API on Railway
 const corsOrigin = process.env['CORS_ORIGIN'] ?? '*';
 if (corsOrigin === '*' && process.env['NODE_ENV'] === 'production') {
@@ -628,8 +629,7 @@ app.get(
     const compliance = req.query.compliance as 'soc2' | 'iso27001' | undefined;
     const opts = compliance ? { compliance } : undefined;
 
-    const tsDist = path.resolve(__dirname, '../../../ts/dist');
-    const reporting = require(path.join(tsDist, 'lib/reporting')) as {
+    const reporting = require('nullvoid/dist/lib/reporting') as {
       generateHtmlReport: (r: unknown, o?: { compliance?: 'soc2' | 'iso27001' }) => string;
       generateMarkdownReport: (r: unknown, o?: { compliance?: 'soc2' | 'iso27001' }) => string;
     };
@@ -925,7 +925,7 @@ app.get(
       }
     } else {
       serveHint =
-        'Set ML_SERVICE_URL (e.g. https://your-ml.up.railway.app) or run nullvoid serve / make serve on port 8000';
+        'ML_SERVICE_URL is unset: on Vercel it comes from the ml-model service binding in vercel.json; locally, run nullvoid serve / make serve on port 8000';
     }
     res.json({
       available: ML_AVAILABLE,
@@ -1011,6 +1011,7 @@ app.use((err: unknown, _req: Request, res: Response, next: (err?: unknown) => vo
 
 /** Final error handler: always send response to prevent FUNCTION_INVOCATION_FAILED */
 app.use((err: unknown, _req: Request, res: Response, _next: () => void) => {
+  console.error('[nullvoid-api] Unhandled error:', err);
   if (res.headersSent) return;
   const logHint = isRailway
     ? 'Check Railway logs for details.'
