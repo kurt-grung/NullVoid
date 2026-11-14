@@ -18,7 +18,7 @@ NullVoid aims to be the most comprehensive and accurate static analysis security
 
 ### ✅ **Completed Features**
 - **TypeScript Migration**: Complete migration to TypeScript for enhanced type safety and developer experience
-- **Core Security Engine**: VM-based sandboxing, AST analysis, entropy calculation
+- **Core Security Engine**: AST analysis, entropy calculation (static only: scanned code is never executed)
 - **Threat Detection**: Obfuscated malware, wallet hijacking, supply chain attacks
 - **Dependency Confusion Detection**: Timeline analysis, scope verification, pattern detection
 - **SARIF Integration**: Complete CI/CD pipeline integration
@@ -178,6 +178,12 @@ NullVoid aims to be the most comprehensive and accurate static analysis security
 - **Dynamic Scoring**: Real-time risk score updates
 - **Risk Categories**: Categorized risk assessment (confidentiality, integrity, availability)
 - **Risk Mitigation**: Automated risk mitigation recommendations
+
+#### **Optional Dynamic Deep Scan** *(planned, opt-in; [#94](https://github.com/kurt-grung/NullVoid/issues/94))*
+- **Isolated Execution**: Install a suspicious package in a throwaway microVM (e.g. Vercel Sandbox), never in-process
+- **Runtime Observation**: Record network connections, credential and file access, spawned processes and install-script activity
+- **Opt-in Only**: CLI `--deep`, API `deep: true`, dashboard toggle; static analysis stays the default
+- **Replaces the old VM sandbox**: the removed `vm`-based sandbox was never called by scans and Node's `vm` is not a security boundary
 
 ---
 
