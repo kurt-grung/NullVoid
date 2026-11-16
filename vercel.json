@@ -11,10 +11,9 @@
     },
     "api": {
       "root": "packages/api",
-      "framework": "express",
-      "entrypoint": "src/index.ts",
+      "framework": "nitro",
       "installCommand": "cd ../.. && npm ci",
-      "buildCommand": "cd ../.. && npm run api:build",
+      "buildCommand": "cd ../.. && npm run api:build && cd packages/api && npm run nitro:build:vercel",
       "bindings": [
         { "type": "service", "service": "ml-model", "format": "url", "env": "ML_SERVICE_URL" }
       ]
