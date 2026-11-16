@@ -6,5 +6,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["server/**/*", "nitro.config.ts"]
+  "include": ["server/**/*", "nitro.config.mts"]
 }

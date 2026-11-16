@@ -12,6 +12,6 @@
     }
   },
   "deploy": {
-    "startCommand": "node packages/api/dist/index.js"
+    "startCommand": "node packages/api/start.mjs"
   }
 }

@@ -4,7 +4,7 @@
  * Each server runs alone with its own seeded SQLite DB; reports req/s, p50/p99 latency,
  * cold start (spawn -> first 200) and RSS after load.
  *
- *   npm run build && npx nitro build && node scripts/bench-express-nitro.mjs [seconds]
+ *   npm run build && node scripts/bench-express-nitro.mjs [seconds]
  */
 import { execFileSync, spawn } from 'node:child_process';
 import * as fs from 'node:fs';

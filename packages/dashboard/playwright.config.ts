@@ -19,7 +19,7 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [
     {
-      command: 'node packages/api/dist/index.js',
+      command: 'node packages/api/start.mjs',
       cwd: repoRoot,
       url: 'http://localhost:3001/health',
       reuseExistingServer: !process.env['CI'],

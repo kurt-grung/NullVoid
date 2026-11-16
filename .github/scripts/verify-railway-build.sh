@@ -11,6 +11,7 @@ echo "railway build smoke: dashboard"
 VITE_BASE=/ npm run dashboard:build
 
 test -f packages/api/dist/index.js
+test -f packages/api/.output/server/index.mjs
 test -f packages/dashboard/dist/index.html
 
 echo "railway build smoke: ok"

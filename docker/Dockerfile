@@ -25,4 +25,5 @@ RUN npm prune --omit=dev
 
 EXPOSE 3001
 ENV NODE_ENV=production
-CMD ["node", "packages/api/dist/index.js"]
+# Nitro by default; run with -e NULLVOID_API_SERVER=express for the Express app
+CMD ["node", "packages/api/start.mjs"]

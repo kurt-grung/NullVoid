@@ -4,7 +4,7 @@
  * and the Nitro build (.output/server/index.mjs), each with its own temp SQLite DB, and
  * diffs status, content type and normalised bodies.
  *
- *   npm run build && npx nitro build && node scripts/compare-express-nitro.mjs
+ *   npm run build && node scripts/compare-express-nitro.mjs
  */
 import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
@@ -96,6 +96,10 @@ async function call(base, step, ctx) {
       const j = JSON.parse(text);
       shown = JSON.stringify({ status: j.status, threats: j.result?.threats?.length ?? null, error: j.error });
     }
+    if (step.bodyCheck === 'scanStatus') {
+      const j = JSON.parse(text);
+      shown = JSON.stringify({ status: j.status, error: j.error });
+    }
     if (step.bodyCheck === 'json') shown = norm(JSON.stringify(JSON.parse(text)));
   } catch {
     /* not JSON: compare the raw (normalised) text */
@@ -150,7 +154,9 @@ const OPEN = [
   { method: 'POST', path: '/rules/validate', body: { rules: 'not rules' } },
   { method: 'POST', path: '/scan', body: { target: '../outside' } },
   { method: 'POST', path: '/scan', body: { target: 'evil;curl' } },
-  { method: 'POST', path: '/scan', body: {}, bodyCheck: 'scan' },
+  // no target = whole scan root; its threat count depends on live registry lookups, so only
+  // the outcome is compared (the fixture scan below checks exact counts)
+  { method: 'POST', path: '/scan', body: {}, bodyCheck: 'scanStatus' },
   { method: 'POST', path: '/scan', body: { target: 'ts/test/fixtures' }, bodyCheck: 'scan', save: (c, j) => (c.scan = j.id) },
   { path: (c) => `/scan/${c.scan}`, bodyCheck: 'scan' },
   { path: (c) => `/report/${c.scan}?format=markdown`, bodyCheck: 'length' },

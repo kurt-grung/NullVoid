@@ -15,6 +15,8 @@ export default defineConfig({
   serverDir: './server',
   compatibilityDate: '2026-11-01',
   errorHandler: './server/error.ts',
+  // node-fetch's URL deps require the deprecated builtin; use the npm package (same API)
+  alias: { punycode: 'punycode/' },
   // Swagger UI files, bundled so /api-docs works without node_modules at runtime
   serverAssets: [
     {
