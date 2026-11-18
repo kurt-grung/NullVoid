@@ -170,3 +170,7 @@ __pycache__/
 .venv/
 .vercel
 .env*
+
+# Nitro build output
+.output/
+.nitro/

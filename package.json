@@ -45,7 +45,7 @@
     "ml:feedback-export": "cd ml-model && node export-feedback.js --feedback feedback.jsonl --out train.jsonl",
     "ml:train-ensemble": "cd ml-model && python3 train-ensemble.py --input train.jsonl",
     "api:build": "turbo run build --filter=@nullvoid/api",
-    "api:start": "turbo run build --filter=@nullvoid/api && node packages/api/dist/index.js",
+    "api:start": "turbo run build --filter=@nullvoid/api && node packages/api/start.mjs",
     "dashboard:dev": "turbo run dev --filter=dashboard",
     "dashboard:build": "turbo run build --filter=dashboard",
     "ml:scan": "node ts/dist/bin/nullvoid.js scan",

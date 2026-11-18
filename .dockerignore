@@ -8,3 +8,5 @@ dist
 packages/*/node_modules
 ts/node_modules
 js/node_modules
+.output
+.nitro

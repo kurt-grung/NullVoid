@@ -17,10 +17,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Use Node.js 20.x
+      - name: Use Node.js 24.x
         uses: actions/setup-node@v5
         with:
-          node-version: '20.x'
+          node-version: '24.x'  # building the API (Nitro) needs Node >= 22.22
           cache: 'npm'
 
       - name: Install dependencies
@@ -28,6 +28,11 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: API tests against the Nitro build
+        run: npm run test:nitro -w @nullvoid/api
+        env:
+          CI: true
 
       - name: Lint
         run: npm run lint
@@ -159,10 +164,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Use Node.js 20.x
+      - name: Use Node.js 24.x
         uses: actions/setup-node@v5
         with:
-          node-version: '20.x'
+          node-version: '24.x'  # building the API (Nitro) needs Node >= 22.22
           cache: 'npm'
 
       - name: Install dependencies
@@ -181,10 +186,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Use Node.js 20.x
+      - name: Use Node.js 24.x
         uses: actions/setup-node@v5
         with:
-          node-version: '20.x'
+          node-version: '24.x'  # building the API (Nitro) needs Node >= 22.22
           cache: 'npm'
 
       - name: Install dependencies
