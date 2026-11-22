@@ -1044,8 +1044,8 @@ app.use((err: unknown, _req: Request, res: Response, _next: () => void) => {
 
 module.exports = app;
 
-// Listen only when this file is executed directly.
-if (require.main === module) {
+// Listen when executed directly, or when started through start.mjs (NULLVOID_API_SERVER=express).
+if (require.main === module || process.env['NULLVOID_API_LISTEN'] === '1') {
   app.listen(PORT, () => {
     console.log(`NullVoid API listening on port ${PORT}`);
     startScheduleRunner();

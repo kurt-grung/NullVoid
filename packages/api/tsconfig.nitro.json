@@ -1,0 +1,10 @@
+{
+  "extends": "nitro/tsconfig",
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["server/**/*", "nitro.config.mts"]
+}

@@ -5,7 +5,7 @@
     "buildCommand": "npm run api:build"
   },
   "deploy": {
-    "startCommand": "node packages/api/dist/index.js",
+    "startCommand": "node packages/api/start.mjs",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",

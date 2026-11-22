@@ -87,7 +87,7 @@ npm run build:watch
 | `make` | Start dashboard (default) |
 | `make build` | Build TypeScript scanner and packages |
 | `make build-api` | Build API package |
-| `make api` | Start API (port 3001) |
+| `make api` | Start API (Nitro, port 3001; see [API server](#api-server)) |
 | `make dashboard` | Start dashboard dev server (port 5174) |
 | `make dev` | Start scanner in dev mode |
 | `make test` | Run tests |
@@ -96,6 +96,24 @@ npm run build:watch
 | `make kill` | Stop API, dashboard, and ML server (ports 3001, 5174, 8000) |
 | `make serve` | Start ML model server (port 8000) |
 | `make train` | Train ML model |
+
+### API server
+
+The REST API (`packages/api`) runs on [Nitro](https://nitro.build) by default. The original
+Express app is kept as an option: same routes, env vars and port (3001 unless `PORT` or
+`NULLVOID_API_PORT` is set).
+
+| | Nitro (default) | Express |
+|---|---|---|
+| Local | `make api` | `NULLVOID_API_SERVER=express make api` |
+| Railway / Docker | nothing to set | set `NULLVOID_API_SERVER=express` |
+| Vercel | `vercel.json` as committed | in the `api` service set `"framework": "express"`, `"entrypoint": "src/index.ts"` and `"buildCommand": "cd ../.. && npm run api:build"` |
+| Dev with reload | `npm run dev -w @nullvoid/api` | `npm run dev:express -w @nullvoid/api` |
+
+`npm run api:build` builds both (`dist/` for Express, `.output/` for Nitro), and
+`node packages/api/start.mjs` starts whichever `NULLVOID_API_SERVER` names. `npm test -w
+@nullvoid/api` tests Express and `npm run test:nitro -w @nullvoid/api` runs the same tests
+against Nitro.
 
 ### Dashboard
 
